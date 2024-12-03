@@ -1,12 +1,16 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Zap, ArrowRight, Bolt, Share2, ChartBar, Bell, Eye, Shield, Lock } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+
+
 export default function LandingPage() {
+  const router = useRouter()
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly')
 
   const features = [
@@ -50,8 +54,8 @@ export default function LandingPage() {
             <span className="text-xl font-bold">Budgez</span>
           </div>
           <div className="space-x-4">
-            <Button variant="ghost">Accedi</Button>
-            <Button>Registrati</Button>
+            {/* <Button variant="ghost">Accedi</Button> */}
+            <Button onClick={() => router.push('/login')}>Accedi</Button>
           </div>
         </nav>
       </header>
@@ -66,7 +70,7 @@ export default function LandingPage() {
               <h1 className="text-2xl leading-tight mb-6 text-gray-800">
                 crea, gestisci e monitora i tuoi preventivi
               </h1>
-              <Button size="lg" className="mt-8">
+              <Button size="lg" className="mt-8" onClick={() => router.push('/login')}>
                 Inizia subito <ArrowRight className="ml-2" />
               </Button>
             </div>

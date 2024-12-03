@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ExternalLink, Copy, Trash2, Plus } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -8,17 +8,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
-type BudgetStatus = 'active' | 'pending' | 'completed'
-type UserRole = 'owner' | 'editor' | 'viewer'
+import { supabase } from '@/lib/supabase'
+import StatsOverview from './components/stats'
 
 type Budget = {
   id: string
-  title: string
-  client: string
-  createdAt: string
-  status: BudgetStatus
-  userRole: UserRole
+  budget_name: string
+  created_at: string
+  status: 'draft'
+  userRole: 'owner'
 }
 
 type Template = {
@@ -29,11 +27,10 @@ type Template = {
 }
 
 export default function BudgetDashboard() {
-
-  const [budgets, setBudgets] = useState<Budget[]>([
-    { id: '1', title: 'Marketing Q1', client: 'Acme Inc', createdAt: '2024-01-15', status: 'active', userRole: 'owner' },
-    { id: '2', title: 'Development 2024', client: 'Tech Corp', createdAt: '2024-02-01', status: 'pending', userRole: 'editor' }
-  ])
+  const [budgets, setBudgets] = useState<Budget[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<Budget | null>(null)
 
   const [templates] = useState<Template[]>([
     { id: '1', name: 'Marketing Campaign', type: 'Marketing', useCase: 'Campagne pubblicitarie' },
@@ -42,50 +39,115 @@ export default function BudgetDashboard() {
     { id: '4', name: 'Research Project', type: 'R&D', useCase: 'Progetti di ricerca' }
   ])
 
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [itemToDelete, setItemToDelete] = useState<Budget | null>(null)
+  const fetchBudgets = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('budgets')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-  const getRoleBadgeColor = (role: UserRole) => {
-    switch (role) {
-      case 'owner': return 'bg-blue-200 text-blue-800'
-      case 'editor': return 'bg-green-200 text-green-800'
-      case 'viewer': return 'bg-gray-200 text-gray-800'
+      if (error) throw error
+      
+      const formattedBudgets = data.map(budget => ({
+        id: budget.id,
+        budget_name: budget.budget_name || 'Untitled Budget',
+        created_at: budget.created_at,
+        status: 'draft' as const,
+        userRole: 'owner' as const
+      }))
+      
+      setBudgets(formattedBudgets)
+    } catch (error) {
+      console.error('Error fetching budgets:', error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleDuplicate = (budget: Budget) => {
-    const newBudget = {
-      ...budget,
-      id: Date.now().toString(),
-      title: `${budget.title} (Copy)`,
-      status: 'pending' as BudgetStatus,
-      createdAt: new Date().toISOString().split('T')[0]
+  const createBudget = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('budgets')
+        .insert([{
+          budget_name: 'New Budget',
+          body: {}
+        }])
+        .select('id')
+        .single()
+  
+      if (error) throw error
+      if (!data) throw new Error('No data returned')
+      
+      window.location.href = `/budgez/${data.id}`
+    } catch (error) {
+      console.error('Error creating budget:', error)
     }
-    setBudgets([...budgets, newBudget])
   }
+
+  const handleDuplicate = async (budget: Budget) => {
+    try {
+      const { data, error } = await supabase
+        .from('budgets')
+        .insert([{
+          budget_name: `${budget.budget_name} (Copy)`,
+          body: {}
+        }])
+        .select()
+
+      if (error) throw error
+      
+      await fetchBudgets()
+    } catch (error) {
+      console.error('Error duplicating budget:', error)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!itemToDelete) return
+
+    try {
+      const { error } = await supabase
+        .from('budgets')
+        .delete()
+        .eq('id', itemToDelete.id)
+
+      if (error) throw error
+      
+      await fetchBudgets()
+      setShowDeleteDialog(false)
+    } catch (error) {
+      console.error('Error deleting budget:', error)
+    }
+  }
+
+  useEffect(() => {
+    fetchBudgets()
+  }, [])
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <nav className="w-64 bg-white shadow-sm p-4">
-        <h2 className="text-xl font-bold mb-4">Menu</h2>
-        <ul className="space-y-2">
-          <li className="p-2 hover:bg-gray-100 rounded cursor-pointer">Dashboard</li>
-          <li className="p-2 hover:bg-gray-100 rounded cursor-pointer">Impostazioni</li>
-        </ul>
-      </nav>
-
       <main className="flex-1 p-8">
         <Tabs defaultValue="budgets">
           <TabsList>
+            <TabsTrigger value="stats">Stats</TabsTrigger>
             <TabsTrigger value="budgets">Budgez</TabsTrigger>
             <TabsTrigger value="templates">Template</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="stats">
+            <Card className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h1 className="text-2xl font-bold">Stats</h1>
+              </div>
+              <StatsOverview />
+            </Card>
+          </TabsContent>
 
           <TabsContent value="budgets">
             <Card className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold">Budgez</h1>
-                <Button>
+                <Button onClick={createBudget}>
                   <Plus className="mr-2 h-4 w-4" /> Nuovo Budget
                 </Button>
               </div>
@@ -94,8 +156,8 @@ export default function BudgetDashboard() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Data Creazione</TableHead>
-                    <TableHead>Progetto</TableHead>
-                    <TableHead>Cliente</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Stato</TableHead>
                     <TableHead>Ruolo</TableHead>
                     <TableHead>Azioni</TableHead>
                   </TableRow>
@@ -103,13 +165,15 @@ export default function BudgetDashboard() {
                 <TableBody>
                   {budgets.map((budget) => (
                     <TableRow key={budget.id} className="cursor-pointer hover:bg-gray-900 hover:text-white">
-                      <TableCell className='rounded-l-lg'>{new Date(budget.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell>{budget.title}</TableCell>
-                      <TableCell>{budget.client}</TableCell>
+                      <TableCell className='rounded-l-lg'>
+                        {new Date(budget.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className='font-bold'>{budget.budget_name}</TableCell>
                       <TableCell>
-                        <Badge className={getRoleBadgeColor(budget.userRole)}>
-                          {budget.userRole}
-                        </Badge>
+                        <Badge className="bg-gray-200 text-gray-800">draft</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className="bg-blue-200 text-blue-800">owner</Badge>
                       </TableCell>
                       <TableCell className='rounded-r-lg'>
                         <div className="flex gap-2">
@@ -158,7 +222,7 @@ export default function BudgetDashboard() {
                       <TableCell>{template.useCase}</TableCell>
                       <TableCell className='rounded-r-lg'>
                         <div className="flex gap-2">
-                        <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon">
                             <ExternalLink className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon">
@@ -180,22 +244,14 @@ export default function BudgetDashboard() {
           <DialogHeader>
             <DialogTitle>Conferma Eliminazione</DialogTitle>
             <DialogDescription>
-              Sei sicuro di voler eliminare il budgez "{itemToDelete?.title}"? Questa azione non può essere annullata.
+              Sei sicuro di voler eliminare il budgez "{itemToDelete?.budget_name}"? Questa azione non può essere annullata.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
               Annulla
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => {
-                if (itemToDelete) {
-                  setBudgets(budgets.filter(b => b.id !== itemToDelete.id))
-                  setShowDeleteDialog(false)
-                }
-              }}
-            >
+            <Button variant="destructive" onClick={handleDelete}>
               Elimina
             </Button>
           </DialogFooter>
