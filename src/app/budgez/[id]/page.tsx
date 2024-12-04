@@ -1,21 +1,33 @@
 //page.tsx - Pagina di creazione e modifica del budget
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowUpRight, Share } from 'lucide-react'
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import Brief from './components/brief'
-import SimpleBudget from './components/budget/SimpleBudget/page'
-import TechBudget from './components/budget/TechBudget/page'
-import debounce from 'lodash/debounce'
-
+import React, { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, ArrowUpRight, Share } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import Brief from "./components/brief";
+import SimpleBudget from "./components/budget/SimpleBudget";
+import TechBudget from "./components/budget/TechBudget";
+import debounce from "lodash/debounce";
 
 interface Document {
   id: string;
@@ -39,171 +51,190 @@ interface Brief {
 
 interface GeneralInfo {
   projectName: string;
+}
 
+export type ResourceType = "fixed" | "hourly";
+
+export interface Resource {
+  id: string;
+  name: string;
+  type: ResourceType;
+  rate: number; // hourly rate or fixed cost
+}
+
+export interface Activity {
+  id: string;
+  name: string;
+  resourceAllocations: { [resourceId: string]: number }; // hours or quantity
 }
 
 interface BudgetSection {
   id: string;
   name: string;
-  amount: number;
+  amount?: number;
+  activities: Activity[];
+  resources: Resource[];
 }
 
-interface Budget {
+export interface Budget {
   section: BudgetSection[];
   commercial_margin: number;
-  margin_type: 'fixed' | 'percentage';
+  margin_type: "fixed" | "percentage";
   discount: number;
-  discount_type: 'fixed' | 'percentage';
+  discount_type: "fixed" | "percentage";
 }
 
-interface BudgetData {
+export interface SupabaseBudgetData {
   brief: Brief;
   general_info: GeneralInfo;
   budget: Budget;
   budget_type: string;
 }
 
-const defaultData: BudgetData = {
-  brief: { description: '', documents: [], links: [] },
+const defaultData: SupabaseBudgetData = {
+  brief: { description: "", documents: [], links: [] },
   general_info: {
-    projectName: 'Untitled Budgez',
+    projectName: "Untitled Budgez",
   },
   budget: {
     section: [],
     commercial_margin: 0,
-    margin_type: 'fixed',
+    margin_type: "fixed",
     discount: 0,
-    discount_type: 'fixed'
+    discount_type: "fixed",
   },
-  budget_type:'simple'
-}
+  budget_type: "tech",
+};
 
 export default function BudgetPage() {
-  const router = useRouter()
-  const params = useParams()
-  const budgetId = params.id as string
-  const supabase = createClientComponentClient()
-  const [budgetData, setBudgetData] = useState<BudgetData>(defaultData)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [title, setTitle] = useState("Untitled Budget")
-  const [calculatorType, setCalculatorType] = useState('simple')
-  const [isLoading, setIsLoading] = useState(true)
-  const [showTypeChangeDialog, setShowTypeChangeDialog] = useState(false)
-  const [pendingCalculatorType, setPendingCalculatorType] = useState<string | null>(null)
-
+  const router = useRouter();
+  const params = useParams();
+  const budgetId = params.id as string;
+  const supabase = createClientComponentClient();
+  const [budgetData, setBudgetData] = useState<SupabaseBudgetData>(defaultData);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [title, setTitle] = useState("Untitled Budget");
+  const [calculatorType, setCalculatorType] = useState("tech");
+  const [isLoading, setIsLoading] = useState(true);
+  const [showTypeChangeDialog, setShowTypeChangeDialog] = useState(false);
+  const [pendingCalculatorType, setPendingCalculatorType] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (budgetId) {
-      loadBudget()
-      console.log("loading the budget: ", budgetId)
+      loadBudget();
+      console.log("loading the budget: ", budgetId);
     }
-  }, [budgetId])
+  }, [budgetId]);
 
   const handleBack = () => {
-    router.push('/dashboard')
-  }
+    router.push("/dashboard");
+  };
 
   const debouncedSave = useCallback(
     debounce(async (newTitle: string) => {
       try {
         const budgetBody = {
-          ...budgetData
-        }
-    
+          ...budgetData,
+        };
+
         const { error } = await supabase
-          .from('budgets')
+          .from("budgets")
           .update({
             budget_name: newTitle,
             body: budgetBody,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
-          .eq('id', budgetId)
-        
-        if (error) throw error
+          .eq("id", budgetId);
+
+        if (error) throw error;
       } catch (error) {
-        console.error('Error saving budget:', error)
+        console.error("Error saving budget:", error);
       }
     }, 500),
     [budgetData, budgetId]
-  )
+  );
 
   const loadBudget = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       const { data: budget, error } = await supabase
-        .from('budgets')
-        .select('*')
-        .eq('id', budgetId)
-        .single()
+        .from("budgets")
+        .select("*")
+        .eq("id", budgetId)
+        .single();
 
-      if (error) throw error
+      if (error) throw error;
 
       if (budget) {
-        setTitle(budget.budget_name || "Untitled Budget")
+        setTitle(budget.budget_name || "Untitled Budget");
         if (budget.body) {
-          setBudgetData(budget.body as BudgetData)
-          setCalculatorType(budget.body.budget_type || 'simple')
+          setBudgetData(budget.body as SupabaseBudgetData);
+          setCalculatorType(budget.body.budget_type || "tech");
         }
       }
     } catch (error) {
-      console.error('Error loading budget:', error)
+      console.error("Error loading budget:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  const saveBudget = async (newBody: Partial<BudgetData>) => {
+  const saveBudget = async (newBody: Partial<SupabaseBudgetData>) => {
     try {
       const budgetBody = {
         ...budgetData,
-        ...newBody
-      }
-  
+        ...newBody,
+      };
+
       const { error } = await supabase
-        .from('budgets')
+        .from("budgets")
         .update({
           budget_name: title,
           body: budgetBody,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', budgetId)
-      
-      if (error) throw error
-      
+        .eq("id", budgetId);
+
+      if (error) throw error;
+
       // Update local state after successful save
-      setBudgetData(budgetBody)
+      setBudgetData(budgetBody);
     } catch (error) {
-      console.error('Error saving budget:', error)
+      console.error("Error saving budget:", error);
     }
-  }
+  };
 
   const confirmCalculatorTypeChange = async () => {
     if (pendingCalculatorType) {
-      setCalculatorType(pendingCalculatorType)
-      saveBudget({budget_type: pendingCalculatorType})
-      setShowTypeChangeDialog(false)
+      setCalculatorType(pendingCalculatorType);
+      saveBudget({ budget_type: pendingCalculatorType });
+      setShowTypeChangeDialog(false);
     }
-  }
+  };
 
-  const handleUpdate = (newData: Partial<BudgetData>) => {
+  const handleUpdate = (newData: Partial<SupabaseBudgetData>) => {
     const updatedData = { ...budgetData, ...newData };
     setBudgetData(updatedData);
     saveBudget(updatedData);
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value
-    setTitle(newTitle)
-    debouncedSave(newTitle)
-  }
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    debouncedSave(newTitle);
+  };
 
   const handleCalculatorTypeChange = (value: string) => {
-    setPendingCalculatorType(value)
-    setShowTypeChangeDialog(true)
-  }
+    setPendingCalculatorType(value);
+    setShowTypeChangeDialog(true);
+  };
 
   if (isLoading) {
-    return <div className="flex h-full items-center justify-center">Loading...</div>
+    return (
+      <div className="flex h-full items-center justify-center">Loading...</div>
+    );
   }
 
   return (
@@ -211,7 +242,7 @@ export default function BudgetPage() {
       <main className="flex-1 p-8">
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-6">
-            <Button 
+            <Button
               variant="ghost"
               className="hover:bg-black rounded-full hover:text-white"
               onClick={handleBack}
@@ -224,16 +255,13 @@ export default function BudgetPage() {
               className="text-xl font-bold bg-white border-none focus:bg-white"
             />
             <div className="flex gap-1 ml-auto">
-              <Button 
-                variant="outline" 
-                className="flex items-center bg-white"
-              >
+              <Button variant="outline" className="flex items-center bg-white">
                 <ArrowUpRight className="h-4 w-4" />
                 External
               </Button>
-              <Button 
-                variant="outline" 
-                className='bg-black text-white hover:bg-gray-800 hover:text-white'
+              <Button
+                variant="outline"
+                className="bg-black text-white hover:bg-gray-800 hover:text-white"
               >
                 <Share className="h-4 w-4" /> Share
               </Button>
@@ -249,7 +277,7 @@ export default function BudgetPage() {
 
             <Card className="p-6">
               <TabsContent value="brief">
-              <Brief id={budgetId} />
+                <Brief id={budgetId} />
               </TabsContent>
 
               <TabsContent value="budget">
@@ -268,11 +296,13 @@ export default function BudgetPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                {calculatorType === 'simple' && <SimpleBudget />}
-                {calculatorType === 'tech' && <TechBudget 
-                  onUpdate={(data) => handleUpdate({ budget: data })} 
-                  initialData={budgetData.budget}
-                />}
+                {calculatorType === "simple" && <SimpleBudget />}
+                {calculatorType === "tech" && (
+                  <TechBudget
+                    onUpdate={(data) => handleUpdate({ budget: data })}
+                    initialData={budgetData.budget}
+                  />
+                )}
               </TabsContent>
 
               <TabsContent value="external">
@@ -287,13 +317,21 @@ export default function BudgetPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription>Are you sure you want to delete this item?</DialogDescription>
+            <DialogDescription>
+              Are you sure you want to delete this item?
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={() => setShowDeleteDialog(false)}>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteDialog(false)}
+            >
               Delete
             </Button>
           </DialogFooter>
@@ -301,22 +339,33 @@ export default function BudgetPage() {
       </Dialog>
 
       {/* dialogo per verifica cambio select */}
-      <Dialog open={showTypeChangeDialog} onOpenChange={setShowTypeChangeDialog}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Vuoi davvero ambiare tipo di budget?</DialogTitle>
-      <DialogDescription>Se hai dei dati salvati li perderai.</DialogDescription>
-    </DialogHeader>
-    <DialogFooter>
-      <Button variant="outline" onClick={() => setShowTypeChangeDialog(false)}>
-        Annulla
-      </Button>
-      <Button className='bg-red-600 text-white hover:bg-red-400' onClick={confirmCalculatorTypeChange}>
-        Conferma
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+      <Dialog
+        open={showTypeChangeDialog}
+        onOpenChange={setShowTypeChangeDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Vuoi davvero ambiare tipo di budget?</DialogTitle>
+            <DialogDescription>
+              Se hai dei dati salvati li perderai.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowTypeChangeDialog(false)}
+            >
+              Annulla
+            </Button>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-400"
+              onClick={confirmCalculatorTypeChange}
+            >
+              Conferma
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }
