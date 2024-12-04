@@ -188,7 +188,7 @@ export default function BriefTab({ id }: { id: string }) {
     })
   }
 
-  if (loading) return <div>Loading...</div>
+  //if (loading) return <div>Loading...</div>
 
   return (
     <div className="space-y-4">
@@ -198,7 +198,7 @@ export default function BriefTab({ id }: { id: string }) {
           placeholder="Inserisci una descrizione..."
           value={description}
           onChange={(e) => handleDescriptionChange(e.target.value)}
-          className="w-full"
+          className="w-full text-gray-700"
           rows={4}
         />
       </div>

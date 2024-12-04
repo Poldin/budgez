@@ -410,26 +410,29 @@ const TechBudgetScreen: React.FC<Props> = ({ onUpdate, initialData }) => {
                               type: e.target.value as ResourceType,
                             })
                           }
-                          className="border rounded p-2"
+                          className="border rounded p-2 text-sm"
                         >
                           <option value="hourly">Hourly</option>
-                          <option value="fixed">Fixed</option>
+                          <option value="quantity">Quantity</option>
                         </select>
+                        
                         <Input
-                          type="number"
+                          
                           value={resource.rate}
                           onChange={(e) =>
                             updateResource(section.id, resource.id, {
                               rate: Number(e.target.value),
                             })
                           }
-                          className="w-32"
+                          className="w-32 [&::-webkit-inner-spin-button]:appearance-none relative pr-6 font-semibold"
                           placeholder={
                             resource.type === "hourly"
                               ? "Rate/hour"
-                              : "Fixed cost"
+                              : "Rate"
                           }
+                          style={{ backgroundImage: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' version=\'1.1\' height=\'16px\' width=\'16px\'><text x=\'1\' y=\'12\' fill=\'gray\'>€</text></svg>")', backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat' }}
                         />
+                        
                         <Button
                           variant="ghost"
                           size="icon"
@@ -465,11 +468,11 @@ const TechBudgetScreen: React.FC<Props> = ({ onUpdate, initialData }) => {
                         <SwatchBook className="h-5 w-5" /> Activity
                       </div>
                       {section.resources.map((resource) => (
-                        <div key={resource.id} className=" text-center">
+                        <div key={resource.id} className=" text-center text-sm">
                           {resource.name}
                         </div>
                       ))}
-                      <div>Total</div>
+                      
                     </div>
 
                     {section.activities.map((activity) => (
@@ -495,25 +498,20 @@ const TechBudgetScreen: React.FC<Props> = ({ onUpdate, initialData }) => {
                           <div key={resource.id}>
                             <Input
                               type="number"
-                              value={
-                                activity.resourceAllocations[resource.id] || ""
-                              }
+                              value={activity.resourceAllocations[resource.id] || ""}
                               onChange={(e) =>
                                 updateActivity(section.id, activity.id, {
                                   resourceId: resource.id,
                                   allocation: Number(e.target.value) || 0,
                                 })
                               }
-                              placeholder={
-                                resource.type === "hourly"
-                                  ? "Hours"
-                                  : "Quantity"
-                              }
-                              className="text-center"
+                              placeholder={resource.type === "hourly" ? "Hours" : "Quantity"}
+                              className="text-center [&::-webkit-inner-spin-button]:appearance-none relative pr-6 font-semibold"
+                              style={{ backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' height='16px' width='16px'><text x='1' y='12' fill='gray'>${resource.type === 'hourly' ? 'h' : 'q'}</text></svg>")`, backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat' }}
                             />
                           </div>
                         ))}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 font-semibold">
                           <span className="flex-1">
                             {formatCurrency(
                               calculateActivityCost(activity, section.resources)
