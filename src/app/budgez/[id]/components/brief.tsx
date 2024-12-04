@@ -31,7 +31,7 @@ export default function BriefTab({ id }: { id: string }) {
   const [links, setLinks] = useState<BudgetData['brief']['links']>([])
   const [newUrl, setNewUrl] = useState('')
   const [loading, setLoading] = useState(true)
-
+  console.log(loading)
   useEffect(() => {
     fetchBrief()
   }, [id])
@@ -188,7 +188,7 @@ export default function BriefTab({ id }: { id: string }) {
     })
   }
 
-  //if (loading) return <div>Loading...</div>
+  
 
   return (
     <div className="space-y-4">

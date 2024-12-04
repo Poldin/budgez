@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, Share } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,6 +28,7 @@ import Brief from "./components/brief";
 import SimpleBudget from "./components/budget/SimpleBudget";
 import TechBudget from "./components/budget/TechBudget";
 import debounce from "lodash/debounce";
+import ShareDialog from './components/share';
 
 interface Document {
   id: string;
@@ -259,12 +260,7 @@ export default function BudgetPage() {
                 <ArrowUpRight className="h-4 w-4" />
                 External
               </Button>
-              <Button
-                variant="outline"
-                className="bg-black text-white hover:bg-gray-800 hover:text-white"
-              >
-                <Share className="h-4 w-4" /> Share
-              </Button>
+              <ShareDialog />
             </div>
           </div>
 
