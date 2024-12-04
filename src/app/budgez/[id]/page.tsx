@@ -53,7 +53,7 @@ interface GeneralInfo {
   projectName: string;
 }
 
-export type ResourceType = "fixed" | "hourly";
+export type ResourceType = "hourly" | "quantity" | "fixed";
 
 export interface Resource {
   id: string;

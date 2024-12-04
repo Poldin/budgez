@@ -96,8 +96,8 @@ const TechBudgetScreen: React.FC<Props> = ({ onUpdate, initialData }) => {
   ): number => {
     return resources.reduce((total, resource) => {
       const allocation = activity.resourceAllocations[resource.id] || 0;
-      if (resource.type === "hourly") {
-        return total + allocation * resource.rate;
+      if (resource.type === "fixed") {
+        return total + allocation;
       }
       return total + allocation * resource.rate;
     }, 0);
@@ -414,24 +414,26 @@ const TechBudgetScreen: React.FC<Props> = ({ onUpdate, initialData }) => {
                         >
                           <option value="hourly">Hourly</option>
                           <option value="quantity">Quantity</option>
+                          <option value="fixed">Fixed</option>
                         </select>
                         
-                        <Input
-                          
-                          value={resource.rate}
-                          onChange={(e) =>
-                            updateResource(section.id, resource.id, {
-                              rate: Number(e.target.value),
-                            })
-                          }
-                          className="w-32 [&::-webkit-inner-spin-button]:appearance-none relative pr-6 font-semibold"
-                          placeholder={
-                            resource.type === "hourly"
-                              ? "Rate/hour"
-                              : "Rate"
-                          }
-                          style={{ backgroundImage: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' version=\'1.1\' height=\'16px\' width=\'16px\'><text x=\'1\' y=\'12\' fill=\'gray\'>€</text></svg>")', backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat' }}
-                        />
+                        {resource.type !== "fixed" && (
+                          <Input
+                            value={resource.rate}
+                            onChange={(e) =>
+                              updateResource(section.id, resource.id, {
+                                rate: Number(e.target.value),
+                              })
+                            }
+                            className="w-32 [&::-webkit-inner-spin-button]:appearance-none relative pr-6 font-semibold"
+                            placeholder={
+                              resource.type === "hourly"
+                                ? "Rate/hour"
+                                : "Rate"
+                            }
+                            style={{ backgroundImage: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' version=\'1.1\' height=\'16px\' width=\'16px\'><text x=\'1\' y=\'12\' fill=\'gray\'>€</text></svg>")', backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat' }}
+                          />
+                        )}
                         
                         <Button
                           variant="ghost"
@@ -505,9 +507,15 @@ const TechBudgetScreen: React.FC<Props> = ({ onUpdate, initialData }) => {
                                   allocation: Number(e.target.value) || 0,
                                 })
                               }
-                              placeholder={resource.type === "hourly" ? "Hours" : "Quantity"}
+                              placeholder={
+                                resource.type === "hourly" 
+                                  ? "Hours" 
+                                  : resource.type === "quantity" 
+                                  ? "Quantity" 
+                                  : "Cost (€)"
+                              }
                               className="text-center [&::-webkit-inner-spin-button]:appearance-none relative pr-6 font-semibold"
-                              style={{ backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' height='16px' width='16px'><text x='1' y='12' fill='gray'>${resource.type === 'hourly' ? 'h' : 'q'}</text></svg>")`, backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat' }}
+                              style={{ backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' height='16px' width='16px'><text x='1' y='12' fill='gray'>${resource.type === 'hourly' ? 'h' : resource.type === 'quantity' ? 'q' : '€'}</text></svg>")`, backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat' }}
                             />
                           </div>
                         ))}
