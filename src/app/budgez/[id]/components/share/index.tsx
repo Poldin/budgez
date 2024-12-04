@@ -16,6 +16,12 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 
 interface SharedUser {
   email: string;
@@ -63,14 +69,19 @@ const ShareDialog = () => {
           <Share className="h-4 w-4 mr-2" /> Share
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Share Budget</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="border-b pb-4">
-            <h3 className="font-semibold mb-2">Share with team</h3>
+      <DialogHeader><DialogTitle></DialogTitle></DialogHeader>
+      <DialogContent className="min-w-[50vw] min-h-[50vh]">
+        <Tabs defaultValue="internal">
+          <TabsList className=" grid-cols-2">
+            <TabsTrigger value="internal" className='data-[state=active]:bg-black data-[state=active]:text-white'>Interna</TabsTrigger>
+            <TabsTrigger value="external" className='data-[state=active]:bg-black data-[state=active]:text-white'>External</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="internal" className="space-y-4">
+            <div>
+              <h3 className="font-semibold mb-2 text-xl">Collabora</h3>
+              <p className="text-gray-400">condividi il budgez internamente per rifinirlo al meglio [inviamo una mail di invito a collaborare!]</p>
+            </div>
             <div className="flex gap-2">
               <Input
                 placeholder="Enter email address"
@@ -82,11 +93,11 @@ const ShareDialog = () => {
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            <div className="mt-4 space-y-2">
+            <div className="space-y-2">
               {sharedUsers.map(user => (
-                <div key={user.id} className="flex items-center justify-between gap-2 bg-gray-50 p-2 rounded">
+                <div key={user.id} className="flex items-center justify-between bg-gray-50 rounded">
                   <span className="truncate">{user.email}</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center">
                     <Select
                       value={user.role}
                       onValueChange={(value: 'editor' | 'viewer') => updateUserRole(user.id, value)}
@@ -100,21 +111,24 @@ const ShareDialog = () => {
                       </SelectContent>
                     </Select>
                     <Button variant="ghost" size="icon" onClick={() => removeUser(user.id)}>
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Trash2 className="h-4 w-4 text-black" />
                     </Button>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">Share with external users</h3>
-            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded">
-              Coming soon
+          </TabsContent>
+          
+          <TabsContent value="external">
+            <div>
+              <h3 className="font-semibold mb-2 text-xl">Condividi con esterni</h3>
+              <p className="text-gray-400">ready to sell? Inviamo il documento External alle mail che ci indicherai</p>
+              <div className="text-center py-8 text-gray-500 bg-gray-50 rounded">
+                Coming soon
+              </div>
             </div>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

@@ -196,8 +196,8 @@ export default function SimpleBudget() {
               </TableCell>
             </TableRow>
             <TableRow className="border-t-2">
-              <TableCell colSpan={5} className="text-right">Imponibile</TableCell>
-              <TableCell colSpan={2} className="text-right">{formatCurrency(calculateSubtotal())}</TableCell>
+              <TableCell colSpan={5} className="text-right font-bold">Imponibile</TableCell>
+              <TableCell colSpan={2} className="text-right font-bold">{formatCurrency(calculateSubtotal())}</TableCell>
               <TableCell></TableCell>
             </TableRow>
             <TableRow>
@@ -206,8 +206,8 @@ export default function SimpleBudget() {
               <TableCell></TableCell>
             </TableRow>
             <TableRow>
-              <TableCell colSpan={5} className="text-right font-bold">Totale</TableCell>
-              <TableCell colSpan={2} className="text-right font-bold">{formatCurrency(calculateTotal())}</TableCell>
+              <TableCell colSpan={5} className="text-right font-bold text-2xl">Totale</TableCell>
+              <TableCell colSpan={2} className="text-right font-bold text-2xl">{formatCurrency(calculateTotal())}</TableCell>
               <TableCell></TableCell>
             </TableRow>
           </TableBody>

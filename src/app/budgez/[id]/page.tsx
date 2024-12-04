@@ -266,9 +266,9 @@ export default function BudgetPage() {
 
           <Tabs defaultValue="budget" className="mb-6">
             <TabsList>
-              <TabsTrigger value="brief">Brief</TabsTrigger>
-              <TabsTrigger value="budget">Budget</TabsTrigger>
-              <TabsTrigger value="external">External</TabsTrigger>
+              <TabsTrigger value="brief" className="data-[state=active]:bg-black data-[state=active]:text-white">Brief</TabsTrigger>
+              <TabsTrigger value="budget" className="data-[state=active]:bg-black data-[state=active]:text-white">Budget</TabsTrigger>
+              <TabsTrigger value="external" className="data-[state=active]:bg-black data-[state=active]:text-white">External</TabsTrigger>
             </TabsList>
 
             <Card className="p-6">
