@@ -1,9 +1,28 @@
+'use client'
 import { useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Trash2 } from "lucide-react"
+
+type TaxRateKey = 'no-tax' | 'iva-22' | 'iva-10' | 'iva-4' | 'ritenuta-20'
+type RowType = 'one-time' | 'subscription'
+
+interface TaxRate {
+  label: string
+  rate: number
+}
+
+interface BudgetRow {
+  id: string
+  name: string
+  type: RowType
+  quantity: number
+  unitPrice: number
+  taxType: TaxRateKey
+  description: string
+}
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('it-IT', { 
@@ -13,7 +32,7 @@ const formatCurrency = (value: number) => {
   }).format(Math.abs(value))
 }
 
-const TAX_RATES = {
+const TAX_RATES: Record<TaxRateKey, TaxRate> = {
   'no-tax': { label: 'Nessuna tassa', rate: 0 },
   'iva-22': { label: 'IVA 22%', rate: 0.22 },
   'iva-10': { label: 'IVA 10%', rate: 0.10 },
@@ -22,7 +41,7 @@ const TAX_RATES = {
 }
 
 export default function SimpleBudget() {
-  const [rows, setRows] = useState([{
+  const [rows, setRows] = useState<BudgetRow[]>([{
     id: '1',
     name: '',
     type: 'one-time',
@@ -44,7 +63,7 @@ export default function SimpleBudget() {
     }])
   }
 
-  const updateRow = (id: string, field: string, value: any) => {
+  const updateRow = (id: string, field: keyof BudgetRow, value: BudgetRow[keyof BudgetRow]) => {
     setRows(rows.map(row => 
       row.id === id ? { ...row, [field]: value } : row
     ))
@@ -104,7 +123,7 @@ export default function SimpleBudget() {
                     <TableCell>
                       <select
                         value={row.type}
-                        onChange={e => updateRow(row.id, 'type', e.target.value)}
+                        onChange={e => updateRow(row.id, 'type', e.target.value as RowType)}
                         className="w-full p-2 border rounded bg-background"
                       >
                         <option value="one-time">One Shot</option>
@@ -130,7 +149,7 @@ export default function SimpleBudget() {
                     <TableCell>
                       <select
                         value={row.taxType}
-                        onChange={e => updateRow(row.id, 'taxType', e.target.value)}
+                        onChange={e => updateRow(row.id, 'taxType', e.target.value as TaxRateKey)}
                         className="w-full p-2 border rounded bg-background"
                       >
                         {Object.entries(TAX_RATES).map(([key, { label }]) => (

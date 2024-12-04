@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Plus, Minus, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
+import { Plus, Gauge, SwatchBook, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
 
 type ResourceType = 'fixed' | 'hourly';
@@ -38,8 +38,14 @@ interface BudgetData {
 }
 
 interface Props {
-  onUpdate: (data: BudgetData) => void;
-  initialData?: Partial<BudgetData>;
+  onUpdate: (data: Budget) => void;
+  initialData?: {
+    section?: BudgetSection[];
+    commercial_margin?: number;
+    margin_type?: 'fixed' | 'percentage';
+    discount?: number;
+    discount_type?: 'fixed' | 'percentage';
+  };
 }
 
 const DEFAULT_BUDGET: BudgetData = {
@@ -57,7 +63,16 @@ const DEFAULT_BUDGET: BudgetData = {
 };
 
 const TechBudget: React.FC<Props> = ({ onUpdate, initialData }) => {
-  const [budget, setBudget] = React.useState<BudgetData>({ ...DEFAULT_BUDGET, ...initialData });
+  const [budget, setBudget] = React.useState<BudgetData>(() => {
+    if (!initialData) return DEFAULT_BUDGET;
+    return {
+      sections: initialData.section || DEFAULT_BUDGET.sections,
+      commercialMargin: initialData.commercial_margin || 0,
+      marginType: initialData.margin_type || 'fixed', 
+      discount: initialData.discount || 0,
+      discountType: initialData.discount_type || 'fixed'
+    };
+  });
 
   const formatCurrency = (value: number): string => {
     return value.toLocaleString('en-US', { 
@@ -275,7 +290,13 @@ const TechBudget: React.FC<Props> = ({ onUpdate, initialData }) => {
   const updateBudget = (newData: Partial<BudgetData>) => {
     const updated = { ...budget, ...newData };
     setBudget(updated);
-    onUpdate(updated);
+    onUpdate({
+      section: updated.sections,
+      commercial_margin: updated.commercialMargin,
+      margin_type: updated.marginType,
+      discount: updated.discount,
+      discount_type: updated.discountType
+    });
   };
 
   return (
@@ -302,6 +323,7 @@ const TechBudget: React.FC<Props> = ({ onUpdate, initialData }) => {
                 }}
                 className="flex-1"
               />
+              <div className='font-bold'>{formatCurrency(calculateSectionTotal(section))}</div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -315,7 +337,7 @@ const TechBudget: React.FC<Props> = ({ onUpdate, initialData }) => {
               <div className="pl-6 space-y-4">
                 {/* Resources Header */}
                 <div className="space-y-2">
-                  <h3 className="font-semibold">Resources</h3>
+                  <h3 className="font-semibold flex gap-1"> <Gauge className='w-5 h-5' /> Resources</h3>
                   <div className="space-y-2">
                     {section.resources.map((resource) => (
                       <div key={resource.id} className="flex items-center gap-2">
@@ -358,14 +380,14 @@ const TechBudget: React.FC<Props> = ({ onUpdate, initialData }) => {
 
                 {/* Activities and Matrix */}
                 <div className="space-y-2">
-                  <h3 className="font-semibold">Activities</h3>
+                  
                   <div className="space-y-4">
                     <div className="grid gap-4" style={{
                       gridTemplateColumns: `minmax(200px, 1fr) repeat(${section.resources.length}, minmax(100px, 1fr)) auto`
                     }}>
-                      <div className="font-semibold">Activity</div>
+                      <div className="font-semibold flex gap-1"> <SwatchBook className='h-5 w-5'/> Activity</div>
                       {section.resources.map((resource) => (
-                        <div key={resource.id} className="font-semibold text-center">
+                        <div key={resource.id} className=" text-center">
                           {resource.name}
                         </div>
                       ))}
@@ -421,7 +443,7 @@ const TechBudget: React.FC<Props> = ({ onUpdate, initialData }) => {
                 {/* Section Total */}
                 <div className="pt-4 border-t">
                   <p className="text-lg font-semibold">
-                    Section Total: {formatCurrency(calculateSectionTotal(section))}
+                    Total: {formatCurrency(calculateSectionTotal(section))}
                   </p>
                 </div>
               </div>
@@ -491,10 +513,10 @@ const TechBudget: React.FC<Props> = ({ onUpdate, initialData }) => {
             const totals = calculateTotal();
             return (
               <>
-                <p>Totale sezioni: {formatCurrency(totals.baseTotal)}</p>
-                <p>Margine Commerciale: {formatCurrency(totals.marginAmount)}</p>
+                <p className='text-gray-700'>Totale sezioni: {formatCurrency(totals.baseTotal)}</p>
+                <p className='text-gray-700'>Margine Commerciale: {formatCurrency(totals.marginAmount)}</p>
                 <p className="font-bold">Budget Totale Marginato: {formatCurrency(totals.totalWithMargin)}</p>
-                <p>Sconto: {formatCurrency(totals.discountAmount)}</p>
+                <p className='text-gray-700'>Sconto: {formatCurrency(totals.discountAmount)}</p>
                 <p className="text-2xl font-bold">Imponibile Totale: {formatCurrency(totals.finalTotal)}</p>
               </>
             );

@@ -1,8 +1,9 @@
+//page.tsx - Pagina di creazione e modifica del budget
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import { ExternalLink, Copy, Trash2, ArrowLeft, ArrowUpRight, Share } from 'lucide-react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { ArrowLeft, ArrowUpRight, Share } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -13,6 +14,8 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Brief from './components/brief'
 import SimpleBudget from './components/budget/SimpleBudget/page'
 import TechBudget from './components/budget/TechBudget/page'
+import debounce from 'lodash/debounce'
+
 
 interface Document {
   id: string;
@@ -36,9 +39,7 @@ interface Brief {
 
 interface GeneralInfo {
   projectName: string;
-  client: string;
-  budgez_code: string;
-  internalStatus: 'draft' | 'pending' | 'approved' | 'rejected';
+
 }
 
 interface BudgetSection {
@@ -50,41 +51,45 @@ interface BudgetSection {
 interface Budget {
   section: BudgetSection[];
   commercial_margin: number;
+  margin_type: 'fixed' | 'percentage';
   discount: number;
+  discount_type: 'fixed' | 'percentage';
 }
 
 interface BudgetData {
   brief: Brief;
   general_info: GeneralInfo;
   budget: Budget;
+  budget_type: string;
 }
 
 const defaultData: BudgetData = {
   brief: { description: '', documents: [], links: [] },
   general_info: {
-    projectName: '',
-    client: '',
-    budgez_code: '',
-    internalStatus: 'draft'
+    projectName: 'Untitled Budgez',
   },
   budget: {
     section: [],
     commercial_margin: 0,
-    discount: 0
-  }
+    margin_type: 'fixed',
+    discount: 0,
+    discount_type: 'fixed'
+  },
+  budget_type:'simple'
 }
 
 export default function BudgetPage() {
+  const router = useRouter()
   const params = useParams()
   const budgetId = params.id as string
   const supabase = createClientComponentClient()
-  
   const [budgetData, setBudgetData] = useState<BudgetData>(defaultData)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [title, setTitle] = useState("Untitled Budget")
   const [calculatorType, setCalculatorType] = useState('simple')
   const [isLoading, setIsLoading] = useState(true)
-  console.log("budgetId: ", budgetId)
+  const [showTypeChangeDialog, setShowTypeChangeDialog] = useState(false)
+  const [pendingCalculatorType, setPendingCalculatorType] = useState<string | null>(null)
 
 
   useEffect(() => {
@@ -93,6 +98,34 @@ export default function BudgetPage() {
       console.log("loading the budget: ", budgetId)
     }
   }, [budgetId])
+
+  const handleBack = () => {
+    router.push('/dashboard')
+  }
+
+  const debouncedSave = useCallback(
+    debounce(async (newTitle: string) => {
+      try {
+        const budgetBody = {
+          ...budgetData
+        }
+    
+        const { error } = await supabase
+          .from('budgets')
+          .update({
+            budget_name: newTitle,
+            body: budgetBody,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', budgetId)
+        
+        if (error) throw error
+      } catch (error) {
+        console.error('Error saving budget:', error)
+      }
+    }, 500),
+    [budgetData, budgetId]
+  )
 
   const loadBudget = async () => {
     setIsLoading(true)
@@ -119,13 +152,13 @@ export default function BudgetPage() {
     }
   }
 
-  const saveBudget = async () => {
+  const saveBudget = async (newBody: Partial<BudgetData>) => {
     try {
       const budgetBody = {
         ...budgetData,
-        budget_type: calculatorType
+        ...newBody
       }
-
+  
       const { error } = await supabase
         .from('budgets')
         .update({
@@ -136,25 +169,37 @@ export default function BudgetPage() {
         .eq('id', budgetId)
       
       if (error) throw error
+      
+      // Update local state after successful save
+      setBudgetData(budgetBody)
     } catch (error) {
       console.error('Error saving budget:', error)
     }
   }
 
-  const handleUpdate = (newData: Partial<BudgetData>) => {
-    const updatedData = { ...budgetData, ...newData }
-    setBudgetData(updatedData)
-    saveBudget()
+  const confirmCalculatorTypeChange = async () => {
+    if (pendingCalculatorType) {
+      setCalculatorType(pendingCalculatorType)
+      saveBudget({budget_type: pendingCalculatorType})
+      setShowTypeChangeDialog(false)
+    }
   }
 
+  const handleUpdate = (newData: Partial<BudgetData>) => {
+    const updatedData = { ...budgetData, ...newData };
+    setBudgetData(updatedData);
+    saveBudget(updatedData);
+  };
+
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTitle(e.target.value)
-    saveBudget()
+    const newTitle = e.target.value
+    setTitle(newTitle)
+    debouncedSave(newTitle)
   }
 
   const handleCalculatorTypeChange = (value: string) => {
-    setCalculatorType(value)
-    saveBudget()
+    setPendingCalculatorType(value)
+    setShowTypeChangeDialog(true)
   }
 
   if (isLoading) {
@@ -169,6 +214,7 @@ export default function BudgetPage() {
             <Button 
               variant="ghost"
               className="hover:bg-black rounded-full hover:text-white"
+              onClick={handleBack}
             >
               <ArrowLeft className="h-7 w-7" />
             </Button>
@@ -203,7 +249,7 @@ export default function BudgetPage() {
 
             <Card className="p-6">
               <TabsContent value="brief">
-                <Brief budgetData={budgetData} onUpdate={handleUpdate} />
+              <Brief id={budgetId} />
               </TabsContent>
 
               <TabsContent value="budget">
@@ -213,7 +259,7 @@ export default function BudgetPage() {
                     value={calculatorType}
                     onValueChange={handleCalculatorTypeChange}
                   >
-                    <SelectTrigger className="w-[200px]">
+                    <SelectTrigger className="w-[200px] font-bold">
                       <SelectValue placeholder="Select calculator type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -223,7 +269,10 @@ export default function BudgetPage() {
                   </Select>
                 </div>
                 {calculatorType === 'simple' && <SimpleBudget />}
-                {calculatorType === 'tech' && <TechBudget />}
+                {calculatorType === 'tech' && <TechBudget 
+                  onUpdate={(data) => handleUpdate({ budget: data })} 
+                  initialData={budgetData.budget}
+                />}
               </TabsContent>
 
               <TabsContent value="external">
@@ -250,6 +299,24 @@ export default function BudgetPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* dialogo per verifica cambio select */}
+      <Dialog open={showTypeChangeDialog} onOpenChange={setShowTypeChangeDialog}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Vuoi davvero ambiare tipo di budget?</DialogTitle>
+      <DialogDescription>Se hai dei dati salvati li perderai.</DialogDescription>
+    </DialogHeader>
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setShowTypeChangeDialog(false)}>
+        Annulla
+      </Button>
+      <Button className='bg-red-600 text-white hover:bg-red-400' onClick={confirmCalculatorTypeChange}>
+        Conferma
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </div>
   )
 }

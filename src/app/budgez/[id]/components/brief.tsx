@@ -1,13 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Paperclip, X, Link as LinkIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 
 interface BudgetData {
   brief: {
@@ -27,7 +25,7 @@ interface BudgetData {
 }
 
 export default function BriefTab({ id }: { id: string }) {
-  const router = useRouter()
+  
   const [description, setDescription] = useState('')
   const [documents, setDocuments] = useState<BudgetData['brief']['documents']>([])
   const [links, setLinks] = useState<BudgetData['brief']['links']>([])
@@ -62,24 +60,29 @@ export default function BriefTab({ id }: { id: string }) {
 
   const updateDatabase = async (briefData: BudgetData['brief']) => {
     try {
-      const { data: existingData } = await supabase
+      const { data: currentBudget, error: fetchError } = await supabase
         .from('budgets')
         .select('body')
         .eq('id', id)
         .single()
-
+  
+      if (fetchError) throw fetchError
+  
+      const currentBody = currentBudget?.body || {}
       const newBody = {
-        ...existingData?.body,
+        ...currentBody,
         brief: briefData
       }
-
-      const { error } = await supabase
+  
+      const { error: updateError } = await supabase
         .from('budgets')
-        .update({ body: newBody })
+        .update({ 
+          body: newBody,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', id)
-
-      if (error) throw error
-      router.refresh()
+  
+      if (updateError) throw updateError
     } catch (error) {
       console.error('Error updating brief:', error)
     }

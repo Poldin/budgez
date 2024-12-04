@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { supabase } from '@/lib/supabase'
 import StatsOverview from './components/stats'
+import { useRouter } from 'next/navigation'
+
 
 type Budget = {
   id: string
@@ -27,8 +29,9 @@ type Template = {
 }
 
 export default function BudgetDashboard() {
+    const router = useRouter()
   const [budgets, setBudgets] = useState<Budget[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  //const [isLoading, setIsLoading] = useState(true)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<Budget | null>(null)
 
@@ -38,6 +41,14 @@ export default function BudgetDashboard() {
     { id: '3', name: 'Event Planning', type: 'Eventi', useCase: 'Organizzazione eventi' },
     { id: '4', name: 'Research Project', type: 'R&D', useCase: 'Progetti di ricerca' }
   ])
+
+  const handleRowClick = (budgetId: string, event: React.MouseEvent) => {
+    // Prevent navigation if clicking on action buttons
+    if ((event.target as HTMLElement).closest('.action-buttons')) {
+      return
+    }
+    router.push(`/budgez/${budgetId}`)
+  }
 
   const fetchBudgets = async () => {
     try {
@@ -60,7 +71,7 @@ export default function BudgetDashboard() {
     } catch (error) {
       console.error('Error fetching budgets:', error)
     } finally {
-      setIsLoading(false)
+      //setIsLoading(false)
     }
   }
 
@@ -86,7 +97,7 @@ export default function BudgetDashboard() {
 
   const handleDuplicate = async (budget: Budget) => {
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('budgets')
         .insert([{
           budget_name: `${budget.budget_name} (Copy)`,
@@ -146,7 +157,7 @@ export default function BudgetDashboard() {
           <TabsContent value="budgets">
             <Card className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-bold">Budgez</h1>
+                <h1 className="text-2xl font-bold">i tuoi Budgez</h1>
                 <Button onClick={createBudget}>
                   <Plus className="mr-2 h-4 w-4" /> Nuovo Budget
                 </Button>
@@ -164,7 +175,9 @@ export default function BudgetDashboard() {
                 </TableHeader>
                 <TableBody>
                   {budgets.map((budget) => (
-                    <TableRow key={budget.id} className="cursor-pointer hover:bg-gray-900 hover:text-white">
+                    <TableRow key={budget.id} 
+                    className="cursor-pointer hover:bg-gray-900 hover:text-white"
+                    onClick={(e) => handleRowClick(budget.id, e)}>
                       <TableCell className='rounded-l-lg'>
                         {new Date(budget.created_at).toLocaleDateString()}
                       </TableCell>
@@ -176,7 +189,7 @@ export default function BudgetDashboard() {
                         <Badge className="bg-blue-200 text-blue-800">owner</Badge>
                       </TableCell>
                       <TableCell className='rounded-r-lg'>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 action-buttons">
                           <Button variant="ghost" size="icon">
                             <ExternalLink className="h-4 w-4" />
                           </Button>
@@ -210,7 +223,7 @@ export default function BudgetDashboard() {
                   <TableRow>
                     <TableHead>Nome Template</TableHead>
                     <TableHead>Tipologia</TableHead>
-                    <TableHead>Caso d'uso</TableHead>
+                    <TableHead>Caso d`&apos;`uso</TableHead>
                     <TableHead>Azioni</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -244,7 +257,7 @@ export default function BudgetDashboard() {
           <DialogHeader>
             <DialogTitle>Conferma Eliminazione</DialogTitle>
             <DialogDescription>
-              Sei sicuro di voler eliminare il budgez "{itemToDelete?.budget_name}"? Questa azione non può essere annullata.
+              Sei sicuro di voler eliminare il budgez `&quot;`{itemToDelete?.budget_name}`&quot;`? Questa azione non può essere annullata.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

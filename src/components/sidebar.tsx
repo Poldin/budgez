@@ -15,10 +15,7 @@ interface SidebarProps {
 const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   const pathname = usePathname();
 
-  const deleteCookies = () => {
-    document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-    document.cookie = 'sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-  };
+  
 
   const handleLogout = async () => {
     
