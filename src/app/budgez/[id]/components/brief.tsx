@@ -193,7 +193,7 @@ export default function BriefTab({ id }: { id: string }) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <h2 className="text-xl font-bold">Descrizione</h2>
+        <h2 className="text-base font-bold">Descrizione</h2>
         <Textarea
           placeholder="Inserisci una descrizione..."
           value={description}
@@ -204,7 +204,7 @@ export default function BriefTab({ id }: { id: string }) {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-xl font-bold">Documenti</h2>
+        <h2 className="text-base font-bold">Documenti</h2>
         <Input
           id="file-upload"
           type="file"
@@ -247,7 +247,7 @@ export default function BriefTab({ id }: { id: string }) {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-xl font-bold">Link di riferimento</h2>
+        <h2 className="text-base font-bold">Link di riferimento</h2>
         <form onSubmit={addLink} className="flex gap-3">
           <Input
             placeholder="URL"

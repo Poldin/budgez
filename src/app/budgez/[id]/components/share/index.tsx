@@ -73,13 +73,13 @@ const ShareDialog = () => {
       <DialogContent className="min-w-[50vw] min-h-[50vh]">
         <Tabs defaultValue="internal">
           <TabsList className=" grid-cols-2">
-            <TabsTrigger value="internal" className='data-[state=active]:bg-black data-[state=active]:text-white'>Interna</TabsTrigger>
-            <TabsTrigger value="external" className='data-[state=active]:bg-black data-[state=active]:text-white'>External</TabsTrigger>
+            <TabsTrigger value="internal" className='data-[state=active]:bg-black data-[state=active]:text-white'>👀Interna</TabsTrigger>
+            <TabsTrigger value="external" className='data-[state=active]:bg-black data-[state=active]:text-white'>💎External</TabsTrigger>
           </TabsList>
           
           <TabsContent value="internal" className="space-y-4">
             <div>
-              <h3 className="font-semibold mb-2 text-xl">Collabora</h3>
+              <h3 className="font-semibold mb-2 text-xl">👀Collabora</h3>
               <p className="text-gray-400">condividi il budgez internamente per rifinirlo al meglio [inviamo una mail di invito a collaborare!]</p>
             </div>
             <div className="flex gap-2">
@@ -121,7 +121,7 @@ const ShareDialog = () => {
           
           <TabsContent value="external">
             <div>
-              <h3 className="font-semibold mb-2 text-xl">Condividi con esterni</h3>
+              <h3 className="font-semibold mb-2 text-xl">👑Condividi con esterni</h3>
               <p className="text-gray-400">ready to sell? Inviamo il documento External alle mail che ci indicherai</p>
               <div className="text-center py-8 text-gray-500 bg-gray-50 rounded">
                 Coming soon

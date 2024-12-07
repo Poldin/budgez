@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ExternalLink, Copy, Trash2, Plus } from 'lucide-react'
+import { ExternalLink, Copy, Trash2, Plus, Edit } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -11,6 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { supabase } from '@/lib/supabase'
 import StatsOverview from './components/stats'
 import { useRouter } from 'next/navigation'
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 
 
 type Budget = {
@@ -22,25 +25,134 @@ type Budget = {
 }
 
 type Template = {
-  id: string
-  name: string
-  type: string
-  useCase: string
-}
+    id: string
+    created_at: string
+    body: {
+      template: {
+        name: string
+        tag: string[]
+        description: string
+      }
+    }
+  }
+
+  type EditTemplateData = {
+    id: string;
+    name: string;
+    tag: string[];
+    description: string;
+  }
 
 export default function BudgetDashboard() {
     const router = useRouter()
   const [budgets, setBudgets] = useState<Budget[]>([])
+  const [templates, setTemplates] = useState<Template[]>([])
   //const [isLoading, setIsLoading] = useState(true)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<Budget | null>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editTemplate, setEditTemplate] = useState<EditTemplateData | null>(null)
+  const [tagInput, setTagInput] = useState('')
+  const [showDeleteTemplateDialog, setShowDeleteTemplateDialog] = useState(false)
+  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null)
 
-  const [templates] = useState<Template[]>([
-    { id: '1', name: 'Marketing Campaign', type: 'Marketing', useCase: 'Campagne pubblicitarie' },
-    { id: '2', name: 'Software Project', type: 'IT', useCase: 'Sviluppo software' },
-    { id: '3', name: 'Event Planning', type: 'Eventi', useCase: 'Organizzazione eventi' },
-    { id: '4', name: 'Research Project', type: 'R&D', useCase: 'Progetti di ricerca' }
-  ])
+  
+  const handleDeleteTemplate = async () => {
+    if (!templateToDelete) return
+
+    try {
+        const { error } = await supabase
+            .from('templates')
+            .delete()
+            .eq('id', templateToDelete.id)
+
+        if (error) throw error
+        
+        await fetchTemplates()
+        setShowDeleteTemplateDialog(false)
+    } catch (error) {
+        console.error('Error deleting template:', error)
+    }
+}
+  
+  const handleEditTemplate = (template: Template) => {
+    setEditTemplate({
+      id: template.id,
+      name: template.body.template.name,
+      tag: template.body.template.tag,
+      description: template.body.template.description
+    })
+    setShowEditDialog(true)
+  }
+
+  const handleSaveTemplate = async () => {
+    if (!editTemplate) return
+  
+    try {
+      const { data: currentTemplate } = await supabase
+        .from('templates')
+        .select('body')
+        .eq('id', editTemplate.id)
+        .single()
+  
+      const updatedBody = {
+        ...currentTemplate?.body,
+        template: {
+          ...currentTemplate?.body?.template,
+          name: editTemplate.name,
+          tag: editTemplate.tag,
+          description: editTemplate.description
+        }
+      }
+  
+      const { error } = await supabase
+        .from('templates')
+        .update({ body: updatedBody })
+        .eq('id', editTemplate.id)
+  
+      if (error) throw error
+      await fetchTemplates()
+      setShowEditDialog(false)
+    } catch (error) {
+      console.error('Error updating template:', error)
+    }
+  }
+
+  const handleAddTag = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && tagInput && editTemplate) {
+      e.preventDefault()
+      setEditTemplate({
+        ...editTemplate,
+        tag: [...editTemplate.tag, tagInput]
+      })
+      setTagInput('')
+    }
+  }
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    if (editTemplate) {
+      setEditTemplate({
+        ...editTemplate,
+        tag: editTemplate.tag.filter(tag => tag !== tagToRemove)
+      })
+    }
+  }
+
+  const fetchTemplates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('templates')
+        .select('*')
+        .order('created at', { ascending: false })
+
+        console.log(data)
+
+      if (error) throw error
+      setTemplates(data)
+    } catch (error) {
+      console.error('Error fetching templates:', error)
+    }
+  }
 
   const handleRowClick = (budgetId: string, event: React.MouseEvent) => {
     // Prevent navigation if clicking on action buttons
@@ -133,6 +245,7 @@ export default function BudgetDashboard() {
 
   useEffect(() => {
     fetchBudgets()
+    fetchTemplates()
   }, [])
 
   return (
@@ -140,15 +253,15 @@ export default function BudgetDashboard() {
       <main className="flex-1 p-8">
         <Tabs defaultValue="budgets">
           <TabsList>
-            <TabsTrigger value="stats">Stats</TabsTrigger>
-            <TabsTrigger value="budgets">Budgez</TabsTrigger>
-            <TabsTrigger value="templates">Template</TabsTrigger>
+            <TabsTrigger value="stats" className="data-[state=active]:bg-black data-[state=active]:text-white">🧮Stats</TabsTrigger>
+            <TabsTrigger value="budgets" className="data-[state=active]:bg-black data-[state=active]:text-white">⚡Budgez</TabsTrigger>
+            <TabsTrigger value="templates" className="data-[state=active]:bg-black data-[state=active]:text-white">🎢Template</TabsTrigger>
           </TabsList>
 
           <TabsContent value="stats">
             <Card className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-bold">Stats</h1>
+                <h1 className="text-2xl font-bold">🧮Stats</h1>
               </div>
               <StatsOverview />
             </Card>
@@ -156,8 +269,13 @@ export default function BudgetDashboard() {
 
           <TabsContent value="budgets">
             <Card className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-bold">i tuoi Budgez</h1>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                <h1 className="text-2xl font-bold">⚡Budgez</h1>
+                <p className="text-gray-500 mb-6 text-sm">
+                    I Budgez sono preventivi: il nostro obiettivo è permetterti di creare Budgez alla velocità della⚡luce e ricavare dati quando li condividi con i tuoi clienti. Così puoi chiudere più deal, meglio e controllando di più i risultati🤑
+                </p>
+                </div>
                 <Button onClick={createBudget}>
                   <Plus className="mr-2 h-4 w-4" /> Nuovo Budget
                 </Button>
@@ -217,34 +335,59 @@ export default function BudgetDashboard() {
 
           <TabsContent value="templates">
             <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Template</h2>
+              <h2 className="text-2xl font-bold">🎢Template</h2>
+              <p className="text-gray-500 mb-6 text-sm">
+                    I template sono modelli predefiniti che ti permettono di iniziare rapidamente nuovi budgez con strutture già ottimizzate. Per creare un template, crea un nuovo Budgez e salvalo quando lo stai configurando al punto che ritieni opportuno🫣
+                </p>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome Template</TableHead>
-                    <TableHead>Tipologia</TableHead>
-                    <TableHead>Caso d`&apos;`uso</TableHead>
+                    <TableHead>Tag</TableHead>
+                    <TableHead>Descrizione</TableHead>
                     <TableHead>Azioni</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {templates.map((template) => (
+                {templates.map((template) => (
                     <TableRow key={template.id} className='hover:bg-gray-900 hover:text-white'>
-                      <TableCell>{template.name}</TableCell>
-                      <TableCell>{template.type}</TableCell>
-                      <TableCell>{template.useCase}</TableCell>
-                      <TableCell className='rounded-r-lg'>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <TableCell className='rounded-l-lg font-semibold    '>
+                        {template.body?.template?.name || 'Unnamed Template'}
+                        </TableCell>
+                        <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                            {template.body?.template?.tag?.map((tag) => (
+                            <Badge key={tag} variant="secondary" className="bg-gray-200 text-gray-800">
+                                {tag}
+                            </Badge>
+                            )) || '-'}
                         </div>
-                      </TableCell>
+                        </TableCell>
+                        <TableCell>
+                        {template.body?.template?.description || '-'}
+                        </TableCell>
+                        <TableCell className='rounded-r-lg'>
+                        <div className="flex gap-2 items-center justify-start">
+                        <Button variant="ghost" size="icon">
+                            <ExternalLink className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleEditTemplate(template)}>
+                            <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                    setTemplateToDelete(template)
+                                    setShowDeleteTemplateDialog(true)
+                                }}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        </TableCell>
                     </TableRow>
-                  ))}
+                    ))}
                 </TableBody>
               </Table>
             </Card>
@@ -257,7 +400,7 @@ export default function BudgetDashboard() {
           <DialogHeader>
             <DialogTitle>Conferma Eliminazione</DialogTitle>
             <DialogDescription>
-              Sei sicuro di voler eliminare il budgez `&quot;`{itemToDelete?.budget_name}`&quot;`? Questa azione non può essere annullata.
+              Sei sicuro di voler eliminare il budgez &quot;{itemToDelete?.budget_name}&quot;? Questa azione non può essere annullata.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -270,6 +413,76 @@ export default function BudgetDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* edit template */}
+    <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Modifica Template</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Nome</Label>
+            <Input 
+              value={editTemplate?.name || ''} 
+              onChange={(e) => setEditTemplate(prev => prev ? {...prev, name: e.target.value} : null)}
+            />
+          </div>
+          <div>
+            <Label>Tag</Label>
+            <div className="flex flex-wrap gap-1 mb-2">
+              {editTemplate?.tag.map(tag => (
+                <Badge key={tag} variant="secondary" className="bg-gray-200 text-gray-800">
+                  {tag}
+                  <button onClick={() => handleRemoveTag(tag)} className="ml-1">×</button>
+                </Badge>
+              ))}
+            </div>
+            <Input 
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleAddTag}
+              placeholder="Premi Enter per aggiungere un tag"
+            />
+          </div>
+          <div>
+            <Label>Descrizione</Label>
+            <Textarea 
+              value={editTemplate?.description || ''} 
+              onChange={(e) => setEditTemplate(prev => prev ? {...prev, description: e.target.value} : null)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+            Annulla
+          </Button>
+          <Button onClick={handleSaveTemplate}>
+            Salva
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Delete template dialog */}
+    <Dialog open={showDeleteTemplateDialog} onOpenChange={setShowDeleteTemplateDialog}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Conferma Eliminazione Template</DialogTitle>
+                <DialogDescription>
+                    Sei sicuro di voler eliminare il template &quot;{templateToDelete?.body.template.name}&quot;? Questa azione non può essere annullata.
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setShowDeleteTemplateDialog(false)}>
+                    Annulla
+                </Button>
+                <Button variant="destructive" onClick={handleDeleteTemplate}>
+                    Elimina
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </div>
   )
 }

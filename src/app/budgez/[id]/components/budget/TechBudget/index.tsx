@@ -565,7 +565,7 @@ const TechBudgetScreen: React.FC<Props> = ({ onUpdate, initialData }) => {
 
       {/* Commercial Margin */}
       <div>
-        <h2 className="text-base font-semibold mb-2">Margine Commerciale</h2>
+        <h2 className="text-base font-semibold mb-2">🤑Margine Commerciale</h2>
         <RadioGroup
           value={budget.marginType}
           onValueChange={(value: "fixed" | "percentage") =>
@@ -594,7 +594,7 @@ const TechBudgetScreen: React.FC<Props> = ({ onUpdate, initialData }) => {
 
       {/* Discount */}
       <div>
-        <h2 className="text-base font-semibold mb-2">Sconto</h2>
+        <h2 className="text-base font-semibold mb-2">🧐Sconto</h2>
         <RadioGroup
           value={budget.discountType}
           onValueChange={(value: "fixed" | "percentage") =>
@@ -632,17 +632,17 @@ const TechBudgetScreen: React.FC<Props> = ({ onUpdate, initialData }) => {
                   Totale sezioni: {formatCurrency(totals.baseTotal)}
                 </p>
                 <p className="text-gray-700">
-                  Margine Commerciale: {formatCurrency(totals.marginAmount)}
+                🤑Margine Commerciale: {formatCurrency(totals.marginAmount)}
                 </p>
                 <p className="font-bold">
                   Budget Totale Marginato:{" "}
                   {formatCurrency(totals.totalWithMargin)}
                 </p>
                 <p className="text-gray-700">
-                  Sconto: {formatCurrency(totals.discountAmount)}
+                🧐Sconto: {formatCurrency(totals.discountAmount)}
                 </p>
                 <p className="text-2xl font-bold">
-                  Imponibile Totale: {formatCurrency(totals.finalTotal)}
+                🥳Imponibile Totale: {formatCurrency(totals.finalTotal)}
                 </p>
               </>
             );
