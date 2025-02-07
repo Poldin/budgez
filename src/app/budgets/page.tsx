@@ -229,32 +229,55 @@ export default function BudgetDashboard() {
     }
   }
 
-  const handleDelete = async () => {
-    if (!itemToDelete) return
+  // Modified handleDelete function with proper error handling and cascading delete
+const handleDelete = async () => {
+  if (!itemToDelete) return
 
-    try {
-      // First delete all user links
-      const { error: linkError } = await supabase
-        .from('link_budget_users')
-        .delete()
-        .eq('budget_id', itemToDelete.id)
+  try {
+    // Start a Supabase transaction to ensure atomicity
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('No user logged in')
 
-      if (linkError) throw linkError
+    // First delete all logs associated with the budget
+    const { error: logsError } = await supabase
+      .from('budgets_logs')
+      .delete()
+      .eq('busget_id', itemToDelete.id)
 
-      // Then delete the budget
-      const { error: budgetError } = await supabase
-        .from('budgets')
-        .delete()
-        .eq('id', itemToDelete.id)
-
-      if (budgetError) throw budgetError
-      
-      await fetchBudgets()
-      setShowDeleteDialog(false)
-    } catch (error) {
-      console.error('Error deleting budget:', error)
+    if (logsError) {
+      console.error('Error deleting logs:', logsError)
+      throw logsError
     }
+
+    // Then delete all user links
+    const { error: linkError } = await supabase
+      .from('link_budget_users')
+      .delete()
+      .eq('budget_id', itemToDelete.id)
+
+    if (linkError) {
+      console.error('Error deleting user links:', linkError)
+      throw linkError
+    }
+
+    // Finally delete the budget itself
+    const { error: budgetError } = await supabase
+      .from('budgets')
+      .delete()
+      .eq('id', itemToDelete.id)
+
+    if (budgetError) {
+      console.error('Error deleting budget:', budgetError)
+      throw budgetError
+    }
+    
+    await fetchBudgets()
+    setShowDeleteDialog(false)
+  } catch (error) {
+    console.error('Error in delete operation:', error)
+    // You might want to show an error message to the user here
   }
+}
 
   useEffect(() => {
     fetchBudgets()

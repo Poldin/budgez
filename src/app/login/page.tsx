@@ -236,6 +236,11 @@ const AuthPage = () => {
           });
 
         if (signUpError) throw signUpError;
+        try {
+          await supabase.rpc('update_link_budget_users_user_id');
+        } catch (rpcError) {
+          console.error('Errore durante l\'aggiornamento dei link:', rpcError);
+        }
       }
 
       toast.success("Email verificata e registrazione completata con successo!");
