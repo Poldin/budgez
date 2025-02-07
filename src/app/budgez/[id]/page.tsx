@@ -3,10 +3,10 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, GraduationCap } from "lucide-react";
+import { ArrowLeft} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import External from "./components/external"
 import BudgetLogs from './components/stats/logs'
+import { supabase } from "@/lib/supabase";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Card, CardTitle, CardHeader } from "@/components/ui/card";
+import { Card} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -25,15 +25,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import Brief from "./components/brief";
-import SimpleBudget from "./components/budget/SimpleBudget";
-import TechBudget from "./components/budget/TechBudget";
+import TechBudget from "./components/budget/compute_budget_section";
 import debounce from "lodash/debounce";
 import ShareDialog from './components/share';
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import {InfoDialog, INFO_CONTENT} from '@/components/infodialogs/InfoDialogs'
 
 interface Document {
   id: string;
@@ -65,13 +61,13 @@ export interface Resource {
   id: string;
   name: string;
   type: ResourceType;
-  rate: number; // hourly rate or fixed cost
+  rate: number; 
 }
 
 export interface Activity {
   id: string;
   name: string;
-  resourceAllocations: { [resourceId: string]: number }; // hours or quantity
+  resourceAllocations: { [resourceId: string]: number }; 
 }
 
 interface BudgetSection {
@@ -90,11 +86,19 @@ export interface Budget {
   discount_type: "fixed" | "percentage";
 }
 
+interface BudgetComplete {
+  id: string;
+  budget_name: string;
+  public_id: string;
+  body: SupabaseBudgetData;
+}
+
 export interface SupabaseBudgetData {
   brief: Brief;
   general_info: GeneralInfo;
   budget: Budget;
   budget_type: string;
+
 }
 
 const defaultData: SupabaseBudgetData = {
@@ -116,7 +120,6 @@ export default function BudgetPage() {
   const router = useRouter();
   const params = useParams();
   const budgetId = params.id as string;
-  const supabase = createClientComponentClient();
   const [budgetData, setBudgetData] = useState<SupabaseBudgetData>(defaultData);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [title, setTitle] = useState("Untitled Budget");
@@ -124,9 +127,43 @@ export default function BudgetPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showTypeChangeDialog, setShowTypeChangeDialog] = useState(false);
   const [pendingCalculatorType, setPendingCalculatorType] = useState<string | null>(null);
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [templateData, setTemplateData] = useState({name: '', tag: [] as string[], description: ''});
-  const [tagInput, setTagInput] = useState('');
+  const [budget, setBudget] = useState<BudgetComplete | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+
+  const checkUserPermissions = useCallback(() => {
+    if (userId) {
+      console.log("Current user ID:", userId);
+      // In futuro qui andranno i controlli dei permessi
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (user) {
+          setUserId(user.id);
+          checkUserPermissions();
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
+    };
+
+    fetchUser();
+  }, [checkUserPermissions]);
+
+  useEffect(() => {
+    if (budgetId) {
+      loadBudget();
+      console.log("loading the budget: ", budgetId);
+    }
+  }, [budgetId]);
+
+
+  
 
   useEffect(() => {
     if (budgetId) {
@@ -136,8 +173,11 @@ export default function BudgetPage() {
   }, [budgetId]);
 
   const handleBack = () => {
-    router.push("/dashboard");
+    router.push("/budgets");
   };
+  
+
+
 
   const debouncedSave = useCallback(
     debounce(async (newTitle: string) => {
@@ -163,44 +203,7 @@ export default function BudgetPage() {
     [budgetData, budgetId]
   );
 
-  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && tagInput.trim()) {
-      setTemplateData(prev => ({
-        ...prev,
-        tag: [...prev.tag, tagInput.trim()]
-      }));
-      setTagInput('');
-    }
-  };
-  
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTemplateData(prev => ({
-      ...prev,
-      tag: prev.tag.filter(tag => tag !== tagToRemove)
-    }));
-  };
-  
-  const handleSaveTemplate = async () => {
-    try {
-      const { error } = await supabase
-        .from('templates')
-        .insert({
-          body: {
-            template: {
-              name: templateData.name,
-              tag: templateData.tag,
-              description: templateData.description
-            },
-            budget: budgetData
-          }
-        });
-  
-      if (error) throw error;
-      setShowTemplateDialog(false);
-    } catch (error) {
-      console.error('Error saving template:', error);
-    }
-  };
+ 
 
   const loadBudget = async () => {
     setIsLoading(true);
@@ -214,6 +217,7 @@ export default function BudgetPage() {
       if (error) throw error;
 
       if (budget) {
+        setBudget(budget);
         setTitle(budget.budget_name || "Untitled Budget");
         if (budget.body) {
           setBudgetData(budget.body as SupabaseBudgetData);
@@ -227,43 +231,120 @@ export default function BudgetPage() {
     }
   };
 
-  const saveBudget = async (newBody: Partial<SupabaseBudgetData>) => {
+  const saveBudget = async (newBody: SupabaseBudgetData) => {
     try {
-      const budgetBody = {
-        ...budgetData,
-        ...newBody,
-      };
+      console.log('🔄 saveBudget - Starting save operation');
+      console.log('📥 saveBudget - Received newBody:', newBody);
 
-      const { error } = await supabase
+      // Prima otteniamo il budget corrente 
+      const { data: currentBudget, error: fetchError } = await supabase
+        .from("budgets")
+        .select("body")
+        .eq("id", budgetId)
+        .single();
+  
+      if (fetchError) {
+        console.error('❌ saveBudget - Error fetching current budget:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('📦 saveBudget - Current budget from DB:', currentBudget);
+
+      // Se non esiste body o blocks, creiamo la struttura base
+      const currentBlocks = currentBudget?.body?.blocks || [];
+      console.log('🔍 saveBudget - Current blocks:', currentBlocks);
+      
+      // Cerchiamo il blocco techbudget
+      let techBudgetIndex = currentBlocks.findIndex((block: {type: string}) => block.type === "techbudget");
+      console.log('🔍 saveBudget - techBudget block index:', techBudgetIndex);
+  
+      // Se non esiste il blocco techbudget, lo creiamo
+      if (techBudgetIndex === -1) {
+        console.log('➕ saveBudget - Creating new techbudget block');
+        currentBlocks.push({
+          id: Math.random().toString(36).substr(2, 9),
+          type: "techbudget",
+          content: {}
+        });
+        techBudgetIndex = currentBlocks.length - 1;
+      }
+  
+      // Aggiorniamo il content del blocco techbudget
+      const newContent = {
+        section: newBody.budget?.section || [],
+        commercial_margin: newBody.budget?.commercial_margin || 0,
+        margin_type: newBody.budget?.margin_type || "fixed",
+        discount: newBody.budget?.discount || 0,
+        discount_type: newBody.budget?.discount_type || "fixed"
+      };
+      
+      console.log('📝 saveBudget - New content for techbudget block:', newContent);
+      currentBlocks[techBudgetIndex].content = newContent;
+  
+      // Creiamo l'oggetto body aggiornato
+      const updatedBody = {
+        ...currentBudget?.body,
+        blocks: currentBlocks,
+        budget_type: newBody.budget_type
+      };
+  
+      console.log('📤 saveBudget - Final updated body to save:', updatedBody);
+  
+      // Salviamo il body aggiornato
+      const { error: updateError } = await supabase
         .from("budgets")
         .update({
-          budget_name: title,
-          body: budgetBody,
+          body: updatedBody,
           updated_at: new Date().toISOString(),
         })
         .eq("id", budgetId);
+  
+      if (updateError) {
+        console.error('❌ saveBudget - Error updating budget:', updateError);
+        throw updateError;
+      }
+  
+      console.log('✅ saveBudget - Successfully saved budget');
+      
+      console.log('🔄 saveBudget - Reloading budget');
+      await loadBudget();
+      console.log('✅ saveBudget - Budget reloaded');
 
-      if (error) throw error;
-
-      // Update local state after successful save
-      setBudgetData(budgetBody);
     } catch (error) {
-      console.error("Error saving budget:", error);
+      console.error("❌ saveBudget - Error in save operation:", error);
+      throw error;
     }
   };
+  
 
   const confirmCalculatorTypeChange = async () => {
     if (pendingCalculatorType) {
       setCalculatorType(pendingCalculatorType);
-      saveBudget({ budget_type: pendingCalculatorType });
+      saveBudget({ 
+        ...budgetData,  
+        budget_type: pendingCalculatorType 
+      });
       setShowTypeChangeDialog(false);
     }
   };
 
-  const handleUpdate = (newData: Partial<SupabaseBudgetData>) => {
-    const updatedData = { ...budgetData, ...newData };
-    setBudgetData(updatedData);
-    saveBudget(updatedData);
+  
+  
+  const handleUpdate = async (newData: SupabaseBudgetData) => {
+    try {
+      // Aggiorna lo stato locale immediatamente
+      setBudgetData(newData);
+      
+      // Salva nel database
+      await saveBudget(newData);
+      
+      // Optional: aggiungi un feedback di successo
+      console.log('Budget saved successfully');
+    } catch (error) {
+      console.error("Failed to save budget:", error);
+      // Rollback dello stato in caso di errore
+      setBudgetData(prevData => prevData);
+    }
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -287,7 +368,7 @@ export default function BudgetPage() {
     <div className="flex h-full bg-gray-100">
       <main className="flex-1 p-8">
         <div className="mb-6">
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-4 mb-4">
             <Button
               variant="ghost"
               className="hover:bg-black rounded-sm hover:text-white"
@@ -295,45 +376,58 @@ export default function BudgetPage() {
             >
               <ArrowLeft className="h-7 w-7" />
             </Button>
-            <Input
-              value={title}
-              onChange={handleTitleChange}
-              className="text-xl font-bold bg-white border-none focus:bg-white"
-            />
+            <div className="flex-1 flex items-center gap-2 bg-white rounded-md px-3 py-2 whitespace-nowrap">
+              <Input
+                value={title}
+                onChange={handleTitleChange}
+                className="text-xl font-bold bg-transparent border-none focus:bg-transparent p-0 min-w-0 h-fit"
+              />
+              {budget?.public_id && (
+                <span className="text-sm text-gray-400 rounded-md flex-shrink-0">
+                  id: {budget.public_id}
+                </span>
+              )}
+            </div>
+
             <div className="flex gap-1 ml-auto">
-                <ShareDialog />
+                <ShareDialog budgetId={budgetId} />
             </div>
           </div>
 
-          <Tabs defaultValue="budget" className="mb-6">
+          <Tabs defaultValue="brief" className="mb-6">
           <div className="flex justify-between items-center">
             <TabsList>
-              <TabsTrigger value="brief" className="data-[state=active]:bg-black data-[state=active]:text-white">📣Brief</TabsTrigger>
-              <TabsTrigger value="budget" className="data-[state=active]:bg-black data-[state=active]:text-white">🪖Budget</TabsTrigger>
-              <TabsTrigger value="external" className="data-[state=active]:bg-black data-[state=active]:text-white">💎External</TabsTrigger>
-              <TabsTrigger value="stats" className="data-[state=active]:bg-black data-[state=active]:text-white">📐Stats</TabsTrigger>
+              <TabsTrigger value="brief" className="data-[state=active]:bg-black data-[state=active]:text-white">📄Brief</TabsTrigger>
+              {/* <TabsTrigger value="budget" className="data-[state=active]:bg-black data-[state=active]:text-white">🧮Calcola</TabsTrigger>
+              <TabsTrigger value="stats" className="data-[state=active]:bg-black data-[state=active]:text-white">📐Stats</TabsTrigger> */}
 
             </TabsList>
             
               
-              <Button 
-                variant="outline" 
-                onClick={() => setShowTemplateDialog(true)}
-                className="ml-4 mb-1 text-sm p-2"
-              >
-                💾 salva Template
-              </Button>
+             
             </div>
+            {/* bg-transparent shadow-none border-0 */}
+            <Card className="p-2 ">
 
-            <Card className="p-6">
+              {/* Working on it tab */}
               <TabsContent value="brief">
-              <h2 className="text-xl font-bold mb-4">📣Brief</h2>
+                <div className="flex justify-between items-center mb-1 pb-2">
+
+                <div className="flex gap-2 justify-center items-center">
+                  
+                  <h2 className="text-xl font-bold">📄Brief</h2>
+                  <InfoDialog {...INFO_CONTENT.brief} />
+                </div>
+              </div>
                 <Brief id={budgetId} />
               </TabsContent>
 
+
+
+                    {/* Calcola tab - to be deleted */}
               <TabsContent value="budget">
                 <div className="flex justify-between items-center space-x-4 mb-6">
-                  <h2 className="text-xl font-bold">🪖Budget</h2>
+                  <h2 className="text-xl font-bold">🧮Calcola</h2>
                   <Select
                     value={calculatorType}
                     onValueChange={handleCalculatorTypeChange}
@@ -342,45 +436,50 @@ export default function BudgetPage() {
                       <SelectValue placeholder="Select calculator type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="simple">🪃Simple Budget</SelectItem>
+                      {/* <SelectItem value="simple">🪃Simple Budget</SelectItem> */}
                       <SelectItem value="tech">⛏️Project Budget</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                {calculatorType === "simple" && <SimpleBudget />}
+                
                 {calculatorType === "tech" && (
                   <TechBudget
-                    onUpdate={(data) => handleUpdate({ budget: data })}
+                    onUpdate={(data) => {
+                      const budgetData = {
+                        section: data.section,
+                        commercial_margin: data.commercial_margin,
+                        margin_type: data.margin_type,
+                        discount: data.discount,
+                        discount_type: data.discount_type
+                      };
+                      
+                      handleUpdate({
+                        budget: budgetData,
+                        budget_type: "tech"
+                      } as SupabaseBudgetData);
+                    }}
                     initialData={budgetData.budget}
                   />
                 )}
               </TabsContent>
 
-              <TabsContent value="external">
-                <div className="flex justify-between">
-                  <div className="flex gap-2 justify-center">
-              <h2 className="text-xl font-bold mb-4">💎External</h2>
-              <Button className="rounded-full p-2 bg-transparent h-8 w-8 hover:bg-gray-100 ">
-              <GraduationCap className="h-8 w-8 text-gray-700" />
-              </Button>
-              </div>
-              <div className="flex gap-1">
-              <Button variant="outline" className="flex items-center bg-black hover:bg-gray-700 text-white hover:text-white">
-              📢Pubblica
-              </Button>
-              <Button variant="outline" className="flex items-center">
-              🥸Vedi
-              </Button>
-              </div>
-              </div>
-              <External />
-              </TabsContent>
+
 
               <TabsContent value="stats">
-                <h2 className="text-xl font-bold">📐Stats</h2>
+               
+                <div className="flex justify-between items-center mb-1">
+                <div className="flex gap-2 justify-center items-center">
+                  
+                  <h2 className="text-xl font-bold">📐Stats </h2>
+                  <InfoDialog {...INFO_CONTENT.stats} />
+              
+              
+              </div>
+                
+                 </div>
                 <div className="grid gap-4">
                 <BudgetLogs budgetId={budgetId} />
-                {/* Qui potrai aggiungere il futuro componente delle statistiche */}
+                
               </div>
               </TabsContent>
             </Card>
@@ -442,55 +541,9 @@ export default function BudgetPage() {
         </DialogContent>
       </Dialog>
 
-      {/* dialog to handle save templates */}
-      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Salva Template</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>Nome</Label>
-            <Input 
-              value={templateData.name}
-              onChange={(e) => setTemplateData(prev => ({...prev, name: e.target.value}))}
-            />
-          </div>
-          <div>
-            <Label>Tag</Label>
-            <div className="flex flex-wrap gap-1 mb-2">
-              {templateData.tag.map(tag => (
-                <Badge key={tag} variant="secondary" className="bg-gray-200 text-gray-800">
-                  {tag}
-                  <button onClick={() => handleRemoveTag(tag)} className="ml-1">×</button>
-                </Badge>
-              ))}
-            </div>
-            <Input 
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={handleAddTag}
-              placeholder="Premi Enter per aggiungere un tag"
-            />
-          </div>
-          <div>
-            <Label>Descrizione</Label>
-            <Textarea 
-              value={templateData.description}
-              onChange={(e) => setTemplateData(prev => ({...prev, description: e.target.value}))}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
-            Annulla
-          </Button>
-          <Button onClick={handleSaveTemplate}>
-            Salva
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      
+    {/* dialog settings external tab */}
+    
 
     </div>
   );
