@@ -485,7 +485,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                   );
                   updateBudget({ section: newSections });
                 }}
-                className="flex-1"
+                className="flex-1 font-bold"
               />
               <div className="font-bold">
                 {formatCurrency(calculateSectionTotal(section))}
@@ -513,7 +513,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                       ) : (
                         <ChevronRight className="h-4 w-4" />
                       )}
-                      <Gauge className="w-4 h-4" /> Resources
+                      <Gauge className="w-4 h-4" /> Risorse
                     </button>
                   </div>
                   
@@ -532,7 +532,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                               })
                             }
                             onResourceSelect={handleResourceSelect(section.id, resource.id)}
-                            className="flex-1"
+                            className="flex-1 min-w-[300px]"
                           />
 
                           <select
@@ -582,7 +582,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                         onClick={() => addResource(section.id)}
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Resource
+                        risorse
                       </Button>
                     </div>
                   )}
@@ -591,8 +591,8 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                 {/* Activities and Matrix */}
                 <div className="space-y-2">
                   {/* Header fisso */}
-                  <div className="font-semibold flex gap-1 px-4">
-                    <SwatchBook className="h-5 w-5" /> Activity
+                  <div className="font-semibold flex gap-1 px-4 text-sm">
+                    <SwatchBook className="h-4 w-4" /> Attività
                   </div>
 
                   {/* Container della matrice con scroll */}
@@ -603,7 +603,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                         <div
                           className="grid gap-4 px-4 py-2"
                           style={{
-                            gridTemplateColumns: `200px repeat(${section.resources.length}, minmax(150px, 1fr)) 100px`,
+                            gridTemplateColumns: `300px repeat(${section.resources.length}, minmax(150px, 1fr)) 100px`,
                           }}
                         >
                           <div></div>
@@ -622,7 +622,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                               key={activity.id}
                               className="grid gap-4 mb-2"
                               style={{
-                                gridTemplateColumns: `200px repeat(${section.resources.length}, minmax(150px, 1fr)) 100px`,
+                                gridTemplateColumns: `300px repeat(${section.resources.length}, minmax(150px, 1fr)) 100px`,
                               }}
                             >
                               <div className="flex items-center gap-2">
@@ -693,7 +693,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                     onClick={() => addActivity(section.id)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Activity
+                    attività
                   </Button>
                 </div>
 
@@ -709,7 +709,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
         ))}
         <Button variant="outline" onClick={addSection}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Section
+          sezione
         </Button>
       </div>
 

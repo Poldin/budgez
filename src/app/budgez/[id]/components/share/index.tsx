@@ -288,7 +288,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ budgetId }) => {
           
           <TabsContent value="internal" className="space-y-4">
             <div>
-              <h3 className="font-semibold mb-2 text-xl">👀 Collabora</h3>
+              {/* <h3 className="font-semibold mb-2 text-xl">👀 Collabora</h3> */}
               <p className="text-gray-400 text-sm">
                 Condividi il budget internamente per rifinirlo al meglio [inviamo una mail di invito a collaborare!]
               </p>

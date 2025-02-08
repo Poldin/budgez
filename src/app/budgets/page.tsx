@@ -299,7 +299,7 @@ const handleDelete = async () => {
                 <div>
                   <h1 className="text-2xl font-bold">⚡le tue quotazioni</h1>
                   <p className="text-gray-500 mb-6 text-sm">
-                    Crea preventivi e condividili internamente con il team per completarli rapidamente. Crea attività e risorse da riutilizzare e impiegare sempre meno
+                    Crea preventivi e condividili internamente con il team per completarli rapidamente.
                   </p>
                 </div>
                 <Button onClick={createBudget}>
