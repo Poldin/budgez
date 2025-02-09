@@ -31,6 +31,9 @@ import debounce from "lodash/debounce";
 import ShareDialog from './components/share';
 import {InfoDialog, INFO_CONTENT} from '@/components/infodialogs/InfoDialogs'
 
+type UserRole = 'owner' | 'editor' | 'viewer';
+
+
 interface Document {
   id: string;
   file: File | null;
@@ -116,6 +119,8 @@ const defaultData: SupabaseBudgetData = {
   budget_type: "tech",
 };
 
+
+
 export default function BudgetPage() {
   const router = useRouter();
   const params = useParams();
@@ -128,51 +133,87 @@ export default function BudgetPage() {
   const [showTypeChangeDialog, setShowTypeChangeDialog] = useState(false);
   const [pendingCalculatorType, setPendingCalculatorType] = useState<string | null>(null);
   const [budget, setBudget] = useState<BudgetComplete | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
 
-
-  const checkUserPermissions = useCallback(() => {
-    if (userId) {
-      console.log("Current user ID:", userId);
-      // In futuro qui andranno i controlli dei permessi
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        if (user) {
-          setUserId(user.id);
-          checkUserPermissions();
+  const loadBudget = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data: budget, error } = await supabase
+        .from("budgets")
+        .select("*")
+        .eq("id", budgetId)
+        .single();
+  
+      if (error) throw error;
+  
+      if (budget) {
+        setBudget(budget);
+        setTitle(budget.budget_name || "Untitled Budget");
+        if (budget.body) {
+          setBudgetData(budget.body as SupabaseBudgetData);
+          setCalculatorType(budget.body.budget_type || "tech");
         }
-      } catch (error) {
-        console.error("Error fetching user:", error);
       }
-    };
-
-    fetchUser();
-  }, [checkUserPermissions]);
-
-  useEffect(() => {
-    if (budgetId) {
-      loadBudget();
-      console.log("loading the budget: ", budgetId);
+    } catch (error) {
+      console.error("Error loading budget:", error);
+    } finally {
+      setIsLoading(false);
     }
   }, [budgetId]);
+
+  useEffect(() => {
+    let isMounted = true; 
+  
+    const verifyPermissions = async () => {
+      if (!budgetId) return;
+      
+      try {
+        if (isMounted) setIsCheckingPermissions(true);
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id || !isMounted) return;
+  
+        const { data: userLink, error: linkError } = await supabase
+          .from('link_budget_users')
+          .select('user_role')
+          .eq('budget_id', budgetId)
+          .eq('user_id', user.id)
+          .single();
+  
+        if (!isMounted) return;
+  
+        if (linkError || !userLink) {
+          router.push("/budgets");
+          return;
+        }
+  
+        const role = userLink.user_role as UserRole;
+        if (!['owner', 'editor', 'viewer'].includes(role)) {
+          router.push("/budgets");
+          return;
+        }
+        await loadBudget();
+        
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        if (isMounted) router.push("/budgets");
+      } finally {
+        if (isMounted) setIsCheckingPermissions(false);
+      }
+    };
+  
+    verifyPermissions();
+  
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [budgetId, router, loadBudget]); 
 
 
   
 
-  useEffect(() => {
-    if (budgetId) {
-      loadBudget();
-      console.log("loading the budget: ", budgetId);
-    }
-  }, [budgetId]);
-
-  const handleBack = () => {
+    const handleBack = () => {
     router.push("/budgets");
   };
   
@@ -205,31 +246,7 @@ export default function BudgetPage() {
 
  
 
-  const loadBudget = async () => {
-    setIsLoading(true);
-    try {
-      const { data: budget, error } = await supabase
-        .from("budgets")
-        .select("*")
-        .eq("id", budgetId)
-        .single();
-
-      if (error) throw error;
-
-      if (budget) {
-        setBudget(budget);
-        setTitle(budget.budget_name || "Untitled Budget");
-        if (budget.body) {
-          setBudgetData(budget.body as SupabaseBudgetData);
-          setCalculatorType(budget.body.budget_type || "tech");
-        }
-      }
-    } catch (error) {
-      console.error("Error loading budget:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  
 
   const saveBudget = async (newBody: SupabaseBudgetData) => {
     try {
@@ -259,6 +276,7 @@ export default function BudgetPage() {
       console.log('🔍 saveBudget - techBudget block index:', techBudgetIndex);
   
       // Se non esiste il blocco techbudget, lo creiamo
+
       if (techBudgetIndex === -1) {
         console.log('➕ saveBudget - Creating new techbudget block');
         currentBlocks.push({
@@ -304,11 +322,11 @@ export default function BudgetPage() {
         throw updateError;
       }
   
-      console.log('✅ saveBudget - Successfully saved budget');
+      //console.log('✅ saveBudget - Successfully saved budget');
       
-      console.log('🔄 saveBudget - Reloading budget');
+      //console.log('🔄 saveBudget - Reloading budget');
       await loadBudget();
-      console.log('✅ saveBudget - Budget reloaded');
+      //console.log('✅ saveBudget - Budget reloaded');
 
     } catch (error) {
       console.error("❌ saveBudget - Error in save operation:", error);
@@ -339,7 +357,7 @@ export default function BudgetPage() {
       await saveBudget(newData);
       
       // Optional: aggiungi un feedback di successo
-      console.log('Budget saved successfully');
+      // console.log('Budget saved successfully');
     } catch (error) {
       console.error("Failed to save budget:", error);
       // Rollback dello stato in caso di errore
@@ -358,9 +376,12 @@ export default function BudgetPage() {
     setShowTypeChangeDialog(true);
   };
 
-  if (isLoading) {
+  if (isCheckingPermissions || isLoading) {
+    // console.log(isCheckingPermissions ? "Verifying permissions..." : "Loading...")
     return (
-      <div className="flex h-full items-center justify-center">Loading...</div>
+      <div className="flex h-full items-center justify-center">
+        {isCheckingPermissions ? "Verifying permissions..." : "Loading..."}
+      </div>
     );
   }
 
