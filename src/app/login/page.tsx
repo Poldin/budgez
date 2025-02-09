@@ -80,53 +80,27 @@ const AuthPage = () => {
     setLoading(true);
   
     try {
-      // Genera un token sicuro per il reset
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`
       });
   
       if (error) throw error;
-  
-      // Invia l'email tramite la tua API
-      const response = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: resetEmail,
-          subject: 'Recupero Password - Budgez',
-          content: `
-            <p>Ciao! 👋</p>
-            <p>Hai richiesto il reset della password per il tuo account Budgez.</p>
-            <p>Per reimpostare la tua password, clicca sul pulsante qui sotto:</p>
-            <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password" 
-                  style="display: inline-block; 
-                         background-color: black; 
-                         color: white; 
-                         padding: 10px 20px; 
-                         text-decoration: none; 
-                         border-radius: 5px; 
-                         margin: 20px 0;">
-                Reimposta Password
-            </a></p>
-            <p>oppure copia e incolla questo link sul tuo browser:</p>
-            <p>${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password</p>
-            <p>Se non hai richiesto il reset della password, puoi ignorare questa email.</p>
-            <p>Questo link scadrà tra 24 ore per motivi di sicurezza.</p>
-          `
-        })
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to send email');
-      }
   
       setResetEmailSent(true);
       toast.success("Email per il reset della password inviata!");
     } catch (error: unknown) {
       console.error("Errore reset password:", error);
-      toast.error("Errore nell'invio dell'email di reset");
+      
+      let errorMessage = "Errore nell'invio dell'email di reset";
+      if (error instanceof Error) {
+        if (error.message.includes("Email not found")) {
+          errorMessage = "Email non trovata";
+        } else if (error.message.includes("Too many requests")) {
+          errorMessage = "Troppi tentativi. Riprova più tardi";
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
