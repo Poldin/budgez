@@ -23,7 +23,7 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isTokenValid, setIsTokenValid] = useState(false);
+  const [isTokenValid, setIsTokenValid] = useState(true);
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -37,15 +37,15 @@ export default function ResetPasswordPage() {
   const router = useRouter();
 
   // Controlla se l'utente è già loggato
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push('/budgets');
-      }
-    };
-    checkAuth();
-  }, [router]);
+  // useEffect(() => {
+  //   const checkAuth = async () => {
+  //     const { data: { session } } = await supabase.auth.getSession();
+  //     if (session) {
+  //       router.push('/budgets');
+  //     }
+  //   };
+  //   checkAuth();
+  // }, [router]);
 
   // Verifica che il token sia valido all'avvio
   useEffect(() => {
@@ -55,13 +55,17 @@ export default function ResetPasswordPage() {
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const type = hashParams.get('type');
+
+        console.log('hashParamsh', hashParams)
+        console.log('accessToken', accessToken)
+        console.log('typet', type)
         
         if (!accessToken) {
           setError("Token di reset non trovato");
           return;
         }
 
-        // Verifica che sia un token di tipo recovery
+        // // Verifica che sia un token di tipo recovery
         if (type !== 'recovery') {
           setError("Tipo di token non valido");
           return;
@@ -95,7 +99,7 @@ export default function ResetPasswordPage() {
       }
     };
 
-    validateToken();
+    // validateToken();
   }, []);
 
   // Controlla i requisiti della password

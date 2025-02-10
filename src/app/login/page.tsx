@@ -81,7 +81,7 @@ const AuthPage = () => {
   
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`
+        redirectTo: `${window.location.origin}/auth/reset-password`
       });
   
       if (error) throw error;
@@ -179,7 +179,7 @@ const AuthPage = () => {
 
     
     try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
+      const {error: otpError } = await supabase.auth.signInWithOtp({
         email: signupEmail,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
