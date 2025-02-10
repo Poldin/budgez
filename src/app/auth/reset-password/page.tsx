@@ -48,59 +48,59 @@ export default function ResetPasswordPage() {
   // }, [router]);
 
   // Verifica che il token sia valido all'avvio
-  useEffect(() => {
-    const validateToken = async () => {
-      try {
-        // Ottieni i parametri dall'URL
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const type = hashParams.get('type');
+  // useEffect(() => {
+  //   // const validateToken = async () => {
+  //   //   try {
+  //   //     // Ottieni i parametri dall'URL
+  //   //     const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  //   //     const accessToken = hashParams.get('access_token');
+  //   //     const type = hashParams.get('type');
 
-        console.log('hashParamsh', hashParams)
-        console.log('accessToken', accessToken)
-        console.log('typet', type)
+  //   //     console.log('hashParamsh', hashParams)
+  //   //     console.log('accessToken', accessToken)
+  //   //     console.log('typet', type)
         
-        if (!accessToken) {
-          setError("Token di reset non trovato");
-          return;
-        }
+  //   //     if (!accessToken) {
+  //   //       setError("Token di reset non trovato");
+  //   //       return;
+  //   //     }
 
-        // // Verifica che sia un token di tipo recovery
-        if (type !== 'recovery') {
-          setError("Tipo di token non valido");
-          return;
-        }
+  //   //     // // Verifica che sia un token di tipo recovery
+  //   //     if (type !== 'recovery') {
+  //   //       setError("Tipo di token non valido");
+  //   //       return;
+  //   //     }
 
-        // Imposta la sessione con Supabase
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: accessToken
-        });
+  //   //     // Imposta la sessione con Supabase
+  //   //     const { error: sessionError } = await supabase.auth.setSession({
+  //   //       access_token: accessToken,
+  //   //       refresh_token: accessToken
+  //   //     });
 
-        if (sessionError) {
-          console.error("Errore sessione:", sessionError);
-          setError("Token non valido o scaduto");
-          return;
-        }
+  //   //     if (sessionError) {
+  //   //       console.error("Errore sessione:", sessionError);
+  //   //       setError("Token non valido o scaduto");
+  //   //       return;
+  //   //     }
 
-        // Verifica che l'utente sia valido
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
+  //   //     // Verifica che l'utente sia valido
+  //   //     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-        if (userError || !user) {
-          console.error("Errore utente:", userError);
-          setError("Token non valido o scaduto");
-          return;
-        }
+  //   //     if (userError || !user) {
+  //   //       console.error("Errore utente:", userError);
+  //   //       setError("Token non valido o scaduto");
+  //   //       return;
+  //   //     }
 
-        setIsTokenValid(true);
-      } catch (error) {
-        console.error("Errore nella validazione del token:", error);
-        setError("Errore nella validazione del token di reset");
-      }
-    };
+  //   //     setIsTokenValid(true);
+  //   //   } catch (error) {
+  //   //     console.error("Errore nella validazione del token:", error);
+  //   //     setError("Errore nella validazione del token di reset");
+  //   //   }
+  //   // };
 
-    // validateToken();
-  }, []);
+  //   // validateToken();
+  // }, []);
 
   // Controlla i requisiti della password
   useEffect(() => {
@@ -131,6 +131,7 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true);
+    setIsTokenValid(true)
 
     try {
       // Aggiorna la password
