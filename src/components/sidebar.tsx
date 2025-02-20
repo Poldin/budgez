@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronLeft, User, DatabaseZap, LogOut, Zap} from 'lucide-react';
+import { ChevronLeft, User, DatabaseZap, LogOut, Zap, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -88,7 +88,6 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
         
         <div className={`transition-opacity ${isCollapsed ? 'opacity-0 hidden' : 'opacity-100'}`}>
           <div className="flex items-center space-x-2">
-            {/* <Zap className="h-6 w-6 text-white" /> */}
             <h1 className="text-2xl font-bold">B) Budgez</h1>
           </div>
           <p className="text-sm text-gray-400">mi mandi un preventivo?</p>
@@ -111,14 +110,23 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
         ))}
       </nav>
 
-      <div className="p-4 ">
+      <div className="p-4">
+        <Button
+          onClick={() => window.open('https://tally.so/r/wkJWVR', '_blank')}
+          className={`flex items-center rounded-lg transition-colors w-full justify-${isCollapsed ? 'center' : 'start'} bg-purple-600 hover:bg-purple-700 border-2 border-purple-400 animate-pulse`}
+        >
+          <ClipboardList className="h-5 w-5" />
+          {!isCollapsed && <span className="ml-3">Survey</span>}
+        </Button>
+
         <Button 
-          className={`flex items-center rounded-lg transition-colors hover:bg-gray-800 w-full justify-${isCollapsed ? 'center' : 'start'}`}
+          className={`mt-2 flex items-center rounded-lg transition-colors hover:bg-gray-800 w-full justify-${isCollapsed ? 'center' : 'start'}`}
           onClick={() => router.push('/profile')}
         >
           <User className="h-5 w-5" />
           {!isCollapsed && <span className="ml-3">{userName}</span>}
         </Button>
+
         <Button
           variant="ghost"
           onClick={handleLogout}
