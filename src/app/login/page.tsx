@@ -66,10 +66,15 @@ const AuthPage = () => {
     setLoading(true);
 
     try {
+      const baseUrl = window.location.origin;
+      console.log(baseUrl)
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resetEmail })
+        body: JSON.stringify({ 
+          email: resetEmail,
+          redirectUrl: `${baseUrl}/auth/reset-password`
+        })
       });
 
       if (!response.ok) {
@@ -166,7 +171,6 @@ const AuthPage = () => {
     setLoading(true);
   
     try {
-      // Ottieni l'URL base corrente
       const baseUrl = window.location.origin;
       console.log('Base URL:', baseUrl);
       
@@ -195,6 +199,16 @@ const AuthPage = () => {
       console.log('Response data:', data);
   
       if (!response.ok) {
+        // Gestione specifica per utente già registrato
+        if (data.status === 'ALREADY_REGISTERED') {
+          toast.error("Email già registrata. Procedi con il login");
+          // Opzionale: switch automatico al tab di login
+          const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+          if (loginTab) {
+            loginTab.click();
+          }
+          return;
+        }
         throw new Error(data.message || 'Errore durante la registrazione');
       }
   
