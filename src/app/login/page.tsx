@@ -210,8 +210,8 @@ const AuthPage = () => {
   };
 
   const handleOtpVerification = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault()
+    setLoading(true)
 
     try {
         const response = await fetch('/api/auth/verify-otp', {
@@ -220,30 +220,29 @@ const AuthPage = () => {
             body: JSON.stringify({
                 email: signupEmail,
                 otp: otpCode,
-                password: signupPassword 
+                password: signupPassword
             })
-        });
+        })
 
+        const data = await response.json()
+        
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message);
+            throw new Error(data.message || 'Errore durante la verifica')
         }
 
-        const data = await response.json();
+        // La sessione è già stata impostata dal backend grazie a auth-helpers-nextjs
+        toast.success("Verifica completata! Accesso in corso...")
+        
+        // Redirect to /budgets
+        router.push("/budgets")
 
-        // Verifica che la sessione sia stata creata correttamente
-        if (!data.session) {
-            throw new Error('Sessione non creata');
-        }
-
-        toast.success("Email verificata e accesso effettuato con successo!");
-        router.push("/budgets");
     } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Errore durante la verifica");
+        console.error('OTP verification error:', error)
+        toast.error(error instanceof Error ? error.message : "Errore durante la verifica")
     } finally {
-        setLoading(false);
+        setLoading(false)
     }
-};
+}
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
