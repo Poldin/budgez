@@ -15,7 +15,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validazione base dell'email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json(
@@ -24,10 +23,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Inizializza il client Supabase
-    const supabase = createRouteHandlerClient({ cookies });
+    // Ottieni i cookies in modo asincrono
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-    // Usa il redirectUrl fornito dal client
     const { redirectUrl } = requestData;
     if (!redirectUrl) {
       return NextResponse.json(
@@ -36,7 +35,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Invia l'email di reset password
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
     });

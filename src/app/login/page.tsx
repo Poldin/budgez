@@ -67,7 +67,7 @@ const AuthPage = () => {
 
     try {
       const baseUrl = window.location.origin;
-      console.log(baseUrl)
+      //console.log(baseUrl)
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
