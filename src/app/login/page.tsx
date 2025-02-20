@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Toaster } from "sonner";
 import { Mail, UserPlus, LogIn, Check, X, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,101 +15,75 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-interface SupabaseError {
-  message: string;
-  status?: number;
+interface PasswordRequirements {
+  minLength: boolean;
+  hasUpperCase: boolean;
+  hasLowerCase: boolean;
+  hasSpecialChar: boolean;
 }
 
-
-
 const AuthPage = () => {
+  const router = useRouter();
+  
+  // Dialog states
   const [showForgotPasswordDialog, setShowForgotPasswordDialog] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
-  //Stati per gestione mostra password
+  // Password visibility states
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
-  // Stati per form login
+
+  // Form states
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-  
-  // Stati per form registrazione
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [userName, setUserName] = useState("");
-
-  
-  // Stati per validazione password
-  const [passwordRequirements, setPasswordRequirements] = useState({
-    minLength: false,
-    hasUpperCase: false,
-    hasLowerCase: false,
-    hasSpecialChar: false
-  });
-  
-  // Stati comuni
-  const [loading, setLoading] = useState(false);
-  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
-  const [activeEmail, setActiveEmail] = useState("");
+  const [loading, setLoading] = useState(false);
 
-;
-  const router = useRouter();
+  // Password validation
+  const validatePassword = (password: string): PasswordRequirements => ({
+    minLength: password.length >= 8,
+    hasUpperCase: /[A-Z]/.test(password),
+    hasLowerCase: /[a-z]/.test(password),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  });
 
-  // Controlla i requisiti della password
-  useEffect(() => {
-    setPasswordRequirements({
-      minLength: signupPassword.length >= 8,
-      hasUpperCase: /[A-Z]/.test(signupPassword),
-      hasLowerCase: /[a-z]/.test(signupPassword),
-      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(signupPassword)
-    });
-  }, [signupPassword]);
+  const passwordRequirements = validatePassword(signupPassword);
 
   const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-  
+
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/auth/reset-password`
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail })
       });
-  
-      if (error) throw error;
-  
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message);
+      }
+
       setResetEmailSent(true);
       toast.success("Email per il reset della password inviata!");
-    } catch (error: unknown) {
-      console.error("Errore reset password:", error);
-      
-      let errorMessage = "Errore nell'invio dell'email di reset";
-      if (error instanceof Error) {
-        if (error.message.includes("Email not found")) {
-          errorMessage = "Email non trovata";
-        } else if (error.message.includes("Too many requests")) {
-          errorMessage = "Troppi tentativi. Riprova più tardi";
-        }
-      }
-      
-      toast.error(errorMessage);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Errore nell'invio dell'email di reset");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCloseResetDialog = () => {
-    setShowForgotPasswordDialog(false);
-    setResetEmailSent(false);
-    setResetEmail("");
   };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -118,28 +92,34 @@ const AuthPage = () => {
     setLoginError("");
   
     try {
-      const {error } = await supabase.auth.signInWithPassword({
+      console.log('Attempting login...');
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: loginPassword,
       });
   
       if (error) {
-        let errorMessage = "";
+        let errorMessage = "Errore durante il login";
         if (error.message.includes("Invalid login credentials")) {
           errorMessage = "Email o password non corretta";
         } else if (error.message.includes("Email not confirmed")) {
           errorMessage = "Email non confermata";
-        } else {
-          errorMessage = `Errore: ${error.message}`;
         }
         setLoginError(errorMessage);
         toast.error(errorMessage);
         return;
       }
   
+      if (!data?.session) {
+        throw new Error('Sessione non creata');
+      }
+  
       toast.success("Accesso effettuato con successo!");
-      router.push("/budgets");
-    } catch (error: unknown) {
+      
+      // Utilizziamo replace invece di push per evitare problemi con la cronologia
+      router.replace("/budgets");
+    } catch (error) {
       console.error("Errore completo:", error);
       toast.error("Si è verificato un errore durante il login");
     } finally {
@@ -149,7 +129,14 @@ const AuthPage = () => {
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log('Starting signup process...', {
+      email: signupEmail,
+      userName,
+      passwordLength: signupPassword.length,
+      termsAccepted: acceptedTerms
+    });
   
+    // Validation checks
     if (!userName.trim()) {
       toast.error("Il nome utente è obbligatorio");
       return;
@@ -175,40 +162,48 @@ const AuthPage = () => {
       return;
     }
   
+    console.log('All validations passed, proceeding with signup...');
     setLoading(true);
-
-    
+  
     try {
-      const {error: otpError } = await supabase.auth.signInWithOtp({
+      // Ottieni l'URL base corrente
+      const baseUrl = window.location.origin;
+      console.log('Base URL:', baseUrl);
+      
+      const signupData = {
         email: signupEmail,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          data: {
-            password: signupPassword,
-            user_name: userName, 
-            terms_accepted: true,
-            terms_accepted_at: new Date().toISOString(),
-          }
-        },
+        password: signupPassword,
+        userName,
+        termsAccepted: acceptedTerms,
+        redirectUrl: `${baseUrl}/auth/callback`
+      };
+      
+      console.log('Sending signup request with data:', {
+        ...signupData,
+        password: '***' // Nascondi la password nei log
       });
   
-      if (otpError) throw otpError;
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(signupData)
+      });
   
-      setActiveEmail(signupEmail);
+      console.log('Response status:', response.status);
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+  
+      if (!response.ok) {
+        throw new Error(data.message || 'Errore durante la registrazione');
+      }
+  
+      console.log('Signup successful, showing OTP dialog');
       setShowOtpDialog(true);
       toast.success("Codice di verifica inviato via email.");
-    } catch (error: unknown) {
-      console.error("Errore completo:", error);
-      
-      let errorMessage = "Errore durante la registrazione";
-      if (error && typeof error === 'object' && 'message' in error) {
-        const supabaseError = error as SupabaseError;
-        if (supabaseError.message.includes("User already registered")) {
-          errorMessage = "Email già registrata";
-        }
-      }
-      
-      toast.error(errorMessage);
+    } catch (error) {
+      console.error('Signup error:', error);
+      toast.error(error instanceof Error ? error.message : "Errore durante la registrazione");
     } finally {
       setLoading(false);
     }
@@ -219,57 +214,36 @@ const AuthPage = () => {
     setLoading(true);
 
     try {
-      // Verifichiamo l'OTP
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: activeEmail,
-        token: otpCode,
-        type: "email",
-      });
+        const response = await fetch('/api/auth/verify-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: signupEmail,
+                otp: otpCode,
+                password: signupPassword 
+            })
+        });
 
-      if (error) throw error;
-
-      // Se la verifica è andata a buon fine, creiamo l'utente con la password
-      if (data?.user) {
-        const password = data?.user?.user_metadata?.password;
-          delete data.user.user_metadata.password; 
-
-          const { error: signUpError } = await supabase.auth.signUp({
-            email: activeEmail,
-            password,
-            options: {
-              data: {
-                user_name: data.user.user_metadata.user_name,
-                terms_accepted: data.user.user_metadata.terms_accepted,
-                terms_accepted_at: data.user.user_metadata.terms_accepted_at
-              }
-            }
-          });
-
-        if (signUpError) throw signUpError;
-        try {
-          await supabase.rpc('update_link_budget_users_user_id');
-        } catch (rpcError) {
-          console.error('Errore durante l\'aggiornamento dei link:', rpcError);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message);
         }
-      }
 
-      toast.success("Email verificata e registrazione completata con successo!");
-      router.push("/budgets");
-    } catch (error: unknown) {
-      let errorMessage = "Errore durante la verifica";
-      
-      if (error && typeof error === 'object' && 'message' in error) {
-        const supabaseError = error as SupabaseError;
-        if (supabaseError.message.includes("Invalid OTP")) {
-          errorMessage = "Codice OTP non valido";
+        const data = await response.json();
+
+        // Verifica che la sessione sia stata creata correttamente
+        if (!data.session) {
+            throw new Error('Sessione non creata');
         }
-      }
-      
-      toast.error(errorMessage);
+
+        toast.success("Email verificata e accesso effettuato con successo!");
+        router.push("/budgets");
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Errore durante la verifica");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
@@ -286,24 +260,23 @@ const AuthPage = () => {
             <TabsTrigger value="signup">Registrati</TabsTrigger>
           </TabsList>
           
+          {/* Login Tab */}
           <TabsContent value="login">
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-4">
-                <div>
-                  <Input
-                    id="loginEmail"
-                    type="email"
-                    value={loginEmail}
-                    onChange={(e) => {
-                      setLoginEmail(e.target.value);
-                      setLoginError(""); 
-                    }}
-                    placeholder="Email"
-                    required
-                    disabled={loading}
-                    className={`h-12 ${loginError ? 'border-red-500' : ''}`}
-                  />
-                </div>
+                <Input
+                  id="loginEmail"
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => {
+                    setLoginEmail(e.target.value);
+                    setLoginError("");
+                  }}
+                  placeholder="Email"
+                  required
+                  disabled={loading}
+                  className={`h-12 ${loginError ? 'border-red-500' : ''}`}
+                />
                 <div className="relative">
                   <Input
                     id="loginPassword"
@@ -326,6 +299,7 @@ const AuthPage = () => {
                     {showLoginPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
+                {/* Reset Password Link */}
                 <div className="flex justify-end">
                   <button
                     type="button"
@@ -335,19 +309,10 @@ const AuthPage = () => {
                     Password dimenticata?
                   </button>
                 </div>
+                {/* Error Display */}
                 {loginError && (
                   <div className="text-red-500 text-sm bg-red-50 p-3 rounded-md border border-red-200 flex items-start">
-                    <svg
-                      className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <X className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                     {loginError}
                   </div>
                 )}
@@ -359,10 +324,11 @@ const AuthPage = () => {
             </form>
           </TabsContent>
 
+          {/* Signup Tab */}
           <TabsContent value="signup">
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="space-y-4">
-              <Input
+                <Input
                   type="text"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
@@ -381,6 +347,7 @@ const AuthPage = () => {
                   disabled={loading}
                   className="h-12"
                 />
+                {/* Password Fields */}
                 <div className="relative">
                   <Input
                     type={showSignupPassword ? "text" : "password"}
@@ -398,44 +365,6 @@ const AuthPage = () => {
                   >
                     {showSignupPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
-
-                  <div className="space-y-2 p-3 rounded-md">
-                    <p className="text-sm font-medium text-gray-700">La password deve contenere:</p>
-                    <ul className="space-y-1">
-                      <li className="text-sm flex items-center">
-                        {passwordRequirements.minLength ? (
-                          <Check className="w-4 h-4 mr-2 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 mr-2 text-red-500" />
-                        )}
-                        Almeno 8 caratteri
-                      </li>
-                      <li className="text-sm flex items-center">
-                        {passwordRequirements.hasUpperCase ? (
-                          <Check className="w-4 h-4 mr-2 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 mr-2 text-red-500" />
-                        )}
-                        Almeno una lettera maiuscola
-                      </li>
-                      <li className="text-sm flex items-center">
-                        {passwordRequirements.hasLowerCase ? (
-                          <Check className="w-4 h-4 mr-2 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 mr-2 text-red-500" />
-                        )}
-                        Almeno una lettera minuscola
-                      </li>
-                      <li className="text-sm flex items-center">
-                        {passwordRequirements.hasSpecialChar ? (
-                          <Check className="w-4 h-4 mr-2 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 mr-2 text-red-500" />
-                        )}
-                        Almeno un carattere speciale (!@#$%^&*(),.?&quot;:{}|)
-                      </li>
-                    </ul>
-                  </div>
                 </div>
                 <div className="relative">
                   <Input
@@ -455,6 +384,23 @@ const AuthPage = () => {
                     {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
+                {/* Password Requirements */}
+                <div className="space-y-2 p-3 rounded-md">
+                  <p className="text-sm font-medium text-gray-700">La password deve contenere:</p>
+                  <ul className="space-y-1">
+                    {Object.entries(passwordRequirements).map(([requirement, isMet]) => (
+                      <li key={requirement} className="text-sm flex items-center">
+                        {isMet ? (
+                          <Check className="w-4 h-4 mr-2 text-green-500" />
+                        ) : (
+                          <X className="w-4 h-4 mr-2 text-red-500" />
+                        )}
+                        {getRequirementText(requirement)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {/* Terms Checkbox */}
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="terms"
@@ -482,13 +428,14 @@ const AuthPage = () => {
         </Tabs>
       </div>
 
+      {/* OTP Dialog */}
       <Dialog open={showOtpDialog} onOpenChange={setShowOtpDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Verifica Email</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleOtpVerification} className="space-y-4">
-            <div className="space-y-2">
+          <div className="space-y-2">
               <label htmlFor="otp" className="text-sm">
                 Inserisci il codice di verifica ricevuto via email
               </label>
@@ -510,7 +457,8 @@ const AuthPage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showForgotPasswordDialog} onOpenChange={handleCloseResetDialog}>
+      {/* Reset Password Dialog */}
+      <Dialog open={showForgotPasswordDialog} onOpenChange={setShowForgotPasswordDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -526,7 +474,11 @@ const AuthPage = () => {
               <Button
                 type="button"
                 className="w-full"
-                onClick={handleCloseResetDialog}
+                onClick={() => {
+                  setShowForgotPasswordDialog(false);
+                  setResetEmailSent(false);
+                  setResetEmail("");
+                }}
               >
                 Chiudi
               </Button>
@@ -549,11 +501,7 @@ const AuthPage = () => {
                 />
               </div>
               <Button type="submit" className="w-full h-12" disabled={loading}>
-                {loading ? (
-                  "Invio in corso..."
-                ) : (
-                  "Invia istruzioni di reset"
-                )}
+                {loading ? "Invio in corso..." : "Invia istruzioni di reset"}
               </Button>
             </form>
           )}
@@ -561,6 +509,17 @@ const AuthPage = () => {
       </Dialog>
     </div>
   );
+};
+
+// Helper function to get requirement text
+const getRequirementText = (requirement: string): string => {
+  const requirements: Record<string, string> = {
+    minLength: "Almeno 8 caratteri",
+    hasUpperCase: "Almeno una lettera maiuscola",
+    hasLowerCase: "Almeno una lettera minuscola", 
+    hasSpecialChar: "Almeno un carattere speciale (!@#$%^&*(),.?\":{}|)"
+  };
+  return requirements[requirement] || requirement;
 };
 
 export default AuthPage;
