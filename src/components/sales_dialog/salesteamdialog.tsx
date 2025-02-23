@@ -104,7 +104,7 @@ export default function SalesTeamDialog({ open, onOpenChange }: SalesTeamDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:min-w-[900px] max-h-screen overflow-hidden">
+      <DialogContent className="sm:min-w-[900px] max-h-[90vh] overflow-y-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Colonna sinistra - Testo */}
           <div className="flex flex-col justify-start p-2">

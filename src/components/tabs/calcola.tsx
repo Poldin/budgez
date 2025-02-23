@@ -513,7 +513,7 @@ const DemoBudgetCalculator = () => {
   };
 
   return (
-    <div className=" px-16 mb-4">
+    <div className="md:px-16 mb-4">
         {/* templates select */}
         <div className="mb-6">
             

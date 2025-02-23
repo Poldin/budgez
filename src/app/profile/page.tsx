@@ -12,6 +12,8 @@ import debounce from 'lodash/debounce'
 
 type User = {
   id: string
+  email?: string
+  created_at?: string
   user_metadata: {
     user_name?: string
   }
@@ -127,6 +129,18 @@ export default function ProfilePage() {
     }
   }, [])
 
+  // Formatta la data in un formato più leggibile
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-'
+    
+    const date = new Date(dateString)
+    return date.toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+  }
+
   if (isLoading) {
     return <div>waiting the next apocalypse...</div>
   }
@@ -138,8 +152,7 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold mb-6">Profilo</h1>
           
           <div className="space-y-6">
-            <div className="space-y-2">
-              
+            <div className="space-y-4">
               <div className="relative">
                 <Input
                   value={userName}
@@ -152,6 +165,22 @@ export default function ProfilePage() {
                     saving bees from extintion...
                   </span>
                 )}
+              </div>
+              
+              {/* Email dell'utente */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-600">Email</label>
+                <div className="p-2 bg-gray-50 rounded-md border border-gray-200 text-sm">
+                  {user?.email || '-'}
+                </div>
+              </div>
+              
+              {/* Data di iscrizione */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-600">Data di iscrizione a Budgez</label>
+                <div className="p-2 bg-gray-50 rounded-md border border-gray-200 text-sm">
+                  {user?.created_at ? formatDate(user.created_at) : '-'}
+                </div>
               </div>
             </div>
 

@@ -113,7 +113,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
       <div className="p-4">
         <Button
           onClick={() => window.open('https://tally.so/r/wkJWVR', '_blank')}
-          className={`flex items-center rounded-lg transition-colors w-full justify-${isCollapsed ? 'center' : 'start'} bg-purple-600 hover:bg-purple-700 border-2 border-purple-400 animate-pulse`}
+          className={`flex items-center rounded-lg transition-colors w-full justify-${isCollapsed ? 'center' : 'start'} animate-pulse`}
         >
           <ClipboardList className="h-5 w-5" />
           {!isCollapsed && <span className="ml-3">Survey</span>}
