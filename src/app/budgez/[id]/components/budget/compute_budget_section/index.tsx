@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   Trash2,
+  Copy
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -314,6 +315,59 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
     updateBudget({ section: newSections });
   };
 
+  const duplicateSection = (sectionId: string) => {
+    const sectionToDuplicate = budget.section.find(s => s.id === sectionId);
+    if (!sectionToDuplicate) return;
+  
+    // Create new IDs mapping for resources
+    const resourceIdMapping: { [key: string]: string } = {};
+    const duplicatedResources = sectionToDuplicate.resources.map(resource => {
+      const newId = uuidv4();
+      resourceIdMapping[resource.id] = newId;
+      return {
+        ...resource,
+        id: newId,
+      };
+    });
+  
+    // Duplicate activities with updated resource allocations
+    const duplicatedActivities = sectionToDuplicate.activities.map(activity => {
+      const newAllocations: { [key: string]: number } = {};
+      
+      // Update resource IDs in allocations
+      Object.entries(activity.resourceAllocations).forEach(([oldResourceId, allocation]) => {
+        const newResourceId = resourceIdMapping[oldResourceId];
+        if (newResourceId) {
+          newAllocations[newResourceId] = allocation;
+        }
+      });
+  
+      return {
+        ...activity,
+        id: uuidv4(),
+        resourceAllocations: newAllocations,
+      };
+    });
+  
+    // Create the duplicated section
+    const duplicatedSection: TBBudgetSection = {
+      ...sectionToDuplicate,
+      id: uuidv4(),
+      name: `${sectionToDuplicate.name} (Copy)`,
+      isExpanded: false,
+      isResourcesExpanded: false,
+      resources: duplicatedResources,
+      activities: duplicatedActivities,
+    };
+  
+    // Insert the duplicated section after the original
+    const sectionIndex = budget.section.findIndex(s => s.id === sectionId);
+    const newSections = [...budget.section];
+    newSections.splice(sectionIndex + 1, 0, duplicatedSection);
+  
+    updateBudget({ section: newSections });
+  };
+
   const addSection = () => {
     updateBudget({
       section: [
@@ -490,6 +544,14 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
               <div className="font-bold">
                 {formatCurrency(calculateSectionTotal(section))}
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => duplicateSection(section.id)}
+                title="Duplicate section"
+              >
+                <Copy className="h-4 w-4 text-blue-600" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
