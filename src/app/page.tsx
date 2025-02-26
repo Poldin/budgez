@@ -12,6 +12,7 @@ import { Toaster } from "sonner";
 import Header from '@/components/header';
 import Footer from '@/components/footer/footer';
 import DemoBudgetCalculator from '@/components/tabs/calcola';
+import SoftwareUpdates from '@/components/softwareUpdates/softwareUpdates';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -124,7 +125,11 @@ export default function LandingPage() {
 
           </Tabs>
         </section>
-        {/* <DocsSection/> */}
+
+        <SoftwareUpdates />
+
+
+
       </main>
 
        {/* Demo Request Dialog */}
