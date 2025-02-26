@@ -29,7 +29,23 @@ interface SoftwareUpdate {
 
 // Array di dati di esempio con i tipi di badge corretti
 const UPDATES_DATA: SoftwareUpdate[] = [
-    {
+  {
+    id: '8',
+    version: 'v0.2.3',
+    title: 'Introdotta la conferma del budget',
+    description: 'da oggi è possibile confermare il budget con un componente blocco ad hoc. Quando ti sembra tutto corretto, prorocedi a confermare il budget: crea catene di conferma e notifica in automatico ogni altro soggetto agganciato al budget',
+    date: '26 feb 2025',
+    tags: [
+      
+      { id: '1', name: 'Conferma', color: 'default' },
+      
+    ],
+    image: '/images/template-engine.png',
+    highlights: [
+      'Conferma il budget: seriamente',
+    ],
+    isNew: true
+  },{
         id: '7',
         version: 'v0.2.2',
         title: 'migliorata la sezione del profilo, nuovo form di segnalazione bug e idee',

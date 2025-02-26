@@ -10,7 +10,8 @@ import {
   Heading1,
   Heading2,
   Trash2,
-  Gauge
+  Gauge,
+  CheckSquare
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -19,8 +20,9 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
 import TechBudgetScreen from './budget/compute_budget_section'
+import BudgetConfirmationBlock from './budget/confirmationComponent/confirmationComponent'
 
-type BlockType = 'text' | 'heading1' | 'heading2' | 'techbudget'
+type BlockType = 'text' | 'heading1' | 'heading2' | 'techbudget' | 'confirmation'
 
 interface Block {
   id: string
@@ -392,6 +394,26 @@ export default function BlockEditor({ id }: { id: string }) {
       initialData={block.content ? JSON.parse(block.content) : undefined}
     />
   );
+
+  case 'confirmation':
+    return (
+      <BudgetConfirmationBlock
+        content={block.content}
+        budgetId={id}
+        onChange={(newContent: string) => {
+          handleTechBudgetChange(
+            block.id,
+            newContent,
+            blocks,
+            updateQueue.current,
+            updateTimeoutRef,
+            setBlocks,
+            updateDatabase
+          );
+        }}
+        currentBudgetData={blocks.length > 0 ? { blocks } : {}}
+      />
+    );
     }
   }
 
@@ -485,6 +507,10 @@ export default function BlockEditor({ id }: { id: string }) {
                   <Gauge className="h-4 w-4 mr-2" />
                   Tech Budget
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => insertBlock('confirmation', index)}>
+                <CheckSquare className="h-4 w-4 mr-2" />
+                Conferma Budget
+              </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
