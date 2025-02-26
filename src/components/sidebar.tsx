@@ -3,10 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronLeft, User, DatabaseZap, LogOut, Zap, ClipboardList } from 'lucide-react';
+import { ChevronLeft, User, DatabaseZap, LogOut, Zap, ClipboardList, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import FeedbackDialog from './feedbackDialog/feedbackDialog';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -17,6 +18,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const [userName, setUserName] = useState<string>('');
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -118,6 +120,21 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
           <ClipboardList className="h-5 w-5" />
           {!isCollapsed && <span className="ml-3">Survey</span>}
         </Button>
+
+        {/* Nuovo bottone per il feedback */}
+        <Button 
+          onClick={() => setIsFeedbackOpen(true)}
+          className={`mt-2 flex items-center rounded-lg transition-colors hover:bg-gray-800 w-full justify-${isCollapsed ? 'center' : 'start'}`}
+        >
+          <MessageSquare className="h-5 w-5" />
+          {!isCollapsed && <span className="ml-3">Feedback</span>}
+        </Button>
+
+        {/* FeedbackDialog controllato dallo stato */}
+        <FeedbackDialog 
+          open={isFeedbackOpen} 
+          onOpenChange={setIsFeedbackOpen} 
+        />
 
         <Button 
           className={`mt-2 flex items-center rounded-lg transition-colors hover:bg-gray-800 w-full justify-${isCollapsed ? 'center' : 'start'}`}
