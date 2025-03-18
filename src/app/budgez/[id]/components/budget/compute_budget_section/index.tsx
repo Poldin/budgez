@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,8 @@ import {
   ChevronDown,
   ChevronRight,
   Trash2,
-  Copy
+  Copy,
+  LayoutPanelTop
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -21,7 +22,40 @@ import {
   SupabaseBudgetData,
 } from "../../../page";
 
+// Import template component
+import TemplateSelector from "./components/budgetTemplatedialog";
+
 // Types
+
+// Add these with your other interfaces
+interface TemplateItem {
+  id: string;
+  name: string;
+  body: unknown;
+}
+
+interface SectionTemplateBody {
+  name: string;
+  resources?: {
+    id: string;
+    name: string;
+    type?: ResourceType;
+    rate?: number;
+  }[];
+  activities?: {
+    id: string;
+    name: string;
+    resourceAllocations?: {
+      [key: string]: number;
+    };
+  }[];
+}
+
+interface ResourceTemplateBody {
+  name: string;
+  type?: ResourceType;
+  rate?: number;
+}
 
 interface TBBudgetSection {
   id: string;
@@ -193,6 +227,11 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
     } as TBBudgetData;
   });
 
+  // State for template dialogs
+  const [sectionTemplateDialogOpen, setSectionTemplateDialogOpen] = useState(false);
+  const [resourceTemplateDialogOpen, setResourceTemplateDialogOpen] = useState(false);
+  const [currentSectionId, setCurrentSectionId] = useState<string | null>(null);
+
   const calculateActivityCost = (
     activity: Activity,
     resources: Resource[]
@@ -280,6 +319,104 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
       discountAmount,
       finalTotal,
     };
+  };
+
+  // Template handling functions
+  const processSelectedSectionTemplate = (templateBody: SectionTemplateBody): TBBudgetSection => {
+    // Create new IDs mapping for resources
+    const resourceIdMapping: { [key: string]: string } = {};
+    const processedResources = (templateBody.resources || []).map(resource => {
+      const newId = uuidv4();
+      resourceIdMapping[resource.id] = newId;
+      return {
+        ...resource,
+        id: newId,
+        // Ensure type is always defined by providing a default
+        type: resource.type || "hourly", // Default to "hourly" if type is undefined
+        // Ensure rate is always defined for non-fixed resources
+        rate: (resource.type !== "fixed" && resource.rate !== undefined) ? resource.rate : 0
+      };
+    });
+
+    // Process activities with new resource IDs
+    const processedActivities = (templateBody.activities || []).map(activity => {
+      const newAllocations: { [key: string]: number } = {};
+      
+      // Update resource IDs in allocations
+      Object.entries(activity.resourceAllocations || {}).forEach(([oldResourceId, allocation]) => {
+        const newResourceId = resourceIdMapping[oldResourceId];
+        if (newResourceId) {
+          newAllocations[newResourceId] = allocation;
+        }
+      });
+
+      return {
+        ...activity,
+        id: uuidv4(),
+        resourceAllocations: newAllocations,
+      };
+    });
+
+    // Return the processed section
+    return {
+      id: uuidv4(),
+      name: templateBody.name,
+      isExpanded: true,
+      isResourcesExpanded: true,
+      resources: processedResources,
+      activities: processedActivities,
+    };
+  };
+
+  const processSelectedResourceTemplate = (templateBody: ResourceTemplateBody): Resource => {
+    return {
+      id: uuidv4(),
+      name: templateBody.name,
+      type: templateBody.type || "hourly",
+      rate: templateBody.rate || 0,
+    };
+  };
+
+  const handleOpenSectionTemplateDialog = () => {
+    setSectionTemplateDialogOpen(true);
+  };
+
+  const handleOpenResourceTemplateDialog = (sectionId:string) => {
+    setCurrentSectionId(sectionId);
+    setResourceTemplateDialogOpen(true);
+  };
+
+  const handleSelectSectionTemplates = (selectedTemplates: TemplateItem[]) => {
+    const newSections = [...budget.section];
+    
+    selectedTemplates.forEach(item => {
+      const processedSection = processSelectedSectionTemplate(item.body as SectionTemplateBody);
+      newSections.push(processedSection);
+    });
+    
+    updateBudget({ section: newSections });
+  };
+
+  const handleSelectResourceTemplates = (selectedTemplates: TemplateItem[]) => {
+    if (!currentSectionId) return;
+    
+    const section = budget.section.find(s => s.id === currentSectionId);
+    if (!section) return;
+    
+    const newResources = [...section.resources];
+    
+    selectedTemplates.forEach(item => {
+      const processedResource = processSelectedResourceTemplate(item.body as ResourceTemplateBody);
+      newResources.push(processedResource);
+    });
+    
+    const newSections = updateSectionById(
+      budget.section,
+      currentSectionId,
+      s => ({ ...s, resources: newResources })
+    );
+    
+    updateBudget({ section: newSections });
   };
 
   const toggleSection = (sectionId: string) => {
@@ -496,6 +633,21 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
 
   return (
     <div className="space-y-6 p-4">
+      {/* Template Dialogs */}
+      <TemplateSelector
+        isOpen={sectionTemplateDialogOpen}
+        onClose={() => setSectionTemplateDialogOpen(false)}
+        onSelectTemplates={handleSelectSectionTemplates}
+        type="section"
+      />
+      
+      <TemplateSelector
+        isOpen={resourceTemplateDialogOpen}
+        onClose={() => setResourceTemplateDialogOpen(false)}
+        onSelectTemplates={handleSelectResourceTemplates}
+        type="resource"
+      />
+      
       {/* Sections */}
       <div className="space-y-4">
         {budget.section.map((section) => (
@@ -622,13 +774,22 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                           </Button>
                         </div>
                       ))}
-                      <Button
-                        variant="outline"
-                        onClick={() => addResource(section.id)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        risorse
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => addResource(section.id)}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          risorse
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleOpenResourceTemplateDialog(section.id)}
+                        >
+                          <LayoutPanelTop className="h-4 w-4 mr-2" />
+                          Template
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -752,10 +913,16 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
             )}
           </div>
         ))}
-        <Button variant="outline" onClick={addSection}>
-          <Plus className="h-4 w-4 mr-2" />
-          sezione
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={addSection}>
+            <Plus className="h-4 w-4 mr-2" />
+            sezione
+          </Button>
+          <Button variant="outline" onClick={handleOpenSectionTemplateDialog}>
+            <LayoutPanelTop className="h-4 w-4 mr-2" />
+            Template
+          </Button>
+        </div>
       </div>
 
       {/* Commercial Margin */}
