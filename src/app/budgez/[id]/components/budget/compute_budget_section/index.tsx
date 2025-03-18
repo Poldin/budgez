@@ -20,7 +20,6 @@ import {
   ResourceType,
   SupabaseBudgetData,
 } from "../../../page";
-import ResourceAutocomplete from "./components/resourceautocomplete";
 
 // Types
 
@@ -247,23 +246,6 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
     };
   };
 
-  const handleResourceSelect = (sectionId: string, resourceId: string) => 
-    (resource: { name: string; type: ResourceType; rate: number }) => {
-      let resourceType: ResourceType = "hourly"; // default
-      
-      // Map resource type to our resource types
-      if (resource.type === "fixed") {
-        resourceType = "fixed";
-      } else if (resource.type === "quantity") {
-        resourceType = "quantity";
-      }
-  
-      updateResource(sectionId, resourceId, {
-        name: resource.name,
-        type: resourceType,
-        rate: resource.rate
-      });
-  };
 
   const calculateTotal = (): {
     baseTotal: number;
@@ -587,14 +569,14 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                           key={resource.id}
                           className="flex items-center gap-2"
                         >
-                          <ResourceAutocomplete
+                          <Input
+                            placeholder="Resource name"
                             value={resource.name}
-                            onChange={(value) =>
+                            onChange={(e) =>
                               updateResource(section.id, resource.id, {
-                                name: value,
+                                name: e.target.value,
                               })
                             }
-                            onResourceSelect={handleResourceSelect(section.id, resource.id)}
                             className="flex-1 min-w-[300px]"
                           />
 
