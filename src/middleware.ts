@@ -39,7 +39,8 @@ export async function middleware(req: NextRequest) {
       '/auth/reset-password', 
       '/about', 
       '/pricing', 
-      '/privacy'
+      '/privacy',
+      '/qrt'
     ];
     
     const isPublicPage = publicPages.includes(req.nextUrl.pathname) || 
