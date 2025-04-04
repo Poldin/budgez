@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import {
   Plus,
   Gauge,
@@ -11,7 +12,10 @@ import {
   ChevronRight,
   Trash2,
   Copy,
-  LayoutPanelTop
+  LayoutPanelTop,
+  ArrowUp,
+  ArrowDown,
+  Calendar
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -57,13 +61,22 @@ interface ResourceTemplateBody {
   rate?: number;
 }
 
+interface ActivityWithDates extends Activity {
+  startDate?: string; // formato "YYYY-MM-DD"
+  endDate?: string; // formato "YYYY-MM-DD"
+}
+
 interface TBBudgetSection {
   id: string;
   name: string;
   isExpanded: boolean;
   isResourcesExpanded: boolean; 
-  activities: Activity[];
+  activities: ActivityWithDates[];
   resources: Resource[];
+  enabled: boolean;
+  // Date calcolate in base alle attività
+  startDate?: string;
+  endDate?: string;
 }
 
 
@@ -105,6 +118,7 @@ const DEFAULT_BUDGET: TBBudgetData = {
       isResourcesExpanded: false,
       activities: [],
       resources: [],
+      enabled: true,
     },
   ],
   commercialMargin: 0,
@@ -170,6 +184,38 @@ const formatCurrency = (value: number): string => {
   return value.toLocaleString("en-US", CURRENCY_FORMAT_OPTIONS);
 };
 
+// Calcola le date di inizio e fine di una sezione basate sulle date delle attività
+const calculateSectionDates = (activities: ActivityWithDates[]): { startDate?: string; endDate?: string } => {
+  // Filtra le attività con date valide
+  const activitiesWithDates = activities.filter(
+    activity => activity.startDate || activity.endDate
+  );
+  
+  if (activitiesWithDates.length === 0) {
+    return { startDate: undefined, endDate: undefined };
+  }
+  
+  // Trova la data di inizio più antica e la data di fine più recente
+  const startDates = activitiesWithDates
+    .filter(a => a.startDate)
+    .map(a => a.startDate as string);
+  
+  const endDates = activitiesWithDates
+    .filter(a => a.endDate)
+    .map(a => a.endDate as string);
+  
+  const startDate = startDates.length > 0 ? startDates.sort()[0] : undefined;
+  const endDate = endDates.length > 0 ? endDates.sort().reverse()[0] : undefined;
+  
+  return { startDate, endDate };
+};
+
+// Aggiorna le date di una sezione in base alle date delle attività
+const updateSectionWithDates = (section: TBBudgetSection): TBBudgetSection => {
+  const { startDate, endDate } = calculateSectionDates(section.activities);
+  return { ...section, startDate, endDate };
+};
+
 const updateSectionById = (
   sections: TBBudgetSection[], 
   sectionId: string, 
@@ -185,6 +231,191 @@ const deleteItem = <T extends { id: string }>(
   itemId: string
 ): T[] => items.filter(item => item.id !== itemId);
 
+// Funzione per calcolare il periodo totale del progetto
+const calculateProjectTimeline = (sections: TBBudgetSection[]): { startDate?: string; endDate?: string } => {
+  // Filtra le sezioni con date valide e che sono abilitate
+  const sectionsWithDates = sections.filter(
+    section => section.enabled && (section.startDate || section.endDate)
+  );
+  
+  if (sectionsWithDates.length === 0) {
+    return { startDate: undefined, endDate: undefined };
+  }
+  
+  // Trova la data di inizio più antica e la data di fine più recente
+  const startDates = sectionsWithDates
+    .filter(s => s.startDate)
+    .map(s => s.startDate as string);
+  
+  const endDates = sectionsWithDates
+    .filter(s => s.endDate)
+    .map(s => s.endDate as string);
+  
+  const startDate = startDates.length > 0 ? startDates.sort()[0] : undefined;
+  const endDate = endDates.length > 0 ? endDates.sort().reverse()[0] : undefined;
+  
+  return { startDate, endDate };
+};
+
+// Componente Timeline
+const Timeline: React.FC<{ sections: TBBudgetSection[] }> = ({ sections }) => {
+  const { startDate, endDate } = calculateProjectTimeline(sections);
+  
+  if (!startDate || !endDate) {
+    return null;
+  }
+  
+  // Calcola la durata totale in giorni
+  const projectStart = new Date(startDate);
+  const projectEnd = new Date(endDate);
+  const projectDurationDays = Math.ceil((projectEnd.getTime() - projectStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  
+  // Filtra solo le sezioni abilitate con date valide
+  const activeTimelineSections = sections.filter(
+    section => section.enabled && section.startDate && section.endDate
+  );
+  
+  if (activeTimelineSections.length === 0) {
+    return null;
+  }
+  
+  return (
+    <div className="bg-white rounded-lg border p-3 mb-4">
+      <h3 className="text-sm font-semibold flex items-center gap-1 mb-3 text-gray-700">
+        <Calendar className="h-3.5 w-3.5 opacity-70" />
+        Timeline del Progetto ({projectStart.toLocaleDateString()} - {projectEnd.toLocaleDateString()})
+      </h3>
+      
+      <div className="mb-1 text-xs text-gray-500 flex justify-between">
+        <span>{projectStart.toLocaleDateString()}</span>
+        <span>{projectEnd.toLocaleDateString()}</span>
+      </div>
+      
+      <div className="space-y-2">
+        {activeTimelineSections.map((section) => {
+          const sectionStart = new Date(section.startDate as string);
+          const sectionEnd = new Date(section.endDate as string);
+          
+          // Calcola posizione e larghezza in percentuale
+          const startOffset = Math.max(
+            0,
+            ((sectionStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60 * 24)) / projectDurationDays
+          );
+          
+          const endOffset = Math.min(
+            1,
+            ((sectionEnd.getTime() - projectStart.getTime()) / (1000 * 60 * 60 * 24) + 1) / projectDurationDays
+          );
+          
+          const width = (endOffset - startOffset) * 100;
+          const left = startOffset * 100;
+          
+          // Genera un colore basato sull'ID della sezione
+          const hue = (parseInt(section.id.substring(0, 3), 16) % 360);
+          const color = `hsl(${hue}deg, 70%, 50%)`;
+          
+          return (
+            <div key={section.id} className="flex items-center gap-2">
+              <div className="w-1/4 text-sm font-medium truncate" title={section.name}>
+                {section.name}
+              </div>
+              <div className="relative flex-1 h-6 bg-gray-100 rounded-md">
+                <div 
+                  className="absolute h-full rounded-md flex items-center px-2 justify-center overflow-hidden text-xs text-white font-medium"
+                  style={{
+                    left: `${left}%`,
+                    width: `${width}%`,
+                    backgroundColor: color,
+                  }}
+                  title={`${sectionStart.toLocaleDateString()} - ${sectionEnd.toLocaleDateString()}`}
+                >
+                  {width > 10 && (
+                    <span className="truncate">
+                      {sectionStart.toLocaleDateString()} - {sectionEnd.toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Componente per visualizzare la timeline delle attività di una sezione
+const SectionActivitiesTimeline: React.FC<{ 
+  section: TBBudgetSection,
+  projectStart: Date,
+  projectEnd: Date,
+  projectDurationDays: number
+}> = ({ section, projectStart, projectDurationDays }) => {
+  // Filtra solo le attività con date valide
+  const activitiesWithDates = section.activities.filter(
+    activity => activity.startDate && activity.endDate
+  );
+  
+  if (activitiesWithDates.length === 0) {
+    return null;
+  }
+  
+  return (
+    <div className="mt-3 border rounded-md p-2 bg-gray-50">
+      <h4 className="text-xs font-medium mb-2 text-gray-700 flex items-center gap-1">
+        <Calendar className="h-3 w-3" /> 
+        Timeline Attività
+      </h4>
+      
+      <div className="space-y-1.5">
+        {activitiesWithDates.map((activity) => {
+          const activityStart = new Date(activity.startDate as string);
+          const activityEnd = new Date(activity.endDate as string);
+          
+          // Calcola posizione e larghezza in percentuale
+          const startOffset = Math.max(
+            0,
+            ((activityStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60 * 24)) / projectDurationDays
+          );
+          
+          const endOffset = Math.min(
+            1,
+            ((activityEnd.getTime() - projectStart.getTime()) / (1000 * 60 * 60 * 24) + 1) / projectDurationDays
+          );
+          
+          const width = (endOffset - startOffset) * 100;
+          const left = startOffset * 100;
+          
+          return (
+            <div key={activity.id} className="flex items-center gap-2">
+              <div className="w-1/4 text-xs truncate" title={activity.name}>
+                {activity.name}
+              </div>
+              <div className="relative flex-1 h-5 bg-white rounded border">
+                <div 
+                  className="absolute h-full rounded-sm flex items-center px-1 justify-center overflow-hidden text-[0.65rem] text-white"
+                  style={{
+                    left: `${left}%`,
+                    width: `${width}%`,
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                  }}
+                  title={`${activityStart.toLocaleDateString()} - ${activityEnd.toLocaleDateString()}`}
+                >
+                  {width > 15 && (
+                    <span className="truncate">
+                      {activityStart.toLocaleDateString()} - {activityEnd.toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 // Main Component
 const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () => {}, initialData }) => {
   const [budget, setBudget] = React.useState<TBBudgetData>(() => {
@@ -198,6 +429,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
             isResourcesExpanded: false,
             activities: s.activities || [],
             resources: s.resources || [],
+            enabled: true,
           })),
           commercialMargin: parsedContent.commercial_margin || 0,
           marginType: parsedContent.margin_type || "fixed",
@@ -218,6 +450,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
             isResourcesExpanded: false,
             activities: s.activities || [],
             resources: s.resources || [],
+            enabled: true,
           }))
         : DEFAULT_BUDGET.section,
       commercialMargin: initialData.commercial_margin || 0,
@@ -246,6 +479,9 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
   };
 
   const calculateSectionTotal = (section: TBBudgetSection): number => {
+    // Return 0 if the section is disabled
+    if (!section.enabled) return 0;
+    
     return section.activities.reduce(
       (total, activity) => total + calculateActivityCost(activity, section.resources),
       0
@@ -260,6 +496,9 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
     let fixedTotal = 0;
 
     budget.section.forEach(section => {
+      // Skip disabled sections
+      if (!section.enabled) return;
+      
       section.activities.forEach(activity => {
         section.resources.forEach(resource => {
           const allocation = activity.resourceAllocations[resource.id] || 0;
@@ -365,6 +604,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
       isResourcesExpanded: true,
       resources: processedResources,
       activities: processedActivities,
+      enabled: true,
     };
   };
 
@@ -435,6 +675,38 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
     updateBudget({ section: newSections });
   };
 
+  const moveSectionUp = (sectionId: string) => {
+    const sectionIndex = budget.section.findIndex(s => s.id === sectionId);
+    if (sectionIndex <= 0) return; // Cannot move up if it's the first section
+    
+    const newSections = [...budget.section];
+    // Swap with the section above
+    [newSections[sectionIndex - 1], newSections[sectionIndex]] = 
+      [newSections[sectionIndex], newSections[sectionIndex - 1]];
+    
+    updateBudget({ section: newSections });
+  };
+  
+  const moveSectionDown = (sectionId: string) => {
+    const sectionIndex = budget.section.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1 || sectionIndex >= budget.section.length - 1) return; // Cannot move down if it's the last section
+    
+    const newSections = [...budget.section];
+    // Swap with the section below
+    [newSections[sectionIndex], newSections[sectionIndex + 1]] = 
+      [newSections[sectionIndex + 1], newSections[sectionIndex]];
+    
+    updateBudget({ section: newSections });
+  };
+  
+  const toggleSectionEnabled = (sectionId: string) => {
+    const newSections = updateSectionById(budget.section, sectionId, section => ({
+      ...section,
+      enabled: !section.enabled
+    }));
+    updateBudget({ section: newSections });
+  };
+
   const duplicateSection = (sectionId: string) => {
     const sectionToDuplicate = budget.section.find(s => s.id === sectionId);
     if (!sectionToDuplicate) return;
@@ -478,6 +750,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
       isResourcesExpanded: false,
       resources: duplicatedResources,
       activities: duplicatedActivities,
+      enabled: sectionToDuplicate.enabled,
     };
   
     // Insert the duplicated section after the original
@@ -499,23 +772,30 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
           isResourcesExpanded: false,
           activities: [],
           resources: [],
+          enabled: true,
         },
       ],
     });
   };
 
   const addActivity = (sectionId: string) => {
-    const newSections = updateSectionById(budget.section, sectionId, section => ({
-      ...section,
-      activities: [
-        ...section.activities,
-        {
-          id: uuidv4(),
-          name: "New Activity",
-          resourceAllocations: {},
-        },
-      ],
-    }));
+    const newSections = updateSectionById(budget.section, sectionId, section => {
+      const newActivity = {
+        id: uuidv4(),
+        name: "New Activity",
+        resourceAllocations: {},
+        startDate: undefined,
+        endDate: undefined,
+      };
+      
+      const updatedSection = {
+        ...section,
+        activities: [...section.activities, newActivity],
+      };
+      
+      return updateSectionWithDates(updatedSection);
+    });
+    
     updateBudget({ section: newSections });
   };
 
@@ -552,11 +832,10 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
   const updateActivity = (
     sectionId: string,
     activityId: string,
-    updates: Partial<Activity> | { resourceId: string; allocation: number }
+    updates: Partial<ActivityWithDates> | { resourceId: string; allocation: number }
   ) => {
-    const newSections = updateSectionById(budget.section, sectionId, section => ({
-      ...section,
-      activities: section.activities.map(activity => {
+    const newSections = updateSectionById(budget.section, sectionId, section => {
+      const updatedActivities = section.activities.map(activity => {
         if (activity.id === activityId) {
           if ("resourceId" in updates) {
             return {
@@ -570,8 +849,17 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
           return { ...activity, ...updates };
         }
         return activity;
-      }),
-    }));
+      });
+      
+      const updatedSection = {
+        ...section,
+        activities: updatedActivities,
+      };
+      
+      // Ricalcola le date della sezione
+      return updateSectionWithDates(updatedSection);
+    });
+    
     updateBudget({ section: newSections });
   };
 
@@ -613,8 +901,17 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
       section: updated.section.map(section => ({
         id: section.id,
         name: section.name,
-        activities: section.activities,
-        resources: section.resources
+        activities: section.activities.map(activity => ({
+          id: activity.id,
+          name: activity.name,
+          resourceAllocations: activity.resourceAllocations,
+          startDate: activity.startDate,
+          endDate: activity.endDate
+        })),
+        resources: section.resources,
+        enabled: section.enabled,
+        startDate: section.startDate,
+        endDate: section.endDate
       })),
       commercial_margin: updated.commercialMargin,
       margin_type: updated.marginType,
@@ -632,7 +929,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
   };
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-4 p-2">
       {/* Template Dialogs */}
       <TemplateSelector
         isOpen={sectionTemplateDialogOpen}
@@ -648,14 +945,73 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
         type="resource"
       />
       
+      {/* Top Controls and Summary */}
+      <div className="flex flex-wrap gap-2 justify-between items-start mb-2">
+        <div className="flex gap-2">
+          <Button variant="default" size="sm" onClick={addSection} className="h-8">
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            sezione
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleOpenSectionTemplateDialog} className="h-8">
+            <LayoutPanelTop className="h-3.5 w-3.5 mr-1" />
+            Template
+          </Button>
+        </div>
+        
+        <div className="bg-gray-50 rounded-md p-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          {(() => {
+            const totals = calculateTotal();
+            const resourceTotals = calculateResourceTypeTotals();
+            return (
+              <>
+                <div className="flex flex-col">
+                  <span className="text-gray-500">Ore</span>
+                  <span className="font-medium">{resourceTotals.hourlyHours.toFixed(1)}h</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-gray-500">Risorse</span>
+                  <span className="font-medium">{formatCurrency(resourceTotals.quantityTotal + resourceTotals.hourlyTotal)}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-gray-500">Spese fisse</span>
+                  <span className="font-medium">{formatCurrency(resourceTotals.fixedTotal)}</span>
+                </div>
+                <div className="flex flex-col border-l pl-4">
+                  <span className="text-gray-500">Totale</span>
+                  <span className="font-bold">{formatCurrency(totals.finalTotal)}</span>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Project Timeline - aggiunto qui */}
+      <Timeline sections={budget.section} />
+
       {/* Sections */}
-      <div className="space-y-4">
-        {budget.section.map((section) => (
-          <div key={section.id} className="border rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-4">
+      <div className="space-y-2">
+        {budget.section.map((section, index) => (
+          <div 
+            key={section.id} 
+            className={`border overflow-hidden transition-colors duration-200 ${
+              section.isExpanded 
+                ? 'rounded-md border-blue-200 shadow-sm' 
+                : 'rounded-full border-gray-200'
+            } ${!section.enabled ? 'opacity-60' : ''}`}
+          >
+            <div 
+              className={`flex items-center gap-2 p-2 transition-colors duration-200 ${
+                section.isExpanded 
+                  ? 'bg-blue-50/70' 
+                  : 'bg-gray-50 hover:bg-gray-100'
+              } ${!section.enabled ? 'bg-gray-100' : ''}`}
+            >
               <button
                 onClick={() => toggleSection(section.id)}
-                className="p-1 hover:bg-gray-100 rounded"
+                className={`p-1 rounded-full transition-transform duration-300 ${
+                  section.isExpanded ? 'bg-blue-100 text-blue-700 rotate-90' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
               >
                 {section.isExpanded ? (
                   <ChevronDown className="h-4 w-4" />
@@ -674,343 +1030,430 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                   );
                   updateBudget({ section: newSections });
                 }}
-                className="flex-1 font-bold"
+                className={`flex-1 font-bold h-8 text-sm border-0 bg-transparent focus-visible:ring-1 focus-visible:ring-offset-0 ${
+                  section.isExpanded ? 'text-blue-800' : ''
+                } ${!section.enabled ? 'text-gray-500' : ''}`}
               />
-              <div className="font-bold">
+              <div className="flex flex-col items-end text-xs text-gray-500">
+                {section.startDate && section.endDate && (
+                  <>
+                    <span>{new Date(section.startDate).toLocaleDateString()}</span>
+                    <span>→ {new Date(section.endDate).toLocaleDateString()}</span>
+                  </>
+                )}
+              </div>
+              <div className="font-bold text-sm">
                 {formatCurrency(calculateSectionTotal(section))}
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => duplicateSection(section.id)}
-                title="Duplicate section"
-              >
-                <Copy className="h-4 w-4 text-blue-600" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => deleteSection(section.id)}
-              >
-                <Trash2 className="h-4 w-4 text-red-800" />
-              </Button>
+              <div className="flex gap-1">
+                {/* Section Enable/Disable Toggle */}
+                <div className="flex items-center" title={section.enabled ? "Disable section" : "Enable section"}>
+                  <Switch
+                    checked={section.enabled}
+                    onCheckedChange={() => toggleSectionEnabled(section.id)}
+                    aria-label={`${section.enabled ? "Disable" : "Enable"} section`}
+                  />
+                </div>
+                {/* Move Up Button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => moveSectionUp(section.id)}
+                  disabled={index === 0}
+                  title="Move section up"
+                  className="h-7 w-7"
+                >
+                  <ArrowUp className="h-3.5 w-3.5 text-blue-600" />
+                </Button>
+                {/* Move Down Button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => moveSectionDown(section.id)}
+                  disabled={index === budget.section.length - 1}
+                  title="Move section down"
+                  className="h-7 w-7"
+                >
+                  <ArrowDown className="h-3.5 w-3.5 text-blue-600" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => duplicateSection(section.id)}
+                  title="Duplicate section"
+                  className="h-7 w-7"
+                >
+                  <Copy className="h-3.5 w-3.5 text-blue-600" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => deleteSection(section.id)}
+                  className="h-7 w-7"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-red-800" />
+                </Button>
+              </div>
             </div>
 
             {section.isExpanded && (
-              <div className="space-y-4">
-                {/* Resources Header */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
+              <div className="p-2 space-y-3">
+                {/* Resources and Activities in tabs */}
+                <div className="border rounded overflow-hidden">
+                  <div className="flex text-sm font-medium bg-gray-100">
                     <button
                       onClick={() => toggleResources(section.id)}
-                      className="p-1 hover:bg-gray-200 bg-gray-100 rounded flex gap-2 justify-center items-center font-bold text-sm"
+                      className={`px-3 py-1.5 flex items-center gap-1 ${section.isResourcesExpanded ? 'bg-white' : ''}`}
                     >
-                      {section.isResourcesExpanded ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                      <Gauge className="w-4 h-4" /> Risorse
+                      <Gauge className="w-3.5 h-3.5" /> Risorse
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (section.isResourcesExpanded) {
+                          toggleResources(section.id);
+                        }
+                      }}
+                      className={`px-3 py-1.5 flex items-center gap-1 ${!section.isResourcesExpanded ? 'bg-white' : ''}`}
+                    >
+                      <SwatchBook className="h-3.5 w-3.5" /> Attività
                     </button>
                   </div>
-                  
-                  {section.isResourcesExpanded && (
-                    <div className="space-y-2">
-                      {section.resources.map((resource) => (
-                        <div
-                          key={resource.id}
-                          className="flex items-center gap-2"
-                        >
-                          <Input
-                            placeholder="Resource name"
-                            value={resource.name}
-                            onChange={(e) =>
-                              updateResource(section.id, resource.id, {
-                                name: e.target.value,
-                              })
-                            }
-                            className="flex-1 min-w-[300px]"
-                          />
 
-                          <select
-                            value={resource.type}
-                            onChange={(e) =>
-                              updateResource(section.id, resource.id, {
-                                type: e.target.value as ResourceType,
-                              })
-                            }
-                            className="border rounded p-2 text-sm"
+                  {section.isResourcesExpanded && (
+                    <div className="p-2 space-y-2">
+                      <div className="max-h-60 overflow-y-auto space-y-1.5">
+                        {section.resources.map((resource) => (
+                          <div
+                            key={resource.id}
+                            className="flex items-center gap-2 text-sm"
                           >
-                            <option value="hourly">Hourly</option>
-                            <option value="quantity">Quantity</option>
-                            <option value="fixed">Fixed</option>
-                          </select>
-                          
-                          {resource.type !== "fixed" && (
-                            <NumericInput
-                              value={resource.rate}
+                            <Input
+                              placeholder="Resource name"
+                              value={resource.name}
                               onChange={(e) =>
                                 updateResource(section.id, resource.id, {
-                                  rate: Number(e.target.value),
+                                  name: e.target.value,
                                 })
                               }
-                              className="w-32"
-                              placeholder={
-                                resource.type === "hourly"
-                                  ? "Rate/hour"
-                                  : "Rate"
-                              }
+                              className="flex-1 min-w-[200px] h-8 text-sm"
                             />
-                          )}
-                          
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              deleteResource(section.id, resource.id)
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
+
+                            <select
+                              value={resource.type}
+                              onChange={(e) =>
+                                updateResource(section.id, resource.id, {
+                                  type: e.target.value as ResourceType,
+                                })
+                              }
+                              className="border rounded p-1 text-sm h-8"
+                            >
+                              <option value="hourly">Hourly</option>
+                              <option value="quantity">Quantity</option>
+                              <option value="fixed">Fixed</option>
+                            </select>
+                            
+                            {resource.type !== "fixed" && (
+                              <NumericInput
+                                value={resource.rate}
+                                onChange={(e) =>
+                                  updateResource(section.id, resource.id, {
+                                    rate: Number(e.target.value),
+                                  })
+                                }
+                                className="w-20 h-8 text-sm"
+                                placeholder={
+                                  resource.type === "hourly"
+                                    ? "Rate/h"
+                                    : "Rate"
+                                }
+                              />
+                            )}
+                            
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                deleteResource(section.id, resource.id)
+                              }
+                              className="h-7 w-7"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
+                          size="sm"
                           onClick={() => addResource(section.id)}
+                          className="h-7"
                         >
-                          <Plus className="h-4 w-4 mr-2" />
+                          <Plus className="h-3.5 w-3.5 mr-1" />
                           risorse
                         </Button>
                         <Button
                           variant="outline"
+                          size="sm"
                           onClick={() => handleOpenResourceTemplateDialog(section.id)}
+                          className="h-7"
                         >
-                          <LayoutPanelTop className="h-4 w-4 mr-2" />
+                          <LayoutPanelTop className="h-3.5 w-3.5 mr-1" />
                           Template
                         </Button>
                       </div>
                     </div>
                   )}
-                </div>
 
-                {/* Activities and Matrix */}
-                <div className="space-y-2">
-                  {/* Header fisso */}
-                  <div className="font-semibold flex gap-1 px-4 text-sm">
-                    <SwatchBook className="h-4 w-4" /> Attività
-                  </div>
-
-                  {/* Container della matrice con scroll */}
-                  <div className="border rounded-lg">
-                    <div className="max-w-full overflow-x-auto">
-                      <div className="w-[10vw]">
-                        {/* Header delle colonne */}
-                        <div
-                          className="grid gap-4 px-4 py-2"
-                          style={{
-                            gridTemplateColumns: `300px repeat(${section.resources.length}, minmax(150px, 1fr)) 100px`,
-                          }}
-                        >
-                          <div></div>
-                          {section.resources.map((resource) => (
-                            <div key={resource.id} className="text-center text-sm font-medium whitespace-normal px-2">
-                              {resource.name}
-                            </div>
-                          ))}
-                          <div></div>
-                        </div>
-
-                        {/* Righe delle attività */}
-                        <div className="px-4 py-2">
-                          {section.activities.map((activity) => (
-                            <div
-                              key={activity.id}
-                              className="grid gap-4 mb-2"
-                              style={{
-                                gridTemplateColumns: `300px repeat(${section.resources.length}, minmax(150px, 1fr)) 100px`,
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  placeholder="Activity name"
-                                  value={activity.name}
-                                  onChange={(e) =>
-                                    updateActivity(section.id, activity.id, {
-                                      name: e.target.value,
-                                    })
-                                  }
-                                />
-                              </div>
+                  {!section.isResourcesExpanded && (
+                    <div className="p-2">
+                      {/* Activities Matrix */}
+                      <div className="max-h-60 overflow-auto border rounded-md">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th className="px-2 py-1 text-left font-medium w-40">Attività</th>
+                              <th className="px-2 py-1 text-center font-medium w-28">Data Inizio</th>
+                              <th className="px-2 py-1 text-center font-medium w-28">Data Fine</th>
                               {section.resources.map((resource) => (
-                                <div key={resource.id}>
-                                  <NumericInput
-                                    type="number"
-                                    value={activity.resourceAllocations[resource.id] || ""}
+                                <th key={resource.id} className="px-2 py-1 text-center font-medium">
+                                  <div className="truncate w-24" title={resource.name}>
+                                    {resource.name}
+                                  </div>
+                                </th>
+                              ))}
+                              <th className="px-2 py-1 text-right font-medium w-20">Totale</th>
+                              <th className="w-8"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {section.activities.map((activity) => (
+                              <tr key={activity.id} className="border-t">
+                                <td className="px-2 py-1">
+                                  <Input
+                                    placeholder="Activity name"
+                                    value={activity.name}
                                     onChange={(e) =>
                                       updateActivity(section.id, activity.id, {
-                                        resourceId: resource.id,
-                                        allocation: Number(e.target.value) || 0,
+                                        name: e.target.value,
                                       })
                                     }
-                                    placeholder={
-                                      resource.type === "hourly" 
-                                        ? "Hours" 
-                                        : resource.type === "quantity" 
-                                        ? "Quantity" 
-                                        : "Cost"
-                                    }
-                                    suffix={
-                                      resource.type === "hourly" 
-                                        ? "h" 
-                                        : resource.type === "quantity" 
-                                        ? "q" 
-                                        : "€"
-                                    }
-                                    className="text-center w-full font-light"
+                                    className="w-full h-7 text-sm"
                                   />
-                                </div>
-                              ))}
-                              <div className="flex items-center gap-2 font-semibold text-sm">
-                                <span className="flex-1">
-                                  {formatCurrency(
-                                    calculateActivityCost(activity, section.resources)
-                                  )}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() =>
-                                    deleteActivity(section.id, activity.id)
-                                  }
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-800" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                                </td>
+                                <td className="px-2 py-1">
+                                  <Input
+                                    type="date"
+                                    value={activity.startDate || ""}
+                                    onChange={(e) =>
+                                      updateActivity(section.id, activity.id, {
+                                        startDate: e.target.value || undefined,
+                                      })
+                                    }
+                                    className="w-full h-7 text-sm"
+                                  />
+                                </td>
+                                <td className="px-2 py-1">
+                                  <Input
+                                    type="date"
+                                    value={activity.endDate || ""}
+                                    onChange={(e) =>
+                                      updateActivity(section.id, activity.id, {
+                                        endDate: e.target.value || undefined,
+                                      })
+                                    }
+                                    className="w-full h-7 text-sm"
+                                  />
+                                </td>
+                                {section.resources.map((resource) => (
+                                  <td key={resource.id} className="px-2 py-1">
+                                    <NumericInput
+                                      type="number"
+                                      value={activity.resourceAllocations[resource.id] || ""}
+                                      onChange={(e) =>
+                                        updateActivity(section.id, activity.id, {
+                                          resourceId: resource.id,
+                                          allocation: Number(e.target.value) || 0,
+                                        })
+                                      }
+                                      placeholder={
+                                        resource.type === "hourly" 
+                                          ? "h" 
+                                          : resource.type === "quantity" 
+                                          ? "q" 
+                                          : "€"
+                                      }
+                                      suffix={
+                                        resource.type === "hourly" 
+                                          ? "h" 
+                                          : resource.type === "quantity" 
+                                          ? "q" 
+                                          : "€"
+                                      }
+                                      className="text-center w-full h-7 text-sm"
+                                    />
+                                  </td>
+                                ))}
+                                <td className="px-2 py-1 text-right font-medium">
+                                  {formatCurrency(calculateActivityCost(activity, section.resources))}
+                                </td>
+                                <td className="px-1 py-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => deleteActivity(section.id, activity.id)}
+                                    className="h-6 w-6"
+                                  >
+                                    <Trash2 className="h-3 w-3 text-red-800" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    </div>
-                  </div>
 
-                  <Button
-                    variant="outline"
-                    onClick={() => addActivity(section.id)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    attività
-                  </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addActivity(section.id)}
+                        className="mt-2 h-7"
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        attività
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
+                {/* Section Activities Timeline */}
+                {(() => {
+                  const { startDate, endDate } = calculateProjectTimeline(budget.section);
+                  if (!startDate || !endDate) return null;
+                  
+                  const projectStart = new Date(startDate);
+                  const projectEnd = new Date(endDate);
+                  const projectDurationDays = Math.ceil((projectEnd.getTime() - projectStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                  
+                  return (
+                    <SectionActivitiesTimeline 
+                      section={section}
+                      projectStart={projectStart}
+                      projectEnd={projectEnd}
+                      projectDurationDays={projectDurationDays}
+                    />
+                  );
+                })()}
+
                 {/* Section Total */}
-                <div className="pt-4 border-t">
-                  <p className="text-lg font-semibold">
-                    Total: {formatCurrency(calculateSectionTotal(section))}
-                  </p>
+                <div className="text-right text-sm font-semibold">
+                  Totale sezione: {formatCurrency(calculateSectionTotal(section))}
                 </div>
               </div>
             )}
           </div>
         ))}
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={addSection}>
-            <Plus className="h-4 w-4 mr-2" />
-            sezione
-          </Button>
-          <Button variant="outline" onClick={handleOpenSectionTemplateDialog}>
-            <LayoutPanelTop className="h-4 w-4 mr-2" />
-            Template
-          </Button>
-        </div>
       </div>
 
-      {/* Commercial Margin */}
-      <div>
-        <h2 className="text-base font-semibold mb-2">Margine Commerciale</h2>
-        <ValueTypeRadioGroup
-          value={budget.marginType}
-          onChange={(value) => updateBudget({ marginType: value })}
-          name="margin"
-        />
-        <NumericInput
-          value={budget.commercialMargin}
-          onChange={(e) =>
-            updateBudget({ commercialMargin: Number(e.target.value) || 0 })
-          }
-          suffix={budget.marginType === "fixed" ? "€" : "%"}
-          className="max-w-xs"
-        />
-      </div>
-
-      {/* Discount */}
-      <div>
-        <h2 className="text-base font-semibold mb-2">Sconto</h2>
-        <ValueTypeRadioGroup
-          value={budget.discountType}
-          onChange={(value) => updateBudget({ discountType: value })}
-          name="discount"
-        />
-        <NumericInput
-          value={budget.discount}
-          onChange={(e) =>
-            updateBudget({ discount: Number(e.target.value) || 0 })
-          }
-          suffix={budget.discountType === "fixed" ? "€" : "%"}
-          className="max-w-xs"
-        />
-      </div>
-
-      {/* Totals */}
-      <div className="pt-4 border-t bg-gray-900 rounded-lg p-2 text-gray-100">
-        <div className="space-y-2 text-base">
-          {(() => {
-            const resourceTotals = calculateResourceTypeTotals();
-            return (
-              <div className="gap-4 mb-4 p-2 bg-gray-800 rounded justify-end">
-                <div className="flex items-center justify-start gap-2">
-                  <p className="text-gray-400 text-sm">Ore</p>
-                  <p className="font-semibold">{resourceTotals.hourlyHours.toFixed(1)}h</p>
-                  <p className="text-sm">{formatCurrency(resourceTotals.hourlyTotal)}</p>
-                </div>
-                <div className="flex items-center justify-start gap-2">
-                  <p className="text-gray-400 text-sm">Quantità</p>
-                  <p className="font-semibold">{resourceTotals.quantityAmount.toFixed(1)}q</p>
-                  <p className="text-sm">{formatCurrency(resourceTotals.quantityTotal)}</p>
-                </div>
-                <div className="flex items-center justify-start gap-2">
-                  <p className="text-gray-400 text-sm">Spese Fisse</p>
-                  <p className="font-semibold">{formatCurrency(resourceTotals.fixedTotal)}</p>
-                </div>
+      {/* Bottom Controls */}
+      <div className="flex flex-col gap-3 mt-4">
+        <div className="flex flex-wrap md:flex-nowrap gap-3">
+          {/* Commercial Margin */}
+          <div className="w-full md:w-1/2 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 transition-all hover:shadow-sm">
+            <div className="flex items-center gap-1 mb-2 text-blue-800">
+              <Gauge className="h-3.5 w-3.5 opacity-70" />
+              <h3 className="text-sm font-semibold">Margine Commerciale</h3>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <ValueTypeRadioGroup
+                  value={budget.marginType}
+                  onChange={(value) => updateBudget({ marginType: value })}
+                  name="margin"
+                />
               </div>
-            );
-          })()}
+              <div className="relative w-28">
+                <NumericInput
+                  value={budget.commercialMargin}
+                  onChange={(e) =>
+                    updateBudget({ commercialMargin: Number(e.target.value) || 0 })
+                  }
+                  suffix={budget.marginType === "fixed" ? "€" : "%"}
+                  className="w-full h-9 text-sm font-medium border-blue-200 focus-visible:ring-blue-400"
+                />
+                {/* <div className="absolute right-0 bottom-0 transform translate-y-5 text-xs text-blue-500">
+                  {budget.marginType === "fixed" 
+                    ? formatCurrency(budget.commercialMargin)
+                    : `${budget.commercialMargin}% di ${formatCurrency(calculateTotal().baseTotal)}`}
+                </div> */}
+              </div>
+            </div>
+          </div>
 
+          {/* Discount */}
+          <div className="w-full md:w-1/2 bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-lg p-3 transition-all hover:shadow-sm">
+            <div className="flex items-center gap-1 mb-2 text-amber-800">
+              <SwatchBook className="h-3.5 w-3.5 opacity-70" />
+              <h3 className="text-sm font-semibold">Sconto</h3>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <ValueTypeRadioGroup
+                  value={budget.discountType}
+                  onChange={(value) => updateBudget({ discountType: value })}
+                  name="discount"
+                />
+              </div>
+              <div className="relative w-28">
+                <NumericInput
+                  value={budget.discount}
+                  onChange={(e) =>
+                    updateBudget({ discount: Number(e.target.value) || 0 })
+                  }
+                  suffix={budget.discountType === "fixed" ? "€" : "%"}
+                  className="w-full h-9 text-sm font-medium border-amber-200 focus-visible:ring-amber-400"
+                />
+                {/* <div className="absolute right-0 bottom-0 transform translate-y-5 text-xs text-amber-500">
+                  {budget.discountType === "fixed" 
+                    ? formatCurrency(budget.discount)
+                    : `${budget.discount}% di ${formatCurrency(calculateTotal().totalWithMargin)}`}
+                </div> */}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Final Total */}
+        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-4 text-white shadow-sm">
           {(() => {
             const totals = calculateTotal();
             return (
-              <>
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-gray-300">
-                      Totale sezioni: {formatCurrency(totals.baseTotal)}
-                    </p>
-                    <p className="text-gray-300">
-                      Margine Commerciale: {formatCurrency(totals.marginAmount)}
-                    </p>
-                    <p className="font-bold">
-                      Budget Totale Marginato: {formatCurrency(totals.totalWithMargin)}
-                    </p>
-                    <p className="text-gray-300">
-                      Sconto: {formatCurrency(totals.discountAmount)}
-                    </p>
-                  </div>
-                  
-                  <p className="text-3xl font-bold">
-                    Totale: {formatCurrency(totals.finalTotal)}
+              <div className="flex flex-wrap justify-between items-center gap-2">
+                <div className="space-y-1.5">
+                  <p className="text-sm text-gray-300 flex items-center gap-1">
+                    <span className="w-28">Totale sezioni:</span> 
+                    <span className="font-medium">{formatCurrency(totals.baseTotal)}</span>
+                  </p>
+                  <p className="text-sm text-gray-300 flex items-center gap-1">
+                    <span className="w-28">Margine:</span> 
+                    <span className={`font-medium ${totals.marginAmount > 0 ? 'text-blue-300' : ''}`}>
+                      {totals.marginAmount > 0 ? '+' : ''}{formatCurrency(totals.marginAmount)}
+                    </span>
+                  </p>
+                  <p className="text-sm text-gray-300 flex items-center gap-1">
+                    <span className="w-28">Sconto:</span> 
+                    <span className={`font-medium ${totals.discountAmount > 0 ? 'text-amber-300' : ''}`}>
+                      {totals.discountAmount > 0 ? '-' : ''}{formatCurrency(totals.discountAmount)}
+                    </span>
                   </p>
                 </div>
-              </>
+                <div className="flex flex-col items-end">
+                  <p className="text-sm text-gray-400">Budget totale</p>
+                  <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-200 to-white">
+                    {formatCurrency(totals.finalTotal)}
+                  </p>
+                </div>
+              </div>
             );
           })()}
         </div>

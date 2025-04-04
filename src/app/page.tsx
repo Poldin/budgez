@@ -4,7 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {  Calculator } from 'lucide-react';
+import { Calculator, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import SalesTeamDialog from '@/components/sales_dialog/salesteamdialog';
@@ -12,6 +12,7 @@ import { Toaster } from "sonner";
 import Header from '@/components/header';
 import Footer from '@/components/footer/footer';
 import DemoBudgetCalculator from '@/components/tabs/calcola';
+import AiBudgetGenerator from '@/components/tabs/aiBudgetGenerator';
 import SoftwareUpdates from '@/components/softwareUpdates/softwareUpdates';
 
 export default function LandingPage() {
@@ -32,7 +33,7 @@ export default function LandingPage() {
             {/* Text Content */}
             <div className="text-left">
               <h1 className="text-6xl font-bold tracking-tight text-gray-900">
-                Quotazioni che hanno senso. Finalmente.
+                Quotazioni che hanno senso. Con l&apos;AI.
               </h1>
               <p className="text-xl text-gray-600 mb-2 leading-relaxed">
                 Quota nuovi preventivi in modo rapido, rigoroso, preciso.
@@ -68,12 +69,15 @@ export default function LandingPage() {
         <section className="container mx-auto px-4 py-2">
           <Tabs defaultValue="tab1" className="mx-auto">
           <div className="flex justify-center w-full mb-8">
-            <TabsList className="grid w-[400px] bg-white">
+            <TabsList className="grid w-[400px] grid-cols-2 bg-white">
               <TabsTrigger value="tab1" className="font-bold text-base flex items-center gap-2">
                 <Calculator className="h-4 w-4" />
                 Calcola
               </TabsTrigger>
-              
+              <TabsTrigger value="ai-budget" className="font-bold text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                AI Budget
+              </TabsTrigger>
             </TabsList>
             </div>
 
@@ -90,6 +94,21 @@ export default function LandingPage() {
                   </p>
                 </div>
                 <DemoBudgetCalculator />
+              </div>
+            </TabsContent>
+
+            {/* AI Budget */}
+            <TabsContent value="ai-budget" className="mt-6">
+              <div className="space-y-2">
+                <div className="mx-auto text-center mb-2">
+                  <h2 className="text-3xl font-bold tracking-tight">
+                    Genera budget con l&apos;AI in pochi secondi.
+                  </h2>
+                  <p className="mt-2 text-lg text-gray-600">
+                    Descrivi il tuo progetto all&apos;AI e ottieni una struttura di budget completa con risorse e attività. Poi raffina e personalizzala dialogando con l&apos;assistente.
+                  </p>
+                </div>
+                <AiBudgetGenerator />
               </div>
             </TabsContent>
 
