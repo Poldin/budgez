@@ -15,7 +15,8 @@ import {
   LayoutPanelTop,
   ArrowUp,
   ArrowDown,
-  Calendar
+  Calendar,
+  AlignLeft
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -28,6 +29,8 @@ import {
 
 // Import template component
 import TemplateSelector from "./components/budgetTemplatedialog";
+// Import description dialog
+import DescriptionDialog from "./components/DescriptionDialog";
 
 // Types
 
@@ -64,6 +67,7 @@ interface ResourceTemplateBody {
 interface ActivityWithDates extends Activity {
   startDate?: string; // formato "YYYY-MM-DD"
   endDate?: string; // formato "YYYY-MM-DD"
+  description?: string; // Added description field
 }
 
 interface TBBudgetSection {
@@ -77,6 +81,7 @@ interface TBBudgetSection {
   // Date calcolate in base alle attività
   startDate?: string;
   endDate?: string;
+  description?: string; // Added description field
 }
 
 
@@ -85,6 +90,7 @@ interface RawSection {
   name: string;
   activities?: Activity[];
   resources?: Resource[];
+  description?: string; // Added description field
 }
 
 interface TBBudgetData {
@@ -119,6 +125,7 @@ const DEFAULT_BUDGET: TBBudgetData = {
       activities: [],
       resources: [],
       enabled: true,
+      description: ""
     },
   ],
   commercialMargin: 0,
@@ -465,6 +472,15 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
   const [resourceTemplateDialogOpen, setResourceTemplateDialogOpen] = useState(false);
   const [currentSectionId, setCurrentSectionId] = useState<string | null>(null);
 
+  // State for description dialogs
+  const [sectionDescriptionDialogOpen, setSectionDescriptionDialogOpen] = useState(false);
+  const [activityDescriptionDialogOpen, setActivityDescriptionDialogOpen] = useState(false);
+  const [currentActivityId, setCurrentActivityId] = useState<string | null>(null);
+  const [currentEditingItem, setCurrentEditingItem] = useState<{name: string, description: string}>({
+    name: '',
+    description: ''
+  });
+
   const calculateActivityCost = (
     activity: Activity,
     resources: Resource[]
@@ -738,6 +754,8 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
         ...activity,
         id: uuidv4(),
         resourceAllocations: newAllocations,
+        // Keep description when duplicating
+        description: activity.description
       };
     });
   
@@ -751,6 +769,8 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
       resources: duplicatedResources,
       activities: duplicatedActivities,
       enabled: sectionToDuplicate.enabled,
+      // Keep description when duplicating
+      description: sectionToDuplicate.description
     };
   
     // Insert the duplicated section after the original
@@ -758,6 +778,60 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
     const newSections = [...budget.section];
     newSections.splice(sectionIndex + 1, 0, duplicatedSection);
   
+    updateBudget({ section: newSections });
+  };
+
+  // Description dialog handlers
+  const handleOpenSectionDescription = (sectionId: string) => {
+    const section = budget.section.find(s => s.id === sectionId);
+    if (!section) return;
+
+    setCurrentSectionId(sectionId);
+    setCurrentEditingItem({
+      name: section.name,
+      description: section.description || ''
+    });
+    setSectionDescriptionDialogOpen(true);
+  };
+
+  const handleOpenActivityDescription = (sectionId: string, activityId: string) => {
+    const section = budget.section.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const activity = section.activities.find(a => a.id === activityId);
+    if (!activity) return;
+
+    setCurrentSectionId(sectionId);
+    setCurrentActivityId(activityId);
+    setCurrentEditingItem({
+      name: activity.name,
+      description: activity.description || ''
+    });
+    setActivityDescriptionDialogOpen(true);
+  };
+
+  const handleSaveSectionDescription = (name: string, description: string) => {
+    if (!currentSectionId) return;
+
+    const newSections = updateSectionById(budget.section, currentSectionId, section => ({
+      ...section,
+      name,
+      description
+    }));
+    updateBudget({ section: newSections });
+  };
+
+  const handleSaveActivityDescription = (name: string, description: string) => {
+    if (!currentSectionId || !currentActivityId) return;
+
+    const newSections = updateSectionById(budget.section, currentSectionId, section => ({
+      ...section,
+      activities: section.activities.map(activity => 
+        activity.id === currentActivityId 
+          ? { ...activity, name, description }
+          : activity
+      )
+    }));
     updateBudget({ section: newSections });
   };
 
@@ -773,6 +847,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
           activities: [],
           resources: [],
           enabled: true,
+          description: ""
         },
       ],
     });
@@ -786,6 +861,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
         resourceAllocations: {},
         startDate: undefined,
         endDate: undefined,
+        description: ""
       };
       
       const updatedSection = {
@@ -906,12 +982,14 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
           name: activity.name,
           resourceAllocations: activity.resourceAllocations,
           startDate: activity.startDate,
-          endDate: activity.endDate
+          endDate: activity.endDate,
+          description: activity.description
         })),
         resources: section.resources,
         enabled: section.enabled,
         startDate: section.startDate,
-        endDate: section.endDate
+        endDate: section.endDate,
+        description: section.description
       })),
       commercial_margin: updated.commercialMargin,
       margin_type: updated.marginType,
@@ -943,6 +1021,27 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
         onClose={() => setResourceTemplateDialogOpen(false)}
         onSelectTemplates={handleSelectResourceTemplates}
         type="resource"
+      />
+      
+      {/* Description Dialogs */}
+      <DescriptionDialog
+        isOpen={sectionDescriptionDialogOpen}
+        onClose={() => setSectionDescriptionDialogOpen(false)}
+        title={currentEditingItem.name}
+        description={currentEditingItem.description}
+        itemName={currentEditingItem.name}
+        onSave={handleSaveSectionDescription}
+        dialogTitle="Descrizione Sezione:"
+      />
+      
+      <DescriptionDialog
+        isOpen={activityDescriptionDialogOpen}
+        onClose={() => setActivityDescriptionDialogOpen(false)}
+        title={currentEditingItem.name}
+        description={currentEditingItem.description}
+        itemName={currentEditingItem.name}
+        onSave={handleSaveActivityDescription}
+        dialogTitle="Descrizione Attività:"
       />
       
       {/* Top Controls and Summary */}
@@ -1054,6 +1153,16 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                     aria-label={`${section.enabled ? "Disable" : "Enable"} section`}
                   />
                 </div>
+                {/* Description Button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleOpenSectionDescription(section.id)}
+                  title="Edit description"
+                  className="h-7 w-7"
+                >
+                  <AlignLeft className={`h-3.5 w-3.5 ${section.description ? 'text-blue-600' : 'text-gray-400'}`} />
+                </Button>
                 {/* Move Up Button */}
                 <Button
                   variant="ghost"
@@ -1209,108 +1318,133 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                     <div className="p-2">
                       {/* Activities Matrix */}
                       <div className="max-h-60 overflow-auto border rounded-md">
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-gray-50 sticky top-0">
-                            <tr>
-                              <th className="px-2 py-1 text-left font-medium w-40">Attività</th>
-                              <th className="px-2 py-1 text-center font-medium w-28">Data Inizio</th>
-                              <th className="px-2 py-1 text-center font-medium w-28">Data Fine</th>
-                              {section.resources.map((resource) => (
-                                <th key={resource.id} className="px-2 py-1 text-center font-medium">
-                                  <div className="truncate w-24" title={resource.name}>
-                                    {resource.name}
-                                  </div>
-                                </th>
-                              ))}
-                              <th className="px-2 py-1 text-right font-medium w-20">Totale</th>
-                              <th className="w-8"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {section.activities.map((activity) => (
-                              <tr key={activity.id} className="border-t">
-                                <td className="px-2 py-1">
-                                  <Input
-                                    placeholder="Activity name"
-                                    value={activity.name}
-                                    onChange={(e) =>
-                                      updateActivity(section.id, activity.id, {
-                                        name: e.target.value,
-                                      })
-                                    }
-                                    className="w-full h-7 text-sm"
-                                  />
-                                </td>
-                                <td className="px-2 py-1">
-                                  <Input
-                                    type="date"
-                                    value={activity.startDate || ""}
-                                    onChange={(e) =>
-                                      updateActivity(section.id, activity.id, {
-                                        startDate: e.target.value || undefined,
-                                      })
-                                    }
-                                    className="w-full h-7 text-sm"
-                                  />
-                                </td>
-                                <td className="px-2 py-1">
-                                  <Input
-                                    type="date"
-                                    value={activity.endDate || ""}
-                                    onChange={(e) =>
-                                      updateActivity(section.id, activity.id, {
-                                        endDate: e.target.value || undefined,
-                                      })
-                                    }
-                                    className="w-full h-7 text-sm"
-                                  />
-                                </td>
+                        <div className="overflow-x-auto" style={{ minWidth: "100%", maxWidth: "100%" }}>
+                          <table className="min-w-full text-sm" style={{ tableLayout: "fixed" }}>
+                            <thead className="bg-gray-50 sticky top-0">
+                              <tr>
+                                <th className="px-2 py-1 text-left font-bold w-40 min-w-[180px]">Attività</th>
+                                <th className="px-2 py-1 text-center font-bold w-28 min-w-[120px] text-gray-500 opacity-70">Data Inizio</th>
+                                <th className="px-2 py-1 text-center font-bold w-28 min-w-[120px] text-gray-500 opacity-70">Data Fine</th>
                                 {section.resources.map((resource) => (
-                                  <td key={resource.id} className="px-2 py-1">
-                                    <NumericInput
-                                      type="number"
-                                      value={activity.resourceAllocations[resource.id] || ""}
+                                  <th key={resource.id} className="px-2 py-1 text-center font-bold min-w-[100px]">
+                                    <div className="truncate w-24" title={resource.name}>
+                                      {resource.name}
+                                    </div>
+                                  </th>
+                                ))}
+                                <th className="px-2 py-1 text-right font-bold w-24 min-w-[100px]">Totale</th>
+                                <th className="w-8 min-w-[40px]"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {section.activities.map((activity) => (
+                                <tr key={activity.id} className="border-t">
+                                  <td className="px-2 py-1">
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        placeholder="Activity name"
+                                        value={activity.name}
+                                        onChange={(e) =>
+                                          updateActivity(section.id, activity.id, {
+                                            name: e.target.value,
+                                          })
+                                        }
+                                        className="w-full h-7 text-sm font-bold min-w-[150px]"
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleOpenActivityDescription(section.id, activity.id)}
+                                        title="Edit description"
+                                        className="h-6 w-6 shrink-0"
+                                      >
+                                        <AlignLeft className={`h-3 w-3 ${activity.description ? 'text-blue-600' : 'text-gray-400'}`} />
+                                      </Button>
+                                    </div>
+                                  </td>
+                                  <td className="px-2 py-1">
+                                    <Input
+                                      type="date"
+                                      value={activity.startDate || ""}
                                       onChange={(e) =>
                                         updateActivity(section.id, activity.id, {
-                                          resourceId: resource.id,
-                                          allocation: Number(e.target.value) || 0,
+                                          startDate: e.target.value || undefined,
                                         })
                                       }
-                                      placeholder={
-                                        resource.type === "hourly" 
-                                          ? "h" 
-                                          : resource.type === "quantity" 
-                                          ? "q" 
-                                          : "€"
-                                      }
-                                      suffix={
-                                        resource.type === "hourly" 
-                                          ? "h" 
-                                          : resource.type === "quantity" 
-                                          ? "q" 
-                                          : "€"
-                                      }
-                                      className="text-center w-full h-7 text-sm"
+                                      className="w-full h-7 text-sm"
+                                      style={{
+                                        colorScheme: 'light',
+                                        opacity: activity.startDate ? 1 : 0.7,
+                                        color: activity.startDate ? 'black' : '#666',
+                                      }}
+                                      placeholder="Data inizio"
                                     />
                                   </td>
-                                ))}
-                                <td className="px-2 py-1 text-right font-medium">
-                                  {formatCurrency(calculateActivityCost(activity, section.resources))}
-                                </td>
-                                <td className="px-1 py-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => deleteActivity(section.id, activity.id)}
-                                    className="h-6 w-6"
-                                  >
-                                    <Trash2 className="h-3 w-3 text-red-800" />
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                                  <td className="px-2 py-1">
+                                    <Input
+                                      type="date"
+                                      value={activity.endDate || ""}
+                                      onChange={(e) =>
+                                        updateActivity(section.id, activity.id, {
+                                          endDate: e.target.value || undefined,
+                                        })
+                                      }
+                                      className="w-full h-7 text-sm"
+                                      style={{
+                                        colorScheme: 'light',
+                                        opacity: activity.endDate ? 1 : 0.7,
+                                        color: activity.endDate ? 'black' : '#666',
+                                      }}
+                                      placeholder="Data fine"
+                                    />
+                                  </td>
+                                  {section.resources.map((resource) => (
+                                    <td key={resource.id} className="px-2 py-1">
+                                      <NumericInput
+                                        type="number"
+                                        value={activity.resourceAllocations[resource.id] || ""}
+                                        onChange={(e) =>
+                                          updateActivity(section.id, activity.id, {
+                                            resourceId: resource.id,
+                                            allocation: Number(e.target.value) || 0,
+                                          })
+                                        }
+                                        placeholder={
+                                          resource.type === "hourly" 
+                                            ? "h" 
+                                            : resource.type === "quantity" 
+                                            ? "q" 
+                                            : "€"
+                                        }
+                                        suffix={
+                                          resource.type === "hourly" 
+                                            ? "h" 
+                                            : resource.type === "quantity" 
+                                            ? "q" 
+                                            : "€"
+                                        }
+                                        className="text-center w-full h-7 text-sm min-w-[80px]"
+                                      />
+                                    </td>
+                                  ))}
+                                  <td className="px-2 py-1 text-right font-medium">
+                                    {formatCurrency(calculateActivityCost(activity, section.resources))}
+                                  </td>
+                                  <td className="px-1 py-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => deleteActivity(section.id, activity.id)}
+                                      className="h-6 w-6"
+                                    >
+                                      <Trash2 className="h-3 w-3 text-red-800" />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
 
                       <Button
@@ -1449,7 +1583,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                 </div>
                 <div className="flex flex-col items-end">
                   <p className="text-sm text-gray-400">Budget totale</p>
-                  <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-200 to-white">
+                  <p className="text-3xl font-bold text-white">
                     {formatCurrency(totals.finalTotal)}
                   </p>
                 </div>
