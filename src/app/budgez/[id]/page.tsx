@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft} from "lucide-react";
+import { ArrowLeft, Eye, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BudgetLogs from './components/stats/logs'
 import { supabase } from "@/lib/supabase";
@@ -30,6 +30,7 @@ import TechBudget from "./components/budget/compute_budget_section";
 import debounce from "lodash/debounce";
 import ShareDialog from './components/share';
 import {InfoDialog, INFO_CONTENT} from '@/components/infodialogs/InfoDialogs'
+import BellaEditor from './components/bella'
 
 type UserRole = 'owner' | 'editor' | 'viewer';
 
@@ -419,9 +420,7 @@ export default function BudgetPage() {
           <div className="flex justify-between items-center">
             <TabsList>
               <TabsTrigger value="brief" className="data-[state=active]:bg-black data-[state=active]:text-white">📄Brief</TabsTrigger>
-              {/* <TabsTrigger value="budget" className="data-[state=active]:bg-black data-[state=active]:text-white">🧮Calcola</TabsTrigger>
-              <TabsTrigger value="stats" className="data-[state=active]:bg-black data-[state=active]:text-white">📐Stats</TabsTrigger> */}
-
+              <TabsTrigger value="quote" className="data-[state=active]:bg-black data-[state=active]:text-white">❤️‍🔥 Quote</TabsTrigger>
             </TabsList>
             
               
@@ -441,6 +440,28 @@ export default function BudgetPage() {
                 </div>
               </div>
                 <Brief id={budgetId} />
+              </TabsContent>
+
+              {/* Bella tab */}
+              <TabsContent value="quote">
+                <div className="flex justify-between items-center mb-1 pb-2">
+                  <div className="flex gap-2 justify-center items-center">
+                    <h2 className="text-xl font-bold">❤️‍🔥 Quote</h2>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex items-center gap-1">
+                      <Eye className="h-4 w-4" />
+                      Preview
+                    </Button>
+                    <Button size="sm" className="flex items-center gap-1 bg-black text-white hover:bg-gray-800">
+                      <Share2 className="h-4 w-4" />
+                      Pubblica
+                    </Button>
+                  </div>
+                </div>
+                <div className="p-4 bg-white rounded-lg border">
+                  <BellaEditor id={budgetId} />
+                </div>
               </TabsContent>
 
 

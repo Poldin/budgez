@@ -38,12 +38,13 @@ const globalStyles = `
 
 
 const transformUrlsToLinks = (content: string): string => {
-  // URL regex pattern
-  const urlPattern = /(?:https?:\/\/)?(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
+  // URL regex pattern migliorata per catturare URLs in modo più preciso
+  const urlPattern = /\b(?:https?:\/\/|www\.)[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?/gi;
   
+  // Sostituisce le URL con tag anchor HTML con uno stile più standard
   return content.replace(urlPattern, (url) => {
     const href = url.startsWith('http') ? url : `https://${url}`;
-    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-900 bg-blue-200 px-1 rounded-sm cursor-pointer font-medium">${url}</a>`;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800">${url}</a>`;
   });
 };
 
