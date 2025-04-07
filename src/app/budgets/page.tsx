@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from 'next/navigation'
-import { ReceivedBudgets } from './ReceivedBudgets'
 import { supabase } from '@/lib/supabase'
 
 interface BudgetQueryResult {
@@ -51,7 +50,9 @@ export default function BudgetDashboard() {
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<Budget | null>(null)
-
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const itemsPerPage = 50
 
   const handleRowClick = (budgetId: string, event: React.MouseEvent) => {
     if ((event.target as HTMLElement).closest('.action-buttons')) {
@@ -64,6 +65,29 @@ export default function BudgetDashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('No user logged in')
+
+      // First get the count of all budgets for pagination
+      const { count, error: countError } = await supabase
+        .from('link_budget_users')
+        .select('budget_id', { count: 'exact' })
+        .eq('user_id', user.id)
+        .in('user_role', ['owner', 'editor', 'viewer'])
+
+      if (countError) throw countError
+      
+      // Calculate total pages
+      const totalItems = count || 0
+      const calculatedTotalPages = Math.ceil(totalItems / itemsPerPage)
+      setTotalPages(calculatedTotalPages || 1)
+
+      // Adjust current page if needed
+      if (currentPage > calculatedTotalPages) {
+        setCurrentPage(calculatedTotalPages || 1)
+      }
+
+      // Now get the paginated data
+      const from = (currentPage - 1) * itemsPerPage
+      const to = from + itemsPerPage - 1
 
       const { data, error } = await supabase
         .from('link_budget_users')
@@ -80,6 +104,8 @@ export default function BudgetDashboard() {
         `)
         .eq('user_id', user.id)
         .in('user_role', ['owner', 'editor', 'viewer'])
+        .order('created_at', { foreignTable: 'budgets', ascending: false }) // Order by created_at in descending order
+        .range(from, to)
 
       if (error) throw error
 
@@ -95,14 +121,13 @@ export default function BudgetDashboard() {
           status: item.budgets!.budget_status as 'draft',
           userRole: item.user_role as 'owner' | 'editor' | 'viewer'
         }))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Ensure client-side sorting
       
       setBudgets(formattedBudgets)
     } catch (error) {
       console.error('Error fetching budgets:', error)
     }
   }
-
-  
 
   const generatePublicId = () => {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -120,8 +145,6 @@ export default function BudgetDashboard() {
   
     return `${randomLetters}${randomNumbers}`;
   };
-
-  
 
   const createBudget = async () => {
     try {
@@ -229,60 +252,59 @@ export default function BudgetDashboard() {
     }
   }
 
-  // Modified handleDelete function with proper error handling and cascading delete
-const handleDelete = async () => {
-  if (!itemToDelete) return
+  const handleDelete = async () => {
+    if (!itemToDelete) return
 
-  try {
-    // Start a Supabase transaction to ensure atomicity
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('No user logged in')
+    try {
+      // Start a Supabase transaction to ensure atomicity
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No user logged in')
 
-    // First delete all logs associated with the budget
-    const { error: logsError } = await supabase
-      .from('budgets_logs')
-      .delete()
-      .eq('busget_id', itemToDelete.id)
+      // First delete all logs associated with the budget
+      const { error: logsError } = await supabase
+        .from('budgets_logs')
+        .delete()
+        .eq('busget_id', itemToDelete.id)
 
-    if (logsError) {
-      console.error('Error deleting logs:', logsError)
-      throw logsError
+      if (logsError) {
+        console.error('Error deleting logs:', logsError)
+        throw logsError
+      }
+
+      // Then delete all user links
+      const { error: linkError } = await supabase
+        .from('link_budget_users')
+        .delete()
+        .eq('budget_id', itemToDelete.id)
+
+      if (linkError) {
+        console.error('Error deleting user links:', linkError)
+        throw linkError
+      }
+
+      // Finally delete the budget itself
+      const { error: budgetError } = await supabase
+        .from('budgets')
+        .delete()
+        .eq('id', itemToDelete.id)
+
+      if (budgetError) {
+        console.error('Error deleting budget:', budgetError)
+        throw budgetError
+      }
+      
+      await fetchBudgets()
+      setShowDeleteDialog(false)
+    } catch (error) {
+      console.error('Error in delete operation:', error)
+      // You might want to show an error message to the user here
     }
-
-    // Then delete all user links
-    const { error: linkError } = await supabase
-      .from('link_budget_users')
-      .delete()
-      .eq('budget_id', itemToDelete.id)
-
-    if (linkError) {
-      console.error('Error deleting user links:', linkError)
-      throw linkError
-    }
-
-    // Finally delete the budget itself
-    const { error: budgetError } = await supabase
-      .from('budgets')
-      .delete()
-      .eq('id', itemToDelete.id)
-
-    if (budgetError) {
-      console.error('Error deleting budget:', budgetError)
-      throw budgetError
-    }
-    
-    await fetchBudgets()
-    setShowDeleteDialog(false)
-  } catch (error) {
-    console.error('Error in delete operation:', error)
-    // You might want to show an error message to the user here
   }
-}
 
   useEffect(() => {
     fetchBudgets()
     // fetchTemplates()
-  }, [])
+  }, [currentPage])
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -366,12 +388,35 @@ const handleDelete = async () => {
                   ))}
                 </TableBody>
               </Table>
+              
+              {/* Pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center mt-4 gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Precedente
+                  </Button>
+                  <div className="flex items-center px-4">
+                    Pagina {currentPage} di {totalPages}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Successiva
+                  </Button>
+                </div>
+              )}
             </Card>
           </TabsContent>
 
-          <TabsContent value="budgets_received">
+          {/* <TabsContent value="budgets_received">
             <ReceivedBudgets />
-          </TabsContent>
+          </TabsContent> */}
         </Tabs>
       </main>
 
