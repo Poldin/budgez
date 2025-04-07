@@ -172,6 +172,11 @@ export default function BellaEditor({ id }: { id: string }) {
   }
 
   const insertBlock = async (type: BlockType, alignment: BlockAlignment = 'left', index: number) => {
+    // If trying to add a quote-table but one already exists, return early
+    if (type === 'quote-table' && blocks.some(block => block.type === 'quote-table')) {
+      return
+    }
+    
     const newBlock: Block = { 
       id: generateId(), 
       type, 
@@ -632,10 +637,18 @@ export default function BellaEditor({ id }: { id: string }) {
                   <Video className="mr-2 h-4 w-4" />
                   <span>Video</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => insertBlock('quote-table', 'center', index)}>
-                  <Table className="mr-2 h-4 w-4" />
-                  <span>Tabella preventivo</span>
-                </DropdownMenuItem>
+                {!blocks.some(block => block.type === 'quote-table') && (
+                  <DropdownMenuItem onClick={() => insertBlock('quote-table', 'center', index)}>
+                    <Table className="mr-2 h-4 w-4" />
+                    <span>Tabella preventivo</span>
+                  </DropdownMenuItem>
+                )}
+                {blocks.some(block => block.type === 'quote-table') && (
+                  <DropdownMenuItem disabled className="text-muted-foreground">
+                    <Table className="mr-2 h-4 w-4" />
+                    <span>Tabella preventivo</span>
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
 

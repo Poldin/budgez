@@ -25,7 +25,11 @@ export default function RootLayoutClient({
   ]
   
   // Verifica se la pagina corrente è nella lista delle pagine escluse
-  const shouldHideMenu = excludedPages.includes(pathname) || pathname.startsWith('/ebudgets/')
+  const shouldHideMenu = 
+    excludedPages.includes(pathname) || 
+    pathname.startsWith('/ebudgets/') || 
+    pathname.startsWith('/public/') || 
+    pathname.includes('/preview')
 
   // Se la pagina è nella lista delle escluse, mostra solo il contenuto
   if (shouldHideMenu) {
