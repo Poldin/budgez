@@ -30,6 +30,26 @@ interface SoftwareUpdate {
 // Array di dati di esempio con i tipi di badge corretti
 const UPDATES_DATA: SoftwareUpdate[] = [
   {
+    id: '9',
+    version: 'v0.2.4',
+    title: 'AI e miglioramenti al calcolo del budget',
+    description: 'Abbiamo introdotto la creazione del budget con l\'AI, aggiunto la tab quote per confezionare il budget calcolato nel brief, e migliorato significativamente la UI del calcolo del budget e l\'editor.',
+    date: '28 mar 2025',
+    tags: [
+      { id: '1', name: 'AI', color: 'default' },
+      { id: '2', name: 'UI/UX', color: 'default' },
+      { id: '3', name: 'Quote', color: 'default' },
+    ],
+    image: '/images/template-engine.png',
+    highlights: [
+      'Creazione del budget con l\'AI',
+      'Nuova tab quote per confezionare il budget calcolato nel brief',
+      'Migliorata la UI del calcolo del budget',
+      'Migliorato l\'editor per il calcolo del budget',
+    ],
+    isNew: true
+  },
+  {
     id: '8',
     version: 'v0.2.3',
     title: 'Introdotta la conferma del budget',
@@ -44,108 +64,111 @@ const UPDATES_DATA: SoftwareUpdate[] = [
     highlights: [
       'Conferma il budget: seriamente',
     ],
-    isNew: true
-  },{
-        id: '7',
-        version: 'v0.2.2',
-        title: 'migliorata la sezione del profilo, nuovo form di segnalazione bug e idee',
-        description: 'abbiamo migliorato la sezione del profilo con info di username (ora modificabile) e di mail associate all\'utente. Introdotto anche il form di segnalazione di bug, intuizioni, migliorie e idee da parte degli utenti. Tutto quello che facciamo nasce da esigenze captate dagli utenti: finalmente potete dirci al volo le ideee che vi passano in mente',
-        date: '25 feb 2025',
-        tags: [
-          
-          { id: '1', name: 'Feedbacks', color: 'default' },
-          
-        ],
-        image: '/images/template-engine.png',
-        highlights: [
-          'Migliorata sezione profilo',
-          'Introdotto form di segnalazioni bug e idee!',
-        ],
-        isNew: true
-      },{
-        id: '6',
-        version: 'v0.2.1',
-        title: 'migliorato blocco di calcolo del budget',
-        description: 'abbiamo migliorato il blocco di calcolo del budget: da oggi ricaviamo molte più metriche finali per dare un quadro immediato e completo all\'utente. Ad esempio aggreghiamo le ore di lavoro stimate e i costi fissi in quotazione. Migliorata anche la UX di gestione del blocco di calcolo del budget.',
-        date: '15 feb 2025',
-        tags: [
-          
-          { id: '1', name: 'metrics', color: 'default' },
-          
-        ],
-        image: '/images/template-engine.png',
-        highlights: [
-          'Migliorato il blocco di calcolo del budget',
-        ],
-        isNew: false
-      },{
-        id: '5',
-        version: 'v0.2.0',
-        title: 'Share, Share, Share',
-        description: 'Da oggi è possibile condividere un budget con i propri colleghi / partner. Abbiamo impostato 2 modalità di condivisione: viewer (può solo vedere il budget); editor (può modificare il documento). Prossimi passi: migliorare il blocco di quotazione dei progetti + introdurre blocchi di conferma del budget',
-        date: '25 gen 2025',
-        tags: [
-          
-          { id: '1', name: 'Share', color: 'default' },
-          { id: '2', name: 'Resend', color: 'default' },
-          
-        ],
-        image: '/images/template-engine.png',
-        highlights: [
-          'Rilasciata funzione di condivisione di un budget',
-        ],
-        isNew: false
-      },
-      {
-        id: '4',
-        version: 'v0.1.2',
-        title: 'prima versione del blocco di calcolo del budget.',
-        description: 'Abbiamo rilasciato il blocco di calcolo del budget per progetti a evento: è possibile oggi: 1) definire una sezione; 2) definire le risorse per il progetto; 3) definire le attività per sezione; 4) impostare un margine commerciale fisso o percentuale; 5) impostare uno sconto e vedere le metriche calcolate in automatico.',
-        date: '12 gen 2025',
-        tags: [
-          
-          { id: '1', name: 'budget computer', color: 'default' },
-          
-        ],
-        image: '/images/template-engine.png',
-        highlights: [
-          'Rilasciato blocco di calcolo del budget',
-        ],
-        isNew: false
-      },
-      {
-        id: '3',
-        version: 'v0.1.1',
-        title: 'Editor a blocchi impostato',
-        description: 'Abbiamo rilasciato la prima versione dell\'editor a blocchi. Ad oggi si possono inserire Paragrafi, link, Header H1 e H2. prossimo passo: integrare il calcolatore del budget per progetti.',
-        date: '8 gen 2025',
-        tags: [
-          
-          { id: '1', name: 'dnd', color: 'default' },
-          
-        ],
-        image: '/images/template-engine.png',
-        highlights: [
-          'Rilasciato editor a blocchi con p, H1 e H2 e parsing dei link',
-        ],
-        isNew: false
-      },
-    {
-        id: '2',
-        version: 'v0.1.0',
-        title: 'Auth e budget personali',
-        description: 'Abbiamo integrato login, registrazione e flussi di autenticazione',
-        fullDescription: 'Uno dei principi fondamentali di Budgez è la riservatezza dei dati. Abbiamo scelto NextJS e Supabase come stack per prioritizzare performance, sicurezza, versatilità. Abbiamo compiuto il primo passo: blindare "chi può vedere e interagire con quali dati". Prossimo passo, lavoriamo sulla rapidità di creazione di un budget.',
-        date: '6 gen 2025',
-        tags: [
-          { id: '1', name: 'Auth', color: 'default' },
-          { id: '2', name: 'Login', color: 'default' },
-        ],
-        highlights: [
-          'pubblicata login page e flussi di auth',
-        ]
-      },
-    {
+    isNew: false
+  },
+  {
+    id: '7',
+    version: 'v0.2.2',
+    title: 'migliorata la sezione del profilo, nuovo form di segnalazione bug e idee',
+    description: 'abbiamo migliorato la sezione del profilo con info di username (ora modificabile) e di mail associate all\'utente. Introdotto anche il form di segnalazione di bug, intuizioni, migliorie e idee da parte degli utenti. Tutto quello che facciamo nasce da esigenze captate dagli utenti: finalmente potete dirci al volo le ideee che vi passano in mente',
+    date: '25 feb 2025',
+    tags: [
+      
+      { id: '1', name: 'Feedbacks', color: 'default' },
+      
+    ],
+    image: '/images/template-engine.png',
+    highlights: [
+      'Migliorata sezione profilo',
+      'Introdotto form di segnalazioni bug e idee!',
+    ],
+    isNew: false
+  },
+  {
+    id: '6',
+    version: 'v0.2.1',
+    title: 'migliorato blocco di calcolo del budget',
+    description: 'abbiamo migliorato il blocco di calcolo del budget: da oggi ricaviamo molte più metriche finali per dare un quadro immediato e completo all\'utente. Ad esempio aggreghiamo le ore di lavoro stimate e i costi fissi in quotazione. Migliorata anche la UX di gestione del blocco di calcolo del budget.',
+    date: '15 feb 2025',
+    tags: [
+      
+      { id: '1', name: 'metrics', color: 'default' },
+      
+    ],
+    image: '/images/template-engine.png',
+    highlights: [
+      'Migliorato il blocco di calcolo del budget',
+    ],
+    isNew: false
+  },
+  {
+    id: '5',
+    version: 'v0.2.0',
+    title: 'Share, Share, Share',
+    description: 'Da oggi è possibile condividere un budget con i propri colleghi / partner. Abbiamo impostato 2 modalità di condivisione: viewer (può solo vedere il budget); editor (può modificare il documento). Prossimi passi: migliorare il blocco di quotazione dei progetti + introdurre blocchi di conferma del budget',
+    date: '25 gen 2025',
+    tags: [
+      
+      { id: '1', name: 'Share', color: 'default' },
+      { id: '2', name: 'Resend', color: 'default' },
+      
+    ],
+    image: '/images/template-engine.png',
+    highlights: [
+      'Rilasciata funzione di condivisione di un budget',
+    ],
+    isNew: false
+  },
+  {
+    id: '4',
+    version: 'v0.1.2',
+    title: 'prima versione del blocco di calcolo del budget.',
+    description: 'Abbiamo rilasciato il blocco di calcolo del budget per progetti a evento: è possibile oggi: 1) definire una sezione; 2) definire le risorse per il progetto; 3) definire le attività per sezione; 4) impostare un margine commerciale fisso o percentuale; 5) impostare uno sconto e vedere le metriche calcolate in automatico.',
+    date: '12 gen 2025',
+    tags: [
+      
+      { id: '1', name: 'budget computer', color: 'default' },
+      
+    ],
+    image: '/images/template-engine.png',
+    highlights: [
+      'Rilasciato blocco di calcolo del budget',
+    ],
+    isNew: false
+  },
+  {
+    id: '3',
+    version: 'v0.1.1',
+    title: 'Editor a blocchi impostato',
+    description: 'Abbiamo rilasciato la prima versione dell\'editor a blocchi. Ad oggi si possono inserire Paragrafi, link, Header H1 e H2. prossimo passo: integrare il calcolatore del budget per progetti.',
+    date: '8 gen 2025',
+    tags: [
+      
+      { id: '1', name: 'dnd', color: 'default' },
+      
+    ],
+    image: '/images/template-engine.png',
+    highlights: [
+      'Rilasciato editor a blocchi con p, H1 e H2 e parsing dei link',
+    ],
+    isNew: false
+  },
+  {
+    id: '2',
+    version: 'v0.1.0',
+    title: 'Auth e budget personali',
+    description: 'Abbiamo integrato login, registrazione e flussi di autenticazione',
+    fullDescription: 'Uno dei principi fondamentali di Budgez è la riservatezza dei dati. Abbiamo scelto NextJS e Supabase come stack per prioritizzare performance, sicurezza, versatilità. Abbiamo compiuto il primo passo: blindare "chi può vedere e interagire con quali dati". Prossimo passo, lavoriamo sulla rapidità di creazione di un budget.',
+    date: '6 gen 2025',
+    tags: [
+      { id: '1', name: 'Auth', color: 'default' },
+      { id: '2', name: 'Login', color: 'default' },
+    ],
+    highlights: [
+      'pubblicata login page e flussi di auth',
+    ]
+  },
+  {
     id: '1',
     version: 'v0.0.1',
     title: 'Siamo LIVE su budgez.xyz!',

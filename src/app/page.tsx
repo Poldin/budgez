@@ -65,6 +65,22 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Video Demo Section */}
+        <section className="container mx-auto px-4 py-12">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-8">Guarda come funziona Budgez</h2>
+            <div className="relative" style={{ paddingBottom: '47.43991640543365%', height: 0 }}>
+              <iframe 
+                src="https://www.loom.com/embed/bb3bbf15aee8470586a44957fd68aa08?sid=a769dd11-e156-453d-a4ce-dc5d9792dad5" 
+                frameBorder="0" 
+                allowFullScreen 
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                title="Budgez Demo Video"
+              ></iframe>
+            </div>
+          </div>
+        </section>
+
         {/* Feature Tabs Section */}
         <section className="container mx-auto px-4 py-2">
           <Tabs defaultValue="tab1" className="mx-auto">
@@ -76,7 +92,7 @@ export default function LandingPage() {
               </TabsTrigger>
               <TabsTrigger value="ai-budget" className="font-bold text-base flex items-center gap-2">
                 <Sparkles className="h-4 w-4" />
-                AI Budget
+                AI Budget [beta]
               </TabsTrigger>
             </TabsList>
             </div>
