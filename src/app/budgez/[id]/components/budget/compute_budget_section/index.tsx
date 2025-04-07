@@ -1322,7 +1322,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                           <table className="min-w-full text-sm" style={{ tableLayout: "fixed" }}>
                             <thead className="bg-gray-50 sticky top-0">
                               <tr>
-                                <th className="px-2 py-1 text-left font-bold w-40 min-w-[180px]">Attività</th>
+                                <th className="px-2 py-1 text-left font-bold w-80 min-w-[350px]">Attività</th>
                                 <th className="px-2 py-1 text-center font-bold w-28 min-w-[120px] text-gray-500 opacity-70">Data Inizio</th>
                                 <th className="px-2 py-1 text-center font-bold w-28 min-w-[120px] text-gray-500 opacity-70">Data Fine</th>
                                 {section.resources.map((resource) => (
@@ -1349,7 +1349,7 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
                                             name: e.target.value,
                                           })
                                         }
-                                        className="w-full h-7 text-sm font-bold min-w-[150px]"
+                                        className="w-full h-7 text-sm font-bold min-w-[320px]"
                                       />
                                       <Button
                                         variant="ghost"
