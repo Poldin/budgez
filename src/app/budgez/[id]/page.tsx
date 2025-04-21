@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Eye } from "lucide-react";
+import { ArrowLeft, Eye, Signature } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BudgetLogs from './components/stats/logs'
 import { supabase } from "@/lib/supabase";
@@ -137,6 +137,11 @@ export default function BudgetPage() {
   const [pendingCalculatorType, setPendingCalculatorType] = useState<string | null>(null);
   const [budget, setBudget] = useState<BudgetComplete | null>(null);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
+  const [isApproved, setIsApproved] = useState(false);
+  const [approvalDate, setApprovalDate] = useState<string | null>(null);
+  const [signatureName, setSignatureName] = useState<string | null>(null);
+  const [signatureEmail, setSignatureEmail] = useState<string | null>(null);
+  const [showApprovalDetailsDialog, setShowApprovalDetailsDialog] = useState(false);
 
   const loadBudget = useCallback(async () => {
     setIsLoading(true);
@@ -156,6 +161,23 @@ export default function BudgetPage() {
           setBudgetData(budget.body as SupabaseBudgetData);
           setCalculatorType(budget.body.budget_type || "tech");
         }
+      }
+
+      // Check if budget has been approved
+      const { data: approvalData, error: approvalError } = await supabase
+        .from('budget_approvals')
+        .select('created_at, name, email')
+        .eq('budget_id', budgetId)
+        .eq('approved', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!approvalError && approvalData) {
+        setIsApproved(true);
+        setApprovalDate(approvalData.created_at);
+        setSignatureName(approvalData.name);
+        setSignatureEmail(approvalData.email);
       }
     } catch (error) {
       console.error("Error loading budget:", error);
@@ -407,14 +429,14 @@ export default function BudgetPage() {
             >
               <ArrowLeft className="h-7 w-7" />
             </Button>
-            <div className="flex-1 flex items-center gap-2 bg-white rounded-md px-3 py-2 whitespace-nowrap">
+            <div className="flex-1 flex items-center gap-2 bg-white rounded-md h-9 whitespace-nowrap">
               <Input
                 value={title}
                 onChange={handleTitleChange}
-                className="text-xl font-bold bg-transparent border-none focus:bg-transparent p-0 min-w-0 h-fit"
+                className="text-4xl font-bold bg-transparent border-none focus:bg-transparent min-w-0 h-full leading-tight"
               />
               {budget?.public_id && (
-                <span className="text-sm text-gray-400 rounded-md flex-shrink-0">
+                <span className="text-sm text-gray-400 rounded-md flex-shrink-0 pr-3">
                   id: {budget.public_id}
                 </span>
               )}
@@ -461,6 +483,15 @@ export default function BudgetPage() {
                     {budget?.budget_status === 'public' && (
                       <div className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center">
                         Pubblicato
+                      </div>
+                    )}
+                    {isApproved && (
+                      <div 
+                        className="bg-green-100 border border-green-500 text-green-800 px-4 rounded-lg text-sm font-medium flex items-center cursor-pointer hover:bg-green-200 transition-colors"
+                        onClick={() => setShowApprovalDetailsDialog(true)}
+                      >
+                        <Signature className="h-4 w-4 mr-2" />
+                        {approvalDate && new Date(approvalDate).toLocaleDateString()} - {approvalDate && new Date(approvalDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </div>
                     )}
                     <Button 
@@ -599,6 +630,32 @@ export default function BudgetPage() {
               Conferma
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval details dialog */}
+      <Dialog open={showApprovalDetailsDialog} onOpenChange={setShowApprovalDetailsDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Dettagli approvazione</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <div className="flex items-center mb-4">
+              <Signature className="h-6 w-6 mr-2 text-green-600" />
+              <span className="text-lg font-medium">Preventivo sottoscritto</span>
+            </div>
+            
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <p className="mb-2"><strong>Data:</strong> {approvalDate && new Date(approvalDate).toLocaleDateString()}</p>
+              <p className="mb-2"><strong>Ora:</strong> {approvalDate && new Date(approvalDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+              <p className="mb-2"><strong>Nome:</strong> {signatureName}</p>
+              <p><strong>Email:</strong> {signatureEmail}</p>
+            </div>
+            
+            <p className="text-sm text-gray-500 bg-blue-50 p-3 rounded-md border border-blue-100">
+              <strong>Nota:</strong> È stata salvata una copia del preventivo al momento dell&apos;approvazione. Anche in caso di modifiche future al preventivo originale, la versione approvata rimarrà invariata.
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
 

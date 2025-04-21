@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Copy, Mail } from 'lucide-react';
+import { Globe, Copy, Mail, CheckCheck, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -25,11 +25,20 @@ interface PublishDialogProps {
   publicId: string | null;
 }
 
+interface SharedUser {
+  id: number;
+  external_email: string;
+  created_at: string;
+  customer_otp: string | null;
+}
+
 const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => {
   const [sharingMode, setSharingMode] = useState<'restricted' | 'open'>('restricted');
   const [recipientEmail, setRecipientEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [publishInProgress, setPublishInProgress] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([]);
 
   // Load current sharing mode from database
   useEffect(() => {
@@ -54,6 +63,32 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
     loadBudgetSettings();
   }, [budgetId]);
 
+  // Load shared users
+  useEffect(() => {
+    const loadSharedUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('link_budget_users')
+          .select('id, external_email, created_at, customer_otp')
+          .eq('budget_id', budgetId)
+          .eq('user_role', 'customer')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (data) {
+          setSharedUsers(data as SharedUser[]);
+        }
+      } catch (error) {
+        console.error('Error loading shared users:', error);
+      }
+    };
+    
+    if (budgetId) {
+      loadSharedUsers();
+    }
+  }, [budgetId]);
+
   // Generate the public URL based on the publicId
   const publicUrl = publicId 
     ? `${window.location.origin}/public/${publicId}`
@@ -62,7 +97,13 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
   const copyToClipboard = () => {
     if (publicUrl) {
       navigator.clipboard.writeText(publicUrl);
+      setIsCopied(true);
       toast.success('Link copiato negli appunti');
+      
+      // Reset the icon after 2 seconds
+      setTimeout(() => {
+        setIsCopied(false);
+      }, 2000);
     }
   };
 
@@ -159,22 +200,151 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
     return `${randomLetters}${randomNumbers}`;
   };
 
+  // Generate 6-digit OTP password
+  const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
   const sendEmailWithBudget = async () => {
     if (!recipientEmail || !recipientEmail.includes('@')) {
       toast.error('Inserisci un indirizzo email valido');
       return;
     }
     
+    // Check if email is already in the shared list
+    if (sharedUsers.some(user => user.external_email === recipientEmail)) {
+      toast.error('Questa email è già stata aggiunta');
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
-      // Here you would implement email sending functionality
-      // For now, we'll just show a success toast
+      // Get the current user information
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!publicId) {
+        // If budget is not published yet, publish it first
+        toast.error('Devi prima pubblicare il budget per poterlo condividere');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Generate 6-digit OTP password
+      const otp = generateOTP();
+      
+      // Add the recipient to link_budget_users table
+      const { error: linkError } = await supabase
+        .from('link_budget_users')
+        .insert({
+          budget_id: budgetId,
+          user_role: 'customer',
+          external_email: recipientEmail,
+          reminders: true,
+          customer_otp: otp
+        });
+      
+      if (linkError) throw linkError;
+      
+      // Log the sharing event
+      if (user) {
+        await supabase
+          .from('budgets_logs')
+          .insert({
+            busget_id: budgetId,
+            event: `ha condiviso il budget via email con ${recipientEmail}`,
+            user_id: user.id,
+            metadata: {
+              logger_email: user.email,
+              recipient_email: recipientEmail,
+              customer_otp: otp
+            }
+          });
+      }
+      
+      // Add the new shared user to the local state
+      const { data } = await supabase
+        .from('link_budget_users')
+        .select('id, external_email, created_at, customer_otp')
+        .eq('external_email', recipientEmail)
+        .eq('budget_id', budgetId)
+        .single();
+        
+      if (data) {
+        setSharedUsers(prev => [data as SharedUser, ...prev]);
+      }
+      
+      // Send email notification using the send-email API
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: recipientEmail,
+          subject: 'Budget condiviso con te su Budgez',
+          content: `
+            <p>Ciao,</p>
+            <p>${user?.email || 'è stato'} condiviso con te un budget su Budgez.</p>
+            <p>Puoi visualizzarlo cliccando sul seguente link:</p>
+            <p><a href="${publicUrl}" style="display: inline-block; background-color: #000; color: white; text-decoration: none; padding: 10px 20px; border-radius: 4px; margin: 15px 0;">Visualizza Budget</a></p>
+            <p>Il tuo codice di accesso è: <strong>${otp}</strong></p>
+            <p></p>
+            <p>Grazie,<br>Il team di Budgez</p>
+          `
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore nell\'invio dell\'email');
+      }
+      
       toast.success(`Email inviata a ${recipientEmail}`);
       setRecipientEmail('');
     } catch (error) {
       console.error('Error sending email:', error);
       toast.error('Errore nell\'invio dell\'email');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const removeSharedUser = async (id: number, email: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Delete from the database
+      const { error } = await supabase
+        .from('link_budget_users')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Update the local state
+      setSharedUsers(prev => prev.filter(user => user.id !== id));
+      
+      // Log the removal
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('budgets_logs')
+          .insert({
+            busget_id: budgetId,
+            event: `ha rimosso la condivisione con ${email}`,
+            user_id: user.id,
+            metadata: {
+              logger_email: user.email,
+              removed_email: email
+            }
+          });
+      }
+      
+      toast.success(`Condivisione con ${email} rimossa`);
+    } catch (error) {
+      console.error('Error removing shared user:', error);
+      toast.error('Errore nella rimozione della condivisione');
     } finally {
       setIsLoading(false);
     }
@@ -191,11 +361,12 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
       <DialogContent className="sm:max-w-[60%]">
         <DialogHeader>
           <DialogTitle className="text-xl">pubblica e condividi</DialogTitle>
+          <p className="text-sm text-gray-500 mt-1">Condividi il tuo budget con altri attraverso un link o via email, scegliendo se renderlo accessibile a tutti o solo a persone specifiche.</p>
         </DialogHeader>
         
         <div className="space-y-6 py-4">
           <div className="space-y-2">
-            <h3 className="font-medium text-gray-500">Modalità di condivisione</h3>
+            {/* <h3 className="font-medium text-gray-500">Modalità di condivisione</h3> */}
             <Select 
               value={sharingMode}
               onValueChange={(value) => handleShareModeChange(value as 'restricted' | 'open')}
@@ -222,16 +393,18 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
           </div>
 
           <div className="space-y-2">
-            <h3 className=" font-medium text-gray-500">Link al budget</h3>
-            <div className="flex gap-2">
-              <Input 
-                value={publicUrl}
-                readOnly
-                className="flex-1"
-                placeholder="Il link apparirà qui dopo la pubblicazione"
-              />
-              <Button onClick={copyToClipboard} disabled={!publicUrl}>
-                <Copy className="h-4 w-4" />
+            <div className="flex gap-2 items-center bg-gray-100 p-2 rounded-md">
+              <div className="text-sm font-mono truncate flex-1">
+                {publicUrl || 'Il link apparirà qui dopo la pubblicazione'}
+              </div>
+              <Button 
+                onClick={copyToClipboard} 
+                disabled={!publicUrl}
+                variant="ghost" 
+                size="sm"
+                className="shrink-0"
+              >
+                {isCopied ? <CheckCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
             <p className="text-sm text-gray-500 mt-2">
@@ -240,7 +413,7 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
           </div>
 
           <div className="space-y-2">
-            <h3 className="font-medium text-gray-500">Invia per email</h3>
+            <h3 className="font-medium text-sm text-gray-500">Invia il link al budget direttamente via email</h3>
             <div className="flex gap-2">
               <Input 
                 placeholder="Email del destinatario"
@@ -253,9 +426,34 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
                 <Mail className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Invia il link al budget direttamente via email
-            </p>
+            
+            {sharedUsers.length > 0 && (
+              <div className="mt-4">
+                {/* <h4 className="text-sm font-medium text-gray-500 mb-2">Email condivise</h4> */}
+                <div className="space-y-2">
+                  {sharedUsers.map(user => (
+                    <div key={user.id} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md">
+                      <div className="flex items-center gap-3">
+                        <div className="text-sm">{user.external_email}</div>
+                        {user.customer_otp && (
+                          <div className="bg-gray-200 px-2 py-1 rounded text-xs font-mono">
+                            PIN: {user.customer_otp}
+                          </div>
+                        )}
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => removeSharedUser(user.id, user.external_email)}
+                        disabled={isLoading}
+                      >
+                        <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         

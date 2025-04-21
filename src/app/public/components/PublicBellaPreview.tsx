@@ -19,8 +19,6 @@ export default function PublicBellaPreview({ id }: Props) {
   const [currency, setCurrency] = useState<string>('EUR')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const [isApproved, setIsApproved] = useState(false)
-  const [approvalDate, setApprovalDate] = useState<string | null>(null)
   const [snapshotData, setSnapshotData] = useState<SnapshotData | null>(null)
   
   useEffect(() => {
@@ -46,8 +44,6 @@ export default function PublicBellaPreview({ id }: Props) {
         // If we found an approved version with snapshot data
         if (approvalData?.body_approval) {
           console.log('Found approved snapshot version of budget')
-          setIsApproved(true)
-          setApprovalDate(approvalData.created_at)
           setSnapshotData(approvalData.body_approval)
           
           // Extract total amount from snapshot data
@@ -151,7 +147,7 @@ export default function PublicBellaPreview({ id }: Props) {
       />
       
       {/* If this document is already approved, show notification banner */}
-      {isApproved && approvalDate && (
+      {/* {isApproved && approvalDate && (
         <div className="bg-blue-50 p-4 mb-4 border-l-4 border-blue-400">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -167,7 +163,7 @@ export default function PublicBellaPreview({ id }: Props) {
             </div>
           </div>
         </div>
-      )}
+      )} */}
       
       {/* Use the original BellaPreview component with signature hidden */}
       {snapshotData ? (

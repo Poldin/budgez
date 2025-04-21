@@ -22,14 +22,16 @@ export default function RealSignature({ budgetId, totalAmount, currency }: RealS
   const [signatureDate, setSignatureDate] = useState<string | null>(null)
   const [signatureName, setSignatureName] = useState<string | null>(null)
   const [generatedOtp, setGeneratedOtp] = useState<string | null>(null)
+  const [showApprovalDetailsDialog, setShowApprovalDetailsDialog] = useState(false)
 
   // Check if budget is already approved on component mount
   const checkApprovalStatus = async () => {
     try {
       const { data, error } = await supabase
         .from('budget_approvals')
-        .select('created_at, name')
+        .select('created_at, name, email')
         .eq('budget_id', budgetId)
+        .eq('approved', true)
         .maybeSingle()
 
       if (error) throw error
@@ -38,6 +40,7 @@ export default function RealSignature({ budgetId, totalAmount, currency }: RealS
         setIsApproved(true)
         setSignatureDate(data.created_at)
         setSignatureName(data.name)
+        setEmail(data.email)
       }
     } catch (error) {
       console.error('Error checking approval status:', error)
@@ -136,7 +139,7 @@ export default function RealSignature({ budgetId, totalAmount, currency }: RealS
       // First, get the current budget data to store as a snapshot
       const { data: budgetData, error: budgetError } = await supabase
         .from('budgets')
-        .select('body')
+        .select('body, name')
         .eq('id', budgetId)
         .single()
         
@@ -160,6 +163,75 @@ export default function RealSignature({ budgetId, totalAmount, currency }: RealS
         
       if (error) throw error
       
+      // Fetch all connected users who should be notified (owner, editor, viewer roles)
+      const { data: connectedUsers, error: usersError } = await supabase
+        .from('link_budget_users')
+        .select('user_id, external_email, user_role')
+        .eq('budget_id', budgetId)
+        .in('user_role', ['owner', 'editor', 'viewer'])
+      
+      if (usersError) throw usersError
+
+      if (connectedUsers && connectedUsers.length > 0) {
+        // Get user emails - either from external_email or auth.users table
+        for (const user of connectedUsers) {
+          let recipientEmail = user.external_email;
+          
+          // If external_email is not available but we have a user_id, fetch from auth.users
+          if (!recipientEmail && user.user_id) {
+            const { data: userData, error: userError } = await supabase
+              .from('auth.users')
+              .select('email')
+              .eq('id', user.user_id)
+              .single()
+              
+            if (userError) {
+              console.error('Error fetching user email:', userError)
+              continue // Skip this user and continue with the next one
+            }
+            
+            if (userData) {
+              recipientEmail = userData.email
+            }
+          }
+          
+          // Send notification email if we have a valid email
+          if (recipientEmail) {
+            const formattedDate = new Date().toLocaleDateString()
+            const formattedTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            const budgetName = budgetData.name || 'Preventivo'
+            const budgetLink = `${window.location.origin}/budget/${budgetId}`
+            
+            await fetch('/api/send-email', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                to: recipientEmail,
+                subject: `Preventivo "${budgetName}" approvato`,
+                content: `
+                  <p>Gentile utente,</p>
+                  <p>Ti informiamo che il preventivo <strong>"${budgetName}"</strong> è stato approvato.</p>
+                  <div style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
+                    <p><strong>Dettagli approvazione:</strong></p>
+                    <p>Data: ${formattedDate}</p>
+                    <p>Ora: ${formattedTime}</p>
+                    <p>Nome: ${name}</p>
+                    <p>Email: ${email}</p>
+                  </div>
+                  <p>Puoi visualizzare il preventivo approvato al seguente link:</p>
+                  <p><a href="${budgetLink}" style="display: inline-block; background-color: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 10px 0;">Visualizza Preventivo</a></p>
+                  <p>È stata salvata una copia del preventivo al momento dell'approvazione. Anche in caso di modifiche future al preventivo originale, la versione approvata rimarrà invariata.</p>
+                `
+              }),
+            }).catch(err => {
+              console.error(`Error sending notification to ${recipientEmail}:`, err)
+            })
+          }
+        }
+      }
+
       setShowSuccess(true)
       
       // Update local state
@@ -172,8 +244,6 @@ export default function RealSignature({ budgetId, totalAmount, currency }: RealS
       setTimeout(() => {
         setShowSuccess(false)
         setShowOtpInput(false)
-        setEmail('')
-        setName('')
         setOtp('')
         setGeneratedOtp(null)
         setDialogOpen(false)
@@ -189,11 +259,12 @@ export default function RealSignature({ budgetId, totalAmount, currency }: RealS
   return (
     <div className="fixed top-4 right-4 z-50">
       {isApproved ? (
-        <div className="bg-green-100 border border-green-500 text-green-800 px-4 py-2 rounded-lg shadow-md text-sm font-medium flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          Approvato il {signatureDate && new Date(signatureDate).toLocaleDateString()} alle {signatureDate && new Date(signatureDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} da {signatureName}
+        <div 
+          className="bg-green-100 border border-green-500 text-green-800 px-4 py-2 rounded-lg shadow-md text-sm font-medium flex items-center cursor-pointer hover:bg-green-200 transition-colors"
+          onClick={() => setShowApprovalDetailsDialog(true)}
+        >
+          <Signature className="h-4 w-4 mr-2" />
+          {signatureDate && new Date(signatureDate).toLocaleDateString()} - {signatureDate && new Date(signatureDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
         </div>
       ) : (
         <button
@@ -304,6 +375,32 @@ export default function RealSignature({ budgetId, totalAmount, currency }: RealS
                 </button>
               </form>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval details dialog */}
+      <Dialog open={showApprovalDetailsDialog} onOpenChange={setShowApprovalDetailsDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Dettagli approvazione</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <div className="flex items-center mb-4">
+              <Signature className="h-6 w-6 mr-2 text-green-600" />
+              <span className="text-lg font-medium">Preventivo sottoscritto</span>
+            </div>
+            
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <p className="mb-2"><strong>Data:</strong> {signatureDate && new Date(signatureDate).toLocaleDateString()}</p>
+              <p className="mb-2"><strong>Ora:</strong> {signatureDate && new Date(signatureDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+              <p className="mb-2"><strong>Nome:</strong> {signatureName}</p>
+              <p><strong>Email:</strong> {email}</p>
+            </div>
+            
+            <p className="text-sm text-gray-500 bg-blue-50 p-3 rounded-md border border-blue-100">
+              <strong>Nota:</strong> È stata salvata una copia del preventivo al momento dell&apos;approvazione. Anche in caso di modifiche future al preventivo originale, la versione approvata rimarrà invariata.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
