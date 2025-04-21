@@ -31,6 +31,7 @@ import debounce from "lodash/debounce";
 import ShareDialog from './components/share';
 import {InfoDialog, INFO_CONTENT} from '@/components/infodialogs/InfoDialogs'
 import BellaEditor from './components/bella'
+import PublishDialog from './components/publish';
 type UserRole = 'owner' | 'editor' | 'viewer';
 
 
@@ -94,6 +95,8 @@ interface BudgetComplete {
   budget_name: string;
   public_id: string;
   body: SupabaseBudgetData;
+  budget_status?: string;
+  sharing_mode?: string;
 }
 
 export interface SupabaseBudgetData {
@@ -455,6 +458,11 @@ export default function BudgetPage() {
                     <h2 className="text-xl font-bold">❤️‍🔥 Quote</h2>
                   </div>
                   <div className="flex gap-2">
+                    {budget?.budget_status === 'public' && (
+                      <div className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center">
+                        Pubblicato
+                      </div>
+                    )}
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -464,7 +472,10 @@ export default function BudgetPage() {
                       <Eye className="h-4 w-4" />
                       Preview
                     </Button>
-                    
+                    <PublishDialog 
+                      budgetId={budgetId} 
+                      publicId={budget?.public_id || null} 
+                    />
                   </div>
                 </div>
                 <div className="p-4 bg-white rounded-lg border">
