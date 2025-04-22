@@ -8,9 +8,15 @@ interface RealSignatureProps {
   budgetId: string
   totalAmount: number
   currency: string
+  currencySymbol?: string
 }
 
-export default function RealSignature({ budgetId, totalAmount, currency }: RealSignatureProps) {
+export default function RealSignature({ 
+  budgetId, 
+  totalAmount, 
+  currency, 
+  currencySymbol = '€' 
+}: RealSignatureProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isApproved, setIsApproved] = useState(false)
   const [email, setEmail] = useState('')
@@ -256,6 +262,25 @@ export default function RealSignature({ budgetId, totalAmount, currency }: RealS
     }
   }
 
+  // Function to format currency with symbol
+  const formatCurrency = (amount: number): string => {
+    const formatter = new Intl.NumberFormat('it-IT', {
+      style: 'currency',
+      currency: currency,
+      currencyDisplay: 'symbol'
+    })
+    
+    const formattedAmount = formatter.format(amount)
+    
+    // For some currencies like USD, the formatter may still show "USD 100" instead of "$ 100"
+    // So we need to manually replace it in some cases
+    if (formattedAmount.includes(currency)) {
+      return formattedAmount.replace(currency, currencySymbol)
+    }
+    
+    return formattedAmount
+  }
+
   return (
     <div className="fixed top-4 right-4 z-50">
       {isApproved ? (
@@ -288,10 +313,7 @@ export default function RealSignature({ budgetId, totalAmount, currency }: RealS
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">totale</span>
                   <span className="text-xl font-bold text-gray-900">
-                    {new Intl.NumberFormat('it-IT', { 
-                      style: 'currency', 
-                      currency: currency 
-                    }).format(totalAmount)}
+                    {formatCurrency(totalAmount)}
                   </span>
                 </div>
               </div>

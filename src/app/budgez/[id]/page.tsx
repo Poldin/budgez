@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Eye, Signature } from "lucide-react";
+import { ArrowLeft, Eye, Signature, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BudgetLogs from './components/stats/logs'
 import { supabase } from "@/lib/supabase";
@@ -32,6 +32,7 @@ import ShareDialog from './components/share';
 import {InfoDialog, INFO_CONTENT} from '@/components/infodialogs/InfoDialogs'
 import BellaEditor from './components/bella'
 import PublishDialog from './components/publish';
+import SettingsComponent from './components/settings'
 type UserRole = 'owner' | 'editor' | 'viewer';
 
 
@@ -142,6 +143,7 @@ export default function BudgetPage() {
   const [signatureName, setSignatureName] = useState<string | null>(null);
   const [signatureEmail, setSignatureEmail] = useState<string | null>(null);
   const [showApprovalDetailsDialog, setShowApprovalDetailsDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("brief");
 
   const loadBudget = useCallback(async () => {
     setIsLoading(true);
@@ -408,6 +410,10 @@ export default function BudgetPage() {
     }
   }, [budgetId]);
 
+  const handleSettingsClick = () => {
+    setActiveTab("settings");
+  };
+
   if (isCheckingPermissions || isLoading) {
     // console.log(isCheckingPermissions ? "Verifying permissions..." : "Loading...")
     return (
@@ -443,15 +449,24 @@ export default function BudgetPage() {
             </div>
 
             <div className="flex gap-1 ml-auto">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleSettingsClick}
+                  className="h-9 w-9"
+                >
+                  <SettingsIcon className="h-5 w-5" />
+                </Button>
                 <ShareDialog budgetId={budgetId} />
             </div>
           </div>
 
-          <Tabs defaultValue="brief" className="mb-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <div className="flex justify-between items-center">
             <TabsList>
               <TabsTrigger value="brief" className="data-[state=active]:bg-black data-[state=active]:text-white">📄Brief</TabsTrigger>
               <TabsTrigger value="quote" className="data-[state=active]:bg-black data-[state=active]:text-white">❤️‍🔥 Quote</TabsTrigger>
+              <TabsTrigger value="settings" className="data-[state=active]:bg-black data-[state=active]:text-white">⚙️ Impostazioni</TabsTrigger>
             </TabsList>
             
               
@@ -514,9 +529,17 @@ export default function BudgetPage() {
                 </div>
               </TabsContent>
 
+              {/* Settings tab */}
+              <TabsContent value="settings">
+                <div className="flex justify-between items-center mb-1 pb-2">
+                  <div className="flex gap-2 justify-center items-center">
+                    <h2 className="text-xl font-bold">⚙️ Impostazioni</h2>
+                  </div>
+                </div>
+                <SettingsComponent budgetId={budgetId} />
+              </TabsContent>
 
-
-                    {/* Calcola tab - to be deleted */}
+              {/* Calcola tab - to be deleted */}
               <TabsContent value="budget">
                 <div className="flex justify-between items-center space-x-4 mb-6">
                   <h2 className="text-xl font-bold">🧮Calcola</h2>

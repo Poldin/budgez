@@ -53,6 +53,10 @@ export interface SnapshotData {
   bella?: {
     blocks: Block[];
   };
+  settings?: {
+    currency?: string;
+    currencySymbol?: string;
+  };
   [key: string]: unknown;
 }
 
@@ -127,11 +131,30 @@ export default function BellaPreview({
   const [isApproved, setIsApproved] = useState(false)
   const [totalAmount, setTotalAmount] = useState<number | null>(null)
   const [currency, setCurrency] = useState<string>('EUR')
+  const [currencySymbol, setCurrencySymbol] = useState<string>('€')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [showOtpInput, setShowOtpInput] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   
+  // Function to format currency with symbol
+  const formatCurrency = (amount: number): string => {
+    const formatter = new Intl.NumberFormat('it-IT', {
+      style: 'currency',
+      currency: currency,
+      currencyDisplay: 'symbol'
+    })
+    
+    const formattedAmount = formatter.format(amount)
+    
+    // For some currencies like USD, the formatter may still show "USD 100" instead of "$ 100"
+    // So we need to manually replace it in some cases
+    if (formattedAmount.includes(currency)) {
+      return formattedAmount.replace(currency, currencySymbol)
+    }
+    
+    return formattedAmount
+  }
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -155,6 +178,24 @@ export default function BellaPreview({
           } else {
             setBlocks([])
           }
+          
+          // Get currency symbol from settings if available
+          if (snapshotData.settings?.currencySymbol) {
+            setCurrencySymbol(snapshotData.settings.currencySymbol)
+          } else if (snapshotData.settings?.currency) {
+            // Try to determine symbol from currency code
+            const symbols: Record<string, string> = {
+              'EUR': '€',
+              'USD': '$',
+              'GBP': '£',
+              'CHF': 'CHF',
+              'JPY': '¥',
+              'CAD': 'C$',
+              'AUD': 'A$'
+            }
+            setCurrencySymbol(symbols[snapshotData.settings.currency] || '€')
+          }
+          
           setLoading(false)
           return
         }
@@ -169,11 +210,33 @@ export default function BellaPreview({
 
         const { data, error } = await supabase
           .from('budgets')
-          .select('body')
+          .select('body, settings')
           .eq('id', id)
           .single()
 
         if (error) throw error
+
+        // Check settings for currency first
+        if (data?.settings?.currency) {
+          setCurrency(data.settings.currency)
+          
+          // Set currency symbol if available, otherwise infer from currency code
+          if (data.settings.currencySymbol) {
+            setCurrencySymbol(data.settings.currencySymbol)
+          } else {
+            // Try to determine symbol from currency code
+            const symbols: Record<string, string> = {
+              'EUR': '€',
+              'USD': '$',
+              'GBP': '£',
+              'CHF': 'CHF',
+              'JPY': '¥',
+              'CAD': 'C$',
+              'AUD': 'A$'
+            }
+            setCurrencySymbol(symbols[data.settings.currency] || '€')
+          }
+        }
 
         if (data?.body?.bella?.blocks) {
           setBlocks(data.body.bella.blocks)
@@ -187,7 +250,11 @@ export default function BellaPreview({
             }, 0)
             const total = subtotal + (quoteTable.taxIncluded ? 0 : taxAmount)
             setTotalAmount(total)
-            setCurrency(quoteTable.currency || 'EUR')
+            
+            // Use settings currency if available, otherwise fall back to quoteTable currency
+            if (!data?.settings?.currency) {
+              setCurrency(quoteTable.currency || 'EUR')
+            }
           }
         } else {
           setBlocks([])
@@ -656,10 +723,7 @@ export default function BellaPreview({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">totale</span>
                   <span className="text-xl font-bold text-gray-900">
-                    {new Intl.NumberFormat('it-IT', { 
-                      style: 'currency', 
-                      currency: currency 
-                    }).format(totalAmount)}
+                    {formatCurrency(totalAmount)}
                   </span>
                 </div>
               </div>

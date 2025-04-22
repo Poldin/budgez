@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import {
   AlignLeft
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { supabase } from "@/lib/supabase";
 import {
   Activity,
   Budget,
@@ -134,12 +135,6 @@ const DEFAULT_BUDGET: TBBudgetData = {
   discountType: "fixed",
 };
 
-const CURRENCY_FORMAT_OPTIONS = {
-  style: "currency",
-  currency: "EUR",
-  minimumFractionDigits: 2,
-} as const;
-
 // Reusable Components
 interface NumericInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   suffix?: string;
@@ -185,11 +180,6 @@ const ValueTypeRadioGroup: React.FC<ValueTypeRadioGroupProps> = ({
     </div>
   </RadioGroup>
 );
-
-// Helper Functions
-const formatCurrency = (value: number): string => {
-  return value.toLocaleString("en-US", CURRENCY_FORMAT_OPTIONS);
-};
 
 // Calcola le date di inizio e fine di una sezione basate sulle date delle attività
 const calculateSectionDates = (activities: ActivityWithDates[]): { startDate?: string; endDate?: string } => {
@@ -467,6 +457,10 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
     } as TBBudgetData;
   });
 
+  // Add state for currency settings
+  const [currencyCode, setCurrencyCode] = useState<string>("EUR");
+  const [currencySymbol, setCurrencySymbol] = useState<string>("€");
+
   // State for template dialogs
   const [sectionTemplateDialogOpen, setSectionTemplateDialogOpen] = useState(false);
   const [resourceTemplateDialogOpen, setResourceTemplateDialogOpen] = useState(false);
@@ -480,6 +474,67 @@ const TechBudgetScreen: React.FC<Props> = ({ content, onChange, onUpdate = () =>
     name: '',
     description: ''
   });
+
+  // Fetch currency settings from the database
+  useEffect(() => {
+    const fetchCurrencySettings = async () => {
+      if (!initialData) return;
+      
+      try {
+        // Extract budget ID from the page URL
+        const pathSegments = window.location.pathname.split('/');
+        const budgetId = pathSegments[pathSegments.indexOf('budgez') + 1];
+        
+        if (!budgetId) return;
+        
+        const { data, error } = await supabase
+          .from('budgets')
+          .select('settings')
+          .eq('id', budgetId)
+          .single();
+          
+        if (error) throw error;
+        
+        // If settings exist and have currency information, update state
+        if (data?.settings?.currency) {
+          setCurrencyCode(data.settings.currency);
+        }
+        
+        if (data?.settings?.currencySymbol) {
+          setCurrencySymbol(data.settings.currencySymbol);
+        }
+      } catch (error) {
+        console.error('Error fetching currency settings:', error);
+      }
+    };
+    
+    fetchCurrencySettings();
+  }, [initialData]);
+
+  // Function to get currency formatting options with the current currency
+  const getCurrencyFormatOptions = () => {
+    return {
+      style: "currency",
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+    } as const;
+  };
+
+  // Updated format currency function to use dynamic currency
+  const formatCurrency = (value: number): string => {
+    const formattedValue = value.toLocaleString("en-US", getCurrencyFormatOptions());
+    
+    // Replace the default currency symbol with the custom one if needed
+    if (currencySymbol && currencySymbol !== '$') {
+      // This handles replacing the standard currency symbol with our custom one
+      // Different browsers may format currency differently, so this is a general approach
+      return formattedValue.replace(/^\$|([0-9])\$/g, (match, p1) => 
+        p1 ? p1 + currencySymbol : currencySymbol
+      );
+    }
+    
+    return formattedValue;
+  };
 
   const calculateActivityCost = (
     activity: Activity,

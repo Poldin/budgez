@@ -17,9 +17,24 @@ const extractQuoteTableData = (blocks: Block[]) => {
 export default function PublicBellaPreview({ id }: Props) {
   const [totalAmount, setTotalAmount] = useState<number | null>(null)
   const [currency, setCurrency] = useState<string>('EUR')
+  const [currencySymbol, setCurrencySymbol] = useState<string>('€') // Default to Euro symbol
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
   const [snapshotData, setSnapshotData] = useState<SnapshotData | null>(null)
+  
+  // Function to convert currency code to symbol
+  const getCurrencySymbol = (currencyCode: string): string => {
+    const symbols: Record<string, string> = {
+      'EUR': '€',
+      'USD': '$',
+      'GBP': '£',
+      'CHF': 'CHF',
+      'JPY': '¥',
+      'CAD': 'C$',
+      'AUD': 'A$'
+    }
+    return symbols[currencyCode] || currencyCode
+  }
   
   useEffect(() => {
     const fetchBudgetData = async () => {
@@ -54,6 +69,18 @@ export default function PublicBellaPreview({ id }: Props) {
             }
           }
           
+          // Check for settings currency in the snapshot
+          if (approvalData.body_approval?.settings?.currency) {
+            setCurrency(approvalData.body_approval.settings.currency);
+            
+            // Set currency symbol if available
+            if (approvalData.body_approval.settings.currencySymbol) {
+              setCurrencySymbol(approvalData.body_approval.settings.currencySymbol);
+            } else {
+              setCurrencySymbol(getCurrencySymbol(approvalData.body_approval.settings.currency));
+            }
+          }
+          
           setLoading(false)
           return
         }
@@ -61,16 +88,34 @@ export default function PublicBellaPreview({ id }: Props) {
         // If no approved version found, fetch the current version
         const { data, error } = await supabase
           .from('budgets')
-          .select('body')
+          .select('body, settings')
           .eq('id', id)
           .single()
 
         if (error) throw error
+        
+        // Check settings for currency first
+        if (data?.settings?.currency) {
+          setCurrency(data.settings.currency)
+          
+          // Set currency symbol if available
+          if (data.settings.currencySymbol) {
+            setCurrencySymbol(data.settings.currencySymbol);
+          } else {
+            setCurrencySymbol(getCurrencySymbol(data.settings.currency));
+          }
+        }
 
         if (data?.body?.bella?.blocks) {
           const quoteTable = extractQuoteTableData(data.body.bella.blocks);
           if (quoteTable) {
             extractTotalFromQuoteTable(quoteTable);
+            
+            // Only set currency from quoteTable if no settings currency was found
+            if (!data?.settings?.currency && quoteTable.currency) {
+              setCurrency(quoteTable.currency);
+              setCurrencySymbol(getCurrencySymbol(quoteTable.currency));
+            }
           }
         }
       } catch (error) {
@@ -109,11 +154,15 @@ export default function PublicBellaPreview({ id }: Props) {
       )
       const total = subtotal + (quoteTable.taxIncluded ? 0 : taxAmount)
       setTotalAmount(total)
-      setCurrency(quoteTable.currency || 'EUR')
+      // Only set currency if it hasn't been set from settings
+      if (currency === 'EUR') {
+        setCurrency(quoteTable.currency || 'EUR')
+        setCurrencySymbol(getCurrencySymbol(quoteTable.currency || 'EUR'))
+      }
     }
 
     fetchBudgetData()
-  }, [id])
+  }, [id, currency])
 
   if (loading) {
     return (
@@ -143,7 +192,8 @@ export default function PublicBellaPreview({ id }: Props) {
       <RealSignature 
         budgetId={id} 
         totalAmount={totalAmount || 0} 
-        currency={currency} 
+        currency={currency}
+        currencySymbol={currencySymbol} 
       />
       
       {/* If this document is already approved, show notification banner */}

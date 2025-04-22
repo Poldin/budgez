@@ -33,6 +33,7 @@ import {
 import {
   Label
 } from "@/components/ui/label"
+import { supabase } from "@/lib/supabase"
 
 export interface QuoteItem {
   id: string
@@ -274,6 +275,62 @@ export default function QuoteTableBlock({
 }: QuoteTableBlockProps) {
   const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const [currency, setCurrency] = useState<string>(data.currency || 'EUR')
+  const [currencySymbol, setCurrencySymbol] = useState<string>('€') // Default to Euro symbol
+
+  // Load currency from settings when component mounts
+  useEffect(() => {
+    const loadCurrencyFromSettings = async () => {
+      try {
+        // Extract budget ID from URL path
+        const pathParts = window.location.pathname.split('/')
+        const budgetId = pathParts[pathParts.indexOf('budgez') + 1]
+        
+        if (!budgetId) return
+
+        const { data: budgetData, error } = await supabase
+          .from('budgets')
+          .select('settings')
+          .eq('id', budgetId)
+          .single()
+
+        if (error) throw error
+
+        if (budgetData?.settings?.currency) {
+          setCurrency(budgetData.settings.currency)
+          
+          // Set the currency symbol if available
+          if (budgetData.settings.currencySymbol) {
+            setCurrencySymbol(budgetData.settings.currencySymbol)
+          } else {
+            // Try to determine symbol from currency code
+            const symbols: Record<string, string> = {
+              'EUR': '€',
+              'USD': '$',
+              'GBP': '£',
+              'CHF': 'CHF',
+              'JPY': '¥',
+              'CAD': 'C$',
+              'AUD': 'A$'
+            }
+            setCurrencySymbol(symbols[budgetData.settings.currency] || budgetData.settings.currency)
+          }
+          
+          // Update the quoteTable data if the currency is different
+          if (data.currency !== budgetData.settings.currency) {
+            onChange({
+              ...data,
+              currency: budgetData.settings.currency
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error loading currency from settings:', error)
+      }
+    }
+
+    loadCurrencyFromSettings()
+  }, [data, onChange])
 
   const calculateSubtotal = (item: QuoteItem): number => {
     const baseAmount = item.quantity * item.unitPrice;
@@ -367,11 +424,24 @@ export default function QuoteTableBlock({
   };
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('it-IT', {
+    // Use a custom formatter that shows the symbol instead of the currency code
+    const formatter = new Intl.NumberFormat('it-IT', {
       style: 'currency',
-      currency: data.currency || 'EUR'
-    }).format(amount);
-  };
+      currency: currency,
+      currencyDisplay: 'symbol'
+    })
+    
+    // Replace the currency code with the symbol
+    const formattedAmount = formatter.format(amount)
+    
+    // For some currencies like USD, the formatter may still show "USD 100" instead of "$ 100"
+    // So we need to manually replace it in some cases
+    if (formattedAmount.includes(currency)) {
+      return formattedAmount.replace(currency, currencySymbol)
+    }
+    
+    return formattedAmount
+  }
 
   const handleDescriptionChange = (id: string, value: string) => {
     // Apply URL transformation
