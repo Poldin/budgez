@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ExternalLink, Copy, Trash2, Plus } from 'lucide-react'
+import { ExternalLink, Copy, Trash2, Plus, Signature } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -30,6 +30,8 @@ type Budget = {
   created_at: string
   status: 'draft'
   userRole: 'owner' | 'editor' | 'viewer'
+  isApproved: boolean
+  approvalDate?: string
 }
 
 const getRoleBadgeStyle = (role: string) => {
@@ -119,11 +121,39 @@ export default function BudgetDashboard() {
           budget_name: item.budgets!.budget_name || 'Untitled Budget',
           created_at: item.budgets!.created_at,
           status: item.budgets!.budget_status as 'draft',
-          userRole: item.user_role as 'owner' | 'editor' | 'viewer'
+          userRole: item.user_role as 'owner' | 'editor' | 'viewer',
+          isApproved: false, // default value, will be updated below
         }))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Ensure client-side sorting
       
-      setBudgets(formattedBudgets)
+      // Check approval status for each budget
+      const budgetsWithApproval = await Promise.all(
+        formattedBudgets.map(async (budget) => {
+          try {
+            const { data: approvalData } = await supabase
+              .from('budget_approvals')
+              .select('created_at')
+              .eq('budget_id', budget.id)
+              .eq('approved', true)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (approvalData) {
+              return {
+                ...budget,
+                isApproved: true,
+                approvalDate: approvalData.created_at
+              }
+            }
+          } catch (error) {
+            console.error(`Error checking approval for budget ${budget.id}:`, error)
+          }
+          return budget
+        })
+      )
+      
+      setBudgets(budgetsWithApproval)
     } catch (error) {
       console.error('Error fetching budgets:', error)
     }
@@ -337,6 +367,7 @@ export default function BudgetDashboard() {
                     <TableHead>Nome</TableHead>
                     {/* <TableHead>Stato</TableHead> */}
                     <TableHead>Ruolo</TableHead>
+                    <TableHead>Stato Approvazione</TableHead>
                     <TableHead>Azioni</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -361,6 +392,16 @@ export default function BudgetDashboard() {
                         <Badge className={getRoleBadgeStyle(budget.userRole)}>
                           {budget.userRole}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {budget.isApproved ? (
+                          <Badge className="bg-green-100 border border-green-500 text-green-800 flex items-center">
+                            <Signature className="h-3 w-3 mr-1" />
+                            Approvato
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400 text-sm">Non approvato</span>
+                        )}
                       </TableCell>
                       <TableCell className="rounded-r-lg">
                         <div className="flex gap-2 action-buttons">

@@ -674,44 +674,46 @@ export default function SettingsPage() {
                 <div className="grid gap-8">
                   {/* OPZIONI DI PAGAMENTO */}
                   <div>
-                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
                       <CreditCard className="h-5 w-5" />
                       Le nostre tariffe
                     </h2>
                     
-                    <div className="grid gap-5 p-6 bg-gray-50 rounded-md border mb-8">
-                      <h3 className="font-medium border-b pb-2">Come funziona il nostro modello di pricing</h3>
+                    <div className="grid gap-5 bg-gray-50 rounded-md">
                       
-                      <div className="flex items-start gap-3">
-                        <Award className="h-5 w-5 text-gray-700 mt-1 flex-shrink-0" />
-                        <p>
-                          Budgez è <span className="font-semibold">completamente gratuito</span> da utilizzare per creare e gestire i tuoi preventivi.
-                          Puoi creare quanti preventivi vuoi senza limiti.
-                        </p>
-                      </div>
-                      
-                      <div className="flex items-start gap-3">
-                        <CheckCircle className="h-5 w-5 text-gray-700 mt-1 flex-shrink-0" />
-                        <p>
-                          Paghi solo quando un cliente <span className="font-semibold">accetta formalmente</span> un preventivo attraverso la piattaforma.
-                          Se il preventivo non viene accettato, non paghi nulla.
-                        </p>
-                      </div>
-                      
-                      <div className="flex items-start gap-3">
-                        <Percent className="h-5 w-5 text-gray-700 mt-1 flex-shrink-0" />
-                        <p>
-                          La commissione è dello <span className="font-semibold">0,1%</span> sul valore totale del preventivo approvato,
-                          con una commissione minima di <span className="font-semibold">€0,50</span> per preventivo.
-                        </p>
-                      </div>
-                      
-                      <div className="flex items-start gap-3">
-                        <Wallet className="h-5 w-5 text-gray-700 mt-1 flex-shrink-0" />
-                        <p>
-                          Gli addebiti avvengono automaticamente sulla carta registrata quando un cliente accetta il preventivo.
-                          Riceverai regolare fattura per ogni commissione.
-                        </p>
+                      <div className="flex gap-10 bg-gradient-to-r from-gray-50 to-white p-6 rounded-md border border-gray-300 shadow-sm my-4">
+                        <div className="text-7xl font-bold text-black leading-none flex-shrink-0">0,1%</div>
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-2">
+                            <Award className="h-5 w-5 text-gray-700 mt-1 flex-shrink-0" />
+                            <p>
+                              Budgez è <span className="font-semibold">completamente gratuito</span> da utilizzare per creare e gestire i tuoi preventivi.
+                              Puoi creare quanti preventivi vuoi senza limiti.
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-start gap-2">
+                            <CheckCircle className="h-5 w-5 text-gray-700 mt-1 flex-shrink-0" />
+                            <p>
+                              Paghi solo quando un cliente <span className="font-semibold">accetta formalmente</span> un preventivo attraverso la piattaforma.
+                              Se il preventivo non viene accettato, non paghi nulla.
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-start gap-2">
+                            <Percent className="h-5 w-5 text-gray-700 mt-1 flex-shrink-0" />
+                            <p>
+                              Sul valore totale del preventivo approvato.
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-start gap-2">
+                            <Wallet className="h-5 w-5 text-gray-700 mt-1 flex-shrink-0" />
+                            <p>
+                              Gli addebiti avvengono automaticamente sulla carta registrata quando un cliente accetta il preventivo.
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -806,7 +808,7 @@ export default function SettingsPage() {
                                   <h3 className="font-medium">Metodo di pagamento e dati fiscali configurati</h3>
                                   <p className="text-sm text-gray-500 mt-1">
                                     Hai configurato correttamente il tuo metodo di pagamento e i dati fiscali.
-                                    Gli addebiti avverranno automaticamente quando un cliente accetta un preventivo (0,1% del valore, min. €0,50).
+                                    Gli addebiti avverranno automaticamente quando un cliente accetta un preventivo (0,1% del valore).
                                   </p>
                                 </div>
                               </div>

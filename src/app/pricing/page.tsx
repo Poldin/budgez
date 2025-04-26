@@ -73,7 +73,7 @@ export default function PricingPage() {
     },
     {
       question: "Come funziona il modello di pricing di Budgez?",
-      answer: "Budgez è completamente gratuito da utilizzare. Non ci sono costi di abbonamento o limiti sul numero di preventivi che puoi creare. L'unico costo è una commissione dello 0,1% sul valore dei preventivi approvati dai tuoi clienti, con un minimo di €0,10 per preventivo. Paghi solo quando vendi, non quando crei."
+      answer: "Budgez è completamente gratuito da utilizzare. Non ci sono costi di abbonamento o limiti sul numero di preventivi che puoi creare. L'unico costo è una commissione dello 0,1% sul valore dei preventivi approvati dai tuoi clienti. Paghi solo quando vendi, non quando crei."
     },
     {
       question: "Quando viene addebitata la commissione?",
@@ -153,7 +153,6 @@ export default function PricingPage() {
                 <div className="text-center">
                   <div className="text-5xl text-gray-900 mb-2">
                     <span className="font-bold">0,1</span><span className="font-normal">%</span>
-                    <span className="text-sm font-normal ml-1">(min €0,10)</span>
                   </div>
                   <p className="text-gray-600">Commissione sui preventivi approvati</p>
                 </div>
@@ -228,7 +227,7 @@ export default function PricingPage() {
                 <span className="text-gray-900 font-bold">3</span>
               </div>
               <h3 className="text-xl font-semibold mb-2">Paga solo quando vendi</h3>
-              <p className="text-gray-600">Quando il cliente accetta il preventivo, paghi lo 0,1% del valore, con un minimo di €0,10.</p>
+              <p className="text-gray-600">Quando il cliente accetta il preventivo, paghi lo 0,1% del valore.</p>
             </div>
           </div>
         </div>

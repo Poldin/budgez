@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Copy, Mail, CheckCheck, Trash2 } from 'lucide-react';
+import { Globe, Copy, Mail, CheckCheck, Trash2, ExternalLink } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -397,6 +397,15 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
               <div className="text-sm font-mono truncate flex-1">
                 {publicUrl || 'Il link apparirà qui dopo la pubblicazione'}
               </div>
+              <Button 
+                onClick={() => window.open(publicUrl, '_blank')}
+                disabled={!publicUrl}
+                variant="ghost" 
+                size="sm"
+                className="shrink-0"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
               <Button 
                 onClick={copyToClipboard} 
                 disabled={!publicUrl}

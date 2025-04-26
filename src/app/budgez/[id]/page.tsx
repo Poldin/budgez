@@ -143,7 +143,22 @@ export default function BudgetPage() {
   const [signatureName, setSignatureName] = useState<string | null>(null);
   const [signatureEmail, setSignatureEmail] = useState<string | null>(null);
   const [showApprovalDetailsDialog, setShowApprovalDetailsDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState("brief");
+  const [activeTab, setActiveTab] = useState(() => {
+    // Check for saved tab in localStorage on initialization
+    if (typeof window !== 'undefined') {
+      const savedTab = localStorage.getItem(`budgez-tab-${budgetId}`);
+      return savedTab || "brief";
+    }
+    return "brief";
+  });
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // Save selected tab to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`budgez-tab-${budgetId}`, value);
+    }
+  };
 
   const loadBudget = useCallback(async () => {
     setIsLoading(true);
@@ -461,7 +476,7 @@ export default function BudgetPage() {
             </div>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="mb-6">
           <div className="flex justify-between items-center">
             <TabsList>
               <TabsTrigger value="brief" className="data-[state=active]:bg-black data-[state=active]:text-white">📄Brief</TabsTrigger>
