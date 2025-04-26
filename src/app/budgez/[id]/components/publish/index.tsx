@@ -42,6 +42,8 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
   const [isLoadingPaymentInfo, setIsLoadingPaymentInfo] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [isButtonLoading, setIsButtonLoading] = useState(false);
+  const [showQuoteValidationDialog, setShowQuoteValidationDialog] = useState(false);
+  const [quoteValidationError, setQuoteValidationError] = useState<string | null>(null);
 
   // Load current sharing mode from database
   useEffect(() => {
@@ -135,9 +137,119 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
     }
   };
 
+  // Check if quote table block is used and final amount is greater than 0
+  const validateQuote = async () => {
+    try {
+      console.log('🔄 validateQuote chiamata con budgetId:', budgetId);
+      if (!budgetId) {
+        console.error('❌ budgetId non valido:', budgetId);
+        setQuoteValidationError('ID budget non valido');
+        setShowQuoteValidationDialog(true);
+        return false;
+      }
+      
+      setIsLoading(true);
+      console.log('🔍 Iniziando la validazione del preventivo per budgetId:', budgetId);
+      
+      // Fetch budget data to check for Bella editor blocks
+      const { data: budgetData, error: budgetError } = await supabase
+        .from('budgets')
+        .select('body')
+        .eq('id', budgetId)
+        .single();
+      
+      if (budgetError) {
+        console.error('❌ Errore nel recupero dei dati del budget:', budgetError);
+        throw budgetError;
+      }
+      
+      console.log('📋 Dati budget recuperati:', JSON.stringify(budgetData?.body, null, 2));
+      
+      // Check if Bella editor contains a quote-table block
+      // Note: the block type is 'quote-table' with a hyphen, not underscore
+      const bellaBlocks = budgetData?.body?.bella?.blocks || [];
+      console.log('📑 Blocchi trovati in Bella editor:', bellaBlocks.length);
+      console.log('🔍 Tipi di blocchi disponibili:', bellaBlocks.map((b: {type: string}) => b.type));
+      
+      const quoteTableBlock = bellaBlocks.find((block: {type: string}) => block.type === 'quote-table');
+      console.log('📊 Quote table block trovato?', quoteTableBlock ? 'Sì' : 'No');
+      
+      if (!quoteTableBlock) {
+        console.log('❌ Nessun blocco quote-table trovato');
+        setQuoteValidationError('Il budget deve contenere almeno un blocco tabella preventivo');
+        setShowQuoteValidationDialog(true);
+        return false;
+      }
+      
+      console.log('📊 Quote table block completo:', JSON.stringify(quoteTableBlock, null, 2));
+      
+      // Check if the quote table has items
+      const quoteItems = quoteTableBlock.metadata?.quoteTable?.items;
+      console.log('📝 Quote items trovati:', quoteItems ? quoteItems.length : 0);
+      
+      if (!quoteItems || !Array.isArray(quoteItems) || quoteItems.length === 0) {
+        console.log('❌ Quote items non validi o vuoti');
+        setQuoteValidationError('La tabella preventivo deve contenere almeno un elemento');
+        setShowQuoteValidationDialog(true);
+        return false;
+      }
+      
+      // Calculate total amount directly from items
+      let total = 0;
+      
+      for (const item of quoteItems) {
+        const quantity = parseFloat(item.quantity) || 0;
+        const unitPrice = parseFloat(item.unitPrice) || 0;
+        const discount = parseFloat(item.discount) || 0;
+        
+        // Calculate subtotal (price after discount)
+        const baseAmount = quantity * unitPrice;
+        const discountAmount = baseAmount * (discount / 100);
+        let subtotal = baseAmount - discountAmount;
+        
+        // Add tax if not included
+        if (!quoteTableBlock.metadata?.quoteTable?.taxIncluded) {
+          const tax = parseFloat(item.tax) || 0;
+          const taxAmount = subtotal * (tax / 100);
+          subtotal += taxAmount;
+        }
+        
+        total += subtotal;
+        console.log(`💰 Item: ${item.description?.substring(0, 20)}... | Subtotale: ${subtotal}`);
+      }
+      
+      console.log(`💰 Totale calcolato: ${total}`);
+      
+      if (total <= 0) {
+        console.log('❌ Totale non valido (≤ 0)');
+        setQuoteValidationError('L\'importo finale del preventivo deve essere maggiore di 0');
+        setShowQuoteValidationDialog(true);
+        return false;
+      }
+      
+      console.log('✅ Validazione preventivo completata con successo');
+      return true;
+    } catch (error) {
+      console.error('❌ Errore durante la validazione del preventivo:', error);
+      setQuoteValidationError('Errore durante la validazione del preventivo');
+      setShowQuoteValidationDialog(true);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const publishBudget = async () => {
+    console.log('🚀 publishBudget chiamata con budgetId:', budgetId);
+    if (!budgetId) {
+      console.error('❌ budgetId non valido:', budgetId);
+      toast.error('ID budget non valido');
+      return;
+    }
+    
     try {
       setPublishInProgress(true);
+      console.log('🚀 Avvio processo di pubblicazione budget...');
       
       // If there's no publicId, generate one first
       let currentPublicId = publicId;
@@ -420,12 +532,42 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
 
   // Function to handle dialog trigger click
   const handleDialogTrigger = async () => {
+    console.log('👆 Pulsante Pubblica cliccato (handleDialogTrigger)');
     setIsButtonLoading(true);
-    const isPaymentSet = await checkPaymentMethod();
-    if (isPaymentSet) {
+    
+    try {
+      // Step 1: Check payment method
+      console.log('💳 Verifico metodo di pagamento...');
+      const isPaymentSet = await checkPaymentMethod();
+      console.log('💳 Controllo metodo di pagamento completato:', isPaymentSet);
+      
+      if (!isPaymentSet) {
+        console.log('❌ Metodo di pagamento non configurato');
+        setIsButtonLoading(false);
+        return;
+      }
+      
+      // Step 2: Validate quote table
+      console.log('📊 Verifico tabella preventivo...');
+      const isQuoteValid = await validateQuote();
+      console.log('📊 Validazione tabella preventivo completata:', isQuoteValid);
+      
+      if (!isQuoteValid) {
+        console.log('❌ Tabella preventivo non valida');
+        setIsButtonLoading(false);
+        return;
+      }
+      
+      // Step 3: If both validations pass, open the dialog
+      console.log('✅ Tutte le verifiche completate con successo');
+      console.log('🔓 Aprendo dialog di pubblicazione');
       setIsDialogOpen(true);
+    } catch (error) {
+      console.error('❌ Errore durante le verifiche:', error);
+      toast.error('Si è verificato un errore durante le verifiche preliminari');
+    } finally {
+      setIsButtonLoading(false);
     }
-    setIsButtonLoading(false);
   };
 
   // Redirect to settings page
@@ -480,6 +622,44 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
           </>
         )}
       </Button>
+
+      {/* Quote Validation Dialog */}
+      <Dialog open={showQuoteValidationDialog} onOpenChange={setShowQuoteValidationDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Requisiti per la pubblicazione</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-6">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="text-yellow-500 h-5 w-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium">Impossibile pubblicare il budget</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {quoteValidationError || 'Il budget non soddisfa i requisiti per la pubblicazione.'}
+                </p>
+                
+                <div className="mt-4 bg-gray-50 p-3 rounded-md">
+                  <p className="text-sm font-medium">Requisiti:</p>
+                  <ul className="text-sm text-gray-500 list-disc pl-5 mt-1 space-y-1">
+                    <li>Deve essere presente almeno un blocco tabella preventivo</li>
+                    <li>L&apos;importo finale del preventivo deve essere maggiore di 0</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={() => setShowQuoteValidationDialog(false)}
+              className="w-full"
+            >
+              Ho capito
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Method Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
@@ -631,7 +811,15 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
           <DialogFooter>
             {!publicId && (
               <Button 
-                onClick={publishBudget} 
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('🔵 Pulsante Pubblica Budget cliccato');
+                  try {
+                    publishBudget();
+                  } catch (error) {
+                    console.error('❌ Errore durante la chiamata a publishBudget:', error);
+                  }
+                }} 
                 disabled={publishInProgress}
                 className="w-full bg-black hover:bg-gray-800 text-white"
               >
