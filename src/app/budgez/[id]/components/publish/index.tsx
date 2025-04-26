@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Copy, Mail, CheckCheck, Trash2, ExternalLink } from 'lucide-react';
+import { Globe, Copy, Mail, CheckCheck, Trash2, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -39,6 +38,10 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
   const [publishInProgress, setPublishInProgress] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoadingPaymentInfo, setIsLoadingPaymentInfo] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [isButtonLoading, setIsButtonLoading] = useState(false);
 
   // Load current sharing mode from database
   useEffect(() => {
@@ -350,135 +353,295 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
     }
   };
 
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="flex items-center gap-1">
-          <Globe className="h-4 w-4" />
-          Pubblica
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[60%]">
-        <DialogHeader>
-          <DialogTitle className="text-xl">pubblica e condividi</DialogTitle>
-          <p className="text-sm text-gray-500 mt-1">Condividi il tuo budget con altri attraverso un link o via email, scegliendo se renderlo accessibile a tutti o solo a persone specifiche.</p>
-        </DialogHeader>
+  // Function to check if payment method is set up
+  const checkPaymentMethod = async () => {
+    try {
+      setIsLoadingPaymentInfo(true);
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Errore nel recupero delle informazioni di pagamento');
+      }
+      
+      const data = await response.json();
+
+      // If payment method is not set up, show payment dialog
+      if (!data.exists || !data.hasPaymentMethod) {
+        setShowPaymentDialog(true);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error checking payment method:', error);
+      return false;
+    } finally {
+      setIsLoadingPaymentInfo(false);
+    }
+  };
+
+  // Redirect to checkout/payment setup
+  const redirectToCheckout = async () => {
+    try {
+      setIsLoadingPaymentInfo(true);
+      
+      // Get current URL to redirect back after payment setup
+      const returnUrl = window.location.href;
+      
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          return_url: returnUrl
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Errore durante la creazione della sessione di checkout');
+      }
+      
+      const { url } = await response.json();
+      
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('URL di checkout non valido');
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      toast.error('Errore nella creazione della sessione di pagamento');
+    } finally {
+      setIsLoadingPaymentInfo(false);
+    }
+  };
+
+  // Function to handle dialog trigger click
+  const handleDialogTrigger = async () => {
+    setIsButtonLoading(true);
+    const isPaymentSet = await checkPaymentMethod();
+    if (isPaymentSet) {
+      setIsDialogOpen(true);
+    }
+    setIsButtonLoading(false);
+  };
+
+  // Redirect to settings page
+  const redirectToSettings = () => {
+    window.open('/settings?tab=pagamenti', '_blank');
+  };
+
+  // Check if returning from payment setup
+  useEffect(() => {
+    const checkPaymentReturn = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const paymentSuccess = searchParams.get('payment_success');
+      
+      if (paymentSuccess === 'true') {
+        // Remove the parameter from URL to avoid reloading
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payment_success');
+        window.history.replaceState({}, '', url.toString());
         
-        <div className="space-y-6 py-4">
-          <div className="space-y-2">
-            {/* <h3 className="font-medium text-gray-500">Modalità di condivisione</h3> */}
-            <Select 
-              value={sharingMode}
-              onValueChange={(value) => handleShareModeChange(value as 'restricted' | 'open')}
-              disabled={isLoading}
-            >
-              <SelectTrigger className="w-fit h-fit p-3 items-start justify-start">
-                <SelectValue placeholder="Seleziona modalità di condivisione" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="restricted" className="py-3">
-                  <div className="flex flex-col gap-2">
-                    <span className="font-medium">Solo account condivisi</span>
-                    <span className="text-xs text-gray-500">Solo le persone con cui hai condiviso il budgetvia email potranno visualizzarlo</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="open" className="py-3">
-                  <div className="flex flex-col gap-2">
-                    <span className="font-medium">Chiunque con il link</span>
-                    <span className="text-xs text-gray-500">Chiunque possieda il link al budget potrà visualizzarlo</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        // Verify payment method and open publish dialog if valid
+        setIsButtonLoading(true);
+        const isPaymentSet = await checkPaymentMethod();
+        if (isPaymentSet) {
+          setIsDialogOpen(true);
+          toast.success('Metodo di pagamento configurato con successo!');
+        }
+        setIsButtonLoading(false);
+      }
+    };
+    
+    checkPaymentReturn();
+  }, []);
 
-          <div className="space-y-2">
-            <div className="flex gap-2 items-center bg-gray-100 p-2 rounded-md">
-              <div className="text-sm font-mono truncate flex-1">
-                {publicUrl || 'Il link apparirà qui dopo la pubblicazione'}
+  return (
+    <>
+      <Button 
+        variant="outline" 
+        size="sm" 
+        className="flex items-center gap-1"
+        onClick={handleDialogTrigger}
+        disabled={isButtonLoading || isLoadingPaymentInfo}
+      >
+        {isButtonLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Verifica...
+          </>
+        ) : (
+          <>
+            <Globe className="h-4 w-4" />
+            Pubblica
+          </>
+        )}
+      </Button>
+
+      {/* Payment Method Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Configurazione modalità di pagamento</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-6">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="text-yellow-500 h-5 w-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium">Configurazione necessaria</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Prima di poter pubblicare un budget, è necessario configurare un metodo di pagamento valido.
+                  Questo è richiesto per l&apos;addebito automatico della commissione (0,1%) quando un cliente accetta un preventivo.
+                </p>
               </div>
-              <Button 
-                onClick={() => window.open(publicUrl, '_blank')}
-                disabled={!publicUrl}
-                variant="ghost" 
-                size="sm"
-                className="shrink-0"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button 
-                onClick={copyToClipboard} 
-                disabled={!publicUrl}
-                variant="ghost" 
-                size="sm"
-                className="shrink-0"
-              >
-                {isCopied ? <CheckCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Questo è il link che puoi condividere {sharingMode === 'open' ? 'con chiunque' : 'con le persone autorizzate'}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="font-medium text-sm text-gray-500">Invia il link al budget direttamente via email</h3>
-            <div className="flex gap-2">
-              <Input 
-                placeholder="Email del destinatario"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                type="email"
-                className="flex-1"
-              />
-              <Button onClick={sendEmailWithBudget} disabled={isLoading}>
-                <Mail className="h-4 w-4" />
-              </Button>
             </div>
             
-            {sharedUsers.length > 0 && (
-              <div className="mt-4">
-                {/* <h4 className="text-sm font-medium text-gray-500 mb-2">Email condivise</h4> */}
-                <div className="space-y-2">
-                  {sharedUsers.map(user => (
-                    <div key={user.id} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md">
-                      <div className="flex items-center gap-3">
-                        <div className="text-sm">{user.external_email}</div>
-                        {user.customer_otp && (
-                          <div className="bg-gray-200 px-2 py-1 rounded text-xs font-mono">
-                            PIN: {user.customer_otp}
-                          </div>
-                        )}
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => removeSharedUser(user.id, user.external_email)}
-                        disabled={isLoading}
-                      >
-                        <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="flex flex-col gap-2 mt-6">
+              <Button 
+                onClick={redirectToCheckout}
+                className="w-full bg-black hover:bg-gray-800"
+                disabled={isLoadingPaymentInfo}
+              >
+                {isLoadingPaymentInfo ? "Preparando il checkout..." : "Registra metodo di pagamento"}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={redirectToSettings}
+                className="w-full"
+              >
+                Vai alle impostazioni di pagamento
+              </Button>
+            </div>
           </div>
-        </div>
-        
-        <DialogFooter>
-          {!publicId && (
-            <Button 
-              onClick={publishBudget} 
-              disabled={publishInProgress}
-              className="w-full bg-black hover:bg-gray-800 text-white"
-            >
-              {publishInProgress ? 'Pubblicazione in corso...' : 'Pubblica Budget'}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Main Publish Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[60%]">
+          <DialogHeader>
+            <DialogTitle className="text-xl">pubblica e condividi</DialogTitle>
+            <p className="text-sm text-gray-500 mt-1">Condividi il tuo budget con altri attraverso un link o via email, scegliendo se renderlo accessibile a tutti o solo a persone specifiche.</p>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Select 
+                value={sharingMode}
+                onValueChange={(value) => handleShareModeChange(value as 'restricted' | 'open')}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-fit h-fit p-3 items-start justify-start">
+                  <SelectValue placeholder="Seleziona modalità di condivisione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="restricted" className="py-3">
+                    <div className="flex flex-col gap-2">
+                      <span className="font-medium">Solo account condivisi</span>
+                      <span className="text-xs text-gray-500">Solo le persone con cui hai condiviso il budgetvia email potranno visualizzarlo</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="open" className="py-3">
+                    <div className="flex flex-col gap-2">
+                      <span className="font-medium">Chiunque con il link</span>
+                      <span className="text-xs text-gray-500">Chiunque possieda il link al budget potrà visualizzarlo</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex gap-2 items-center bg-gray-100 p-2 rounded-md">
+                <div className="text-sm font-mono truncate flex-1">
+                  {publicUrl || 'Il link apparirà qui dopo la pubblicazione'}
+                </div>
+                <Button 
+                  onClick={() => window.open(publicUrl, '_blank')}
+                  disabled={!publicUrl}
+                  variant="ghost" 
+                  size="sm"
+                  className="shrink-0"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                <Button 
+                  onClick={copyToClipboard} 
+                  disabled={!publicUrl}
+                  variant="ghost" 
+                  size="sm"
+                  className="shrink-0"
+                >
+                  {isCopied ? <CheckCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                Questo è il link che puoi condividere {sharingMode === 'open' ? 'con chiunque' : 'con le persone autorizzate'}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="font-medium text-sm text-gray-500">Invia il link al budget direttamente via email</h3>
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Email del destinatario"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  type="email"
+                  className="flex-1"
+                />
+                <Button onClick={sendEmailWithBudget} disabled={isLoading}>
+                  <Mail className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {sharedUsers.length > 0 && (
+                <div className="mt-4">
+                  <div className="space-y-2">
+                    {sharedUsers.map(user => (
+                      <div key={user.id} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md">
+                        <div className="flex items-center gap-3">
+                          <div className="text-sm">{user.external_email}</div>
+                          {user.customer_otp && (
+                            <div className="bg-gray-200 px-2 py-1 rounded text-xs font-mono">
+                              PIN: {user.customer_otp}
+                            </div>
+                          )}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => removeSharedUser(user.id, user.external_email)}
+                          disabled={isLoading}
+                        >
+                          <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            {!publicId && (
+              <Button 
+                onClick={publishBudget} 
+                disabled={publishInProgress}
+                className="w-full bg-black hover:bg-gray-800 text-white"
+              >
+                {publishInProgress ? 'Pubblicazione in corso...' : 'Pubblica Budget'}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
