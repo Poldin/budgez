@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronLeft, User, DatabaseZap, LogOut, Zap, ClipboardList, MessageSquare } from 'lucide-react';
+import { ChevronLeft, User, DatabaseZap, LogOut, Zap, MessageSquare, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -72,7 +72,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
     { 
       name: 'Database', 
       icon: <DatabaseZap className="h-5 w-5" />,  
-      href: '/settings' 
+      href: '/database' 
     }
   ];
 
@@ -113,18 +113,20 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
       </nav>
 
       <div className="p-4">
-        <Button
-          onClick={() => window.open('https://tally.so/r/wkJWVR', '_blank')}
-          className={`flex items-center rounded-lg transition-colors w-full justify-${isCollapsed ? 'center' : 'start'} animate-pulse`}
+        <Button 
+          className={`flex items-center rounded-lg transition-colors hover:bg-gray-800 w-full justify-${isCollapsed ? 'center' : 'start'}`}
+          onClick={() => router.push('/settings')}
         >
-          <ClipboardList className="h-5 w-5" />
-          {!isCollapsed && <span className="ml-3">Survey</span>}
+          <Settings className="h-5 w-5" />
+          {!isCollapsed && <span className="ml-3">Impostazioni</span>}
         </Button>
-
+        
+        <hr className="border-gray-700 my-2" />
+        
         {/* Nuovo bottone per il feedback */}
         <Button 
           onClick={() => setIsFeedbackOpen(true)}
-          className={`mt-2 flex items-center rounded-lg transition-colors hover:bg-gray-800 w-full justify-${isCollapsed ? 'center' : 'start'}`}
+          className={`flex items-center rounded-lg transition-colors hover:bg-gray-800 w-full justify-${isCollapsed ? 'center' : 'start'}`}
         >
           <MessageSquare className="h-5 w-5" />
           {!isCollapsed && <span className="ml-3">Feedback</span>}
@@ -138,7 +140,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
 
         <Button 
           className={`mt-2 flex items-center rounded-lg transition-colors hover:bg-gray-800 w-full justify-${isCollapsed ? 'center' : 'start'}`}
-          onClick={() => router.push('/profile')}
+          onClick={() => router.push('/settings')}
         >
           <User className="h-5 w-5" />
           {!isCollapsed && <span className="ml-3">{userName}</span>}
