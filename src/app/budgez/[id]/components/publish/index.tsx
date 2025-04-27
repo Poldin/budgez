@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Globe, Copy, Mail, CheckCheck, Trash2, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -44,6 +44,9 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
   const [isButtonLoading, setIsButtonLoading] = useState(false);
   const [showQuoteValidationDialog, setShowQuoteValidationDialog] = useState(false);
   const [quoteValidationError, setQuoteValidationError] = useState<string | null>(null);
+  const [emailSuggestions, setEmailSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
 
   // Load current sharing mode from database
   useEffect(() => {
@@ -611,6 +614,94 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
     checkPaymentReturn();
   }, []);
 
+  const fetchEmailSuggestions = async (searchTerm: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      console.log('Fetching email suggestions for term:', searchTerm);
+
+      // First, get all budgets associated with the current user
+      const { data: userBudgets, error: budgetsError } = await supabase
+        .from('link_budget_users')
+        .select('budget_id')
+        .eq('user_id', user.id);
+
+      if (budgetsError) {
+        console.error('Error fetching user budgets:', budgetsError);
+        return;
+      }
+
+      if (!userBudgets || userBudgets.length === 0) {
+        console.log('No budgets found for user');
+        return;
+      }
+
+      const budgetIds = userBudgets.map(b => b.budget_id);
+
+      // Then, get all emails from these budgets
+      const { data, error } = await supabase
+        .from('link_budget_users')
+        .select('external_email, created_at')
+        .in('budget_id', budgetIds)
+        .not('external_email', 'is', null)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching email suggestions:', error);
+        return;
+      }
+
+      console.log('Email suggestions data:', data);
+
+      // Get unique emails
+      const uniqueEmails = Array.from(new Set(
+        data
+          .map(item => item.external_email)
+          .filter(email => 
+            email && 
+            email.toLowerCase().includes(searchTerm.toLowerCase()) &&
+            !sharedUsers.some(user => user.external_email === email)
+          )
+      )).slice(0, 6); // Take only the first 6
+
+      console.log('Filtered suggestions:', uniqueEmails);
+      setEmailSuggestions(uniqueEmails);
+    } catch (error) {
+      console.error('Error in fetchEmailSuggestions:', error);
+    }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRecipientEmail(value);
+    fetchEmailSuggestions(value);
+    setShowSuggestions(true);
+  };
+
+  const handleSelectEmail = (selectedEmail: string) => {
+    setRecipientEmail(selectedEmail);
+    setShowSuggestions(false);
+  };
+
+  const handleInputFocus = () => {
+    fetchEmailSuggestions('');
+    setShowSuggestions(true);
+  };
+
+  const handleClickOutside = (e: MouseEvent) => {
+    if (emailInputRef.current && !emailInputRef.current.contains(e.target as Node)) {
+      setShowSuggestions(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <>
       <Button 
@@ -776,17 +867,33 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
 
             <div className="space-y-2">
               <h3 className="font-medium text-sm text-gray-500">Invia il link al budget direttamente via email</h3>
-              <div className="flex gap-2">
+              <div className="flex gap-2 relative">
                 <Input 
+                  ref={emailInputRef}
                   placeholder="Email del destinatario"
                   value={recipientEmail}
-                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  onChange={handleEmailChange}
+                  onFocus={handleInputFocus}
                   type="email"
-                  className="flex-1"
+                  className="flex-1 z-10"
                 />
                 <Button onClick={sendEmailWithBudget} disabled={isLoading}>
                   <Mail className="h-4 w-4" />
                 </Button>
+                
+                {showSuggestions && emailSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 mt-1 w-[calc(100%-48px)] max-h-60 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                    {emailSuggestions.map((suggestion, index) => (
+                      <div 
+                        key={index} 
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        onClick={() => handleSelectEmail(suggestion)}
+                      >
+                        {suggestion}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               
               {sharedUsers.length > 0 && (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Share, Trash2 } from 'lucide-react';
 import {
   Dialog,
@@ -19,11 +19,9 @@ import { Button } from '@/components/ui/button';
 import {
   Tabs,
   TabsContent,
-  TabsList,
 } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-// import CustomerShare from './components/customershare';
 
 interface SharedUser {
   email: string;
@@ -40,6 +38,9 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ budgetId }) => {
   const [email, setEmail] = useState('');
   const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailSuggestions, setEmailSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadSharedUsers();
@@ -266,6 +267,95 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ budgetId }) => {
     }
   };
 
+  const fetchEmailSuggestions = async (searchTerm: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      console.log('Fetching email suggestions for term:', searchTerm);
+
+      // First, get all budgets associated with the current user
+      const { data: userBudgets, error: budgetsError } = await supabase
+        .from('link_budget_users')
+        .select('budget_id')
+        .eq('user_id', user.id);
+
+      if (budgetsError) {
+        console.error('Error fetching user budgets:', budgetsError);
+        return;
+      }
+
+      if (!userBudgets || userBudgets.length === 0) {
+        console.log('No budgets found for user');
+        return;
+      }
+
+      const budgetIds = userBudgets.map(b => b.budget_id);
+      console.log('User budget IDs:', budgetIds);
+
+      // Then, get all emails from these budgets
+      const { data, error } = await supabase
+        .from('link_budget_users')
+        .select('external_email, created_at')
+        .in('budget_id', budgetIds)
+        .not('external_email', 'is', null)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching email suggestions:', error);
+        return;
+      }
+
+      console.log('Email suggestions data:', data);
+
+      // Get unique emails
+      const uniqueEmails = Array.from(new Set(
+        data
+          .map(item => item.external_email)
+          .filter(email => 
+            email && 
+            email.toLowerCase().includes(searchTerm.toLowerCase()) &&
+            !sharedUsers.some(user => user.email === email)
+          )
+      )).slice(0, 6); // Take only the first 6
+
+      console.log('Filtered suggestions:', uniqueEmails);
+      setEmailSuggestions(uniqueEmails);
+    } catch (error) {
+      console.error('Error in fetchEmailSuggestions:', error);
+    }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEmail(value);
+    fetchEmailSuggestions(value);
+    setShowSuggestions(true);
+  };
+
+  const handleSelectEmail = (selectedEmail: string) => {
+    setEmail(selectedEmail);
+    setShowSuggestions(false);
+  };
+
+  const handleInputFocus = () => {
+    fetchEmailSuggestions('');
+    setShowSuggestions(true);
+  };
+
+  const handleClickOutside = (e: MouseEvent) => {
+    if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
+      setShowSuggestions(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -279,12 +369,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ budgetId }) => {
         </DialogHeader>
         
         <Tabs defaultValue="internal">
-          <TabsList className="grid w-fit h-0 bg-transparent">
-            {/* <TabsTrigger value="internal" className="data-[state=active]:bg-black data-[state=active]:text-white">
-              👀 Interna
-            </TabsTrigger> */}
-            
-          </TabsList>
+          
           
           <TabsContent value="internal" className="space-y-4">
             <div>
@@ -294,17 +379,34 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ budgetId }) => {
               </p>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-2 relative">
               <Input
+                ref={inputRef}
                 placeholder="Inserisci indirizzo email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
+                onFocus={handleInputFocus}
                 onKeyPress={handleKeyPress}
                 disabled={isLoading}
+                className="z-10"
               />
               <Button onClick={addUser} disabled={isLoading}>
                 <Plus className="h-4 w-4" />
               </Button>
+              
+              {showSuggestions && emailSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 mt-1 w-[calc(100%-48px)] max-h-60 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                  {emailSuggestions.map((suggestion, index) => (
+                    <div 
+                      key={index} 
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                      onClick={() => handleSelectEmail(suggestion)}
+                    >
+                      {suggestion}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {sharedUsers.find(user => user.role === 'owner') && (
               <div className="text-sm text-gray-600 px-1">
