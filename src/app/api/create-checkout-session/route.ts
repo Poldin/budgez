@@ -134,6 +134,20 @@ export async function POST() {
     // Se il cliente esiste già in Stripe
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
+      
+      // Verifica se i metadata contengono userId
+      const customer = await stripe.customers.retrieve(customerId);
+      
+      // Se non ha metadata.userId, aggiornalo
+      if (!customer.deleted && (!customer.metadata || !customer.metadata.userId)) {
+        await stripe.customers.update(customerId, {
+          metadata: {
+            ...customer.metadata,
+            userId: user.id,
+          },
+        });
+        console.log('Aggiornati metadata per cliente esistente:', customerId);
+      }
     } else {
       // Crea un nuovo cliente in Stripe
       const newCustomer = await stripe.customers.create({
