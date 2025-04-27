@@ -39,21 +39,18 @@ export async function GET() {
 
       const customer = customers.data[0];
       
-      // Salva o aggiorna lo stripe_customer_id nelle user_settings (opzionale)
+      // Salva o aggiorna lo stripe_customer_id nella colonna dedicata delle user_settings
       const { data: userSettings } = await supabase
         .from('user_settings')
         .select('*')
         .eq('user_id', user.id)
         .single();
         
-      if (userSettings && (!userSettings.body?.stripe_customer_id || userSettings.body.stripe_customer_id !== customer.id)) {
+      if (userSettings && (userSettings.stripe_customer_id !== customer.id)) {
         await supabase
           .from('user_settings')
           .update({
-            body: {
-              ...userSettings.body,
-              stripe_customer_id: customer.id,
-            },
+            stripe_customer_id: customer.id
           })
           .eq('user_id', user.id);
       }
@@ -106,17 +103,21 @@ export async function GET() {
 
 // Crea una sessione di checkout
 export async function POST() {
+  console.log('===== INIZIO CREATE-CHECKOUT-SESSION =====');
   try {
     // Inizializza Stripe
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
       apiVersion: '2025-03-31.basil',
     });
+    console.log('Stripe inizializzato');
 
     // Ottieni l'utente autenticato da Supabase
     const supabase = createRouteHandlerClient({ cookies });
     const { data: { user } } = await supabase.auth.getUser();
+    console.log('Utente autenticato:', user ? { id: user.id, email: user.email } : 'nessun utente');
 
     if (!user || !user.email) {
+      console.log('Errore: utente non autenticato o email mancante');
       return NextResponse.json(
         { error: 'Utente non autenticato o email mancante' },
         { status: 401 }
@@ -124,32 +125,44 @@ export async function POST() {
     }
 
     // Cerca prima il cliente in Stripe per email
+    console.log('Ricerca cliente con email:', user.email);
     const customers = await stripe.customers.list({
       email: user.email,
       limit: 1,
     });
+    console.log('Risultati ricerca cliente:', customers.data.length > 0 ? 'trovato' : 'non trovato');
     
     let customerId;
     
     // Se il cliente esiste già in Stripe
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
+      console.log('Cliente esistente ID:', customerId);
       
       // Verifica se i metadata contengono userId
+      console.log('Recupero dettagli cliente per verificare metadata...');
       const customer = await stripe.customers.retrieve(customerId);
       
+      // Cast del customer come Stripe.Customer per accedere ai metadata in sicurezza
+      const customerData = customer as Stripe.Customer;
+      console.log('Metadata cliente:', customerData.metadata || 'nessun metadata');
+      
       // Se non ha metadata.userId, aggiornalo
-      if (!customer.deleted && (!customer.metadata || !customer.metadata.userId)) {
+      if (!customer.deleted && (!customerData.metadata || !customerData.metadata.userId)) {
+        console.log('Metadata userId mancante, aggiorno...');
         await stripe.customers.update(customerId, {
           metadata: {
-            ...customer.metadata,
+            ...customerData.metadata,
             userId: user.id,
           },
         });
-        console.log('Aggiornati metadata per cliente esistente:', customerId);
+        console.log('Metadata aggiornati con userId:', user.id);
+      } else if (customerData.metadata && customerData.metadata.userId) {
+        console.log('Metadata userId già presente:', customerData.metadata.userId);
       }
     } else {
       // Crea un nuovo cliente in Stripe
+      console.log('Creazione nuovo cliente con userId nei metadata:', user.id);
       const newCustomer = await stripe.customers.create({
         email: user.email,
         metadata: {
@@ -158,28 +171,35 @@ export async function POST() {
       });
       
       customerId = newCustomer.id;
+      console.log('Nuovo cliente creato ID:', customerId);
+      console.log('Metadata nuovo cliente:', newCustomer.metadata);
     }
     
-    // Aggiorna lo stripe_customer_id nelle user_settings
+    // Aggiorna lo stripe_customer_id nella colonna dedicata delle user_settings
+    console.log('Recupero user_settings per utente ID:', user.id);
     const { data: userSettings } = await supabase
       .from('user_settings')
       .select('*')
       .eq('user_id', user.id)
       .single();
     
+    console.log('User settings trovato:', userSettings ? 'sì' : 'no');
+    
     if (userSettings) {
+      console.log('Aggiorno stripe_customer_id in user_settings');
       await supabase
         .from('user_settings')
         .update({
-          body: {
-            ...userSettings.body,
-            stripe_customer_id: customerId,
-          },
+          stripe_customer_id: customerId
         })
         .eq('user_id', user.id);
+      console.log('User settings aggiornato con customer_id:', customerId);
+    } else {
+      console.log('ATTENZIONE: User settings non trovato per utente ID:', user.id);
     }
 
     // Crea una sessione di setup per il metodo di pagamento
+    console.log('Creazione sessione checkout per customer ID:', customerId);
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'setup',
@@ -197,10 +217,14 @@ export async function POST() {
       },
       billing_address_collection: 'required',
     });
+    console.log('Sessione checkout creata, ID:', session.id);
+    console.log('URL sessione:', session.url);
+    console.log('===== FINE CREATE-CHECKOUT-SESSION =====');
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error('Error creating checkout session:', error);
+    console.log('===== ERRORE CREATE-CHECKOUT-SESSION =====');
     return NextResponse.json(
       { error: 'Si è verificato un errore durante la creazione della sessione di checkout' },
       { status: 500 }

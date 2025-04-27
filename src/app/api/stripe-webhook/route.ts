@@ -63,22 +63,43 @@ async function handleCustomerUpdated(customer: Stripe.Customer) {
   // Creiamo il client Supabase all'interno della funzione
   const supabase = createRouteHandlerClient({ cookies });
 
-  // Ottieni l'ID utente dai metadata
-  const userId = customer.metadata.userId;
-  
-  if (!userId) {
-    console.log('No user ID found in customer metadata');
-    return;
-  }
-
-  // Trova l'utente nel database tramite l'ID utente dai metadata
+  // Trova l'utente nel database tramite lo stripe_customer_id
   const { data: userSettings } = await supabase
     .from('user_settings')
     .select('*')
-    .eq('user_id', userId);
+    .eq('stripe_customer_id', customer.id);
 
   if (!userSettings || userSettings.length === 0) {
-    console.log('No user found with user ID:', userId);
+    console.log('No user found with stripe_customer_id:', customer.id);
+    
+    // Se non troviamo il record con stripe_customer_id, proviamo a cercarlo con i metadata userId come fallback
+    if (customer.metadata && customer.metadata.userId) {
+      const { data: userSettingsByUserId } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', customer.metadata.userId);
+        
+      if (!userSettingsByUserId || userSettingsByUserId.length === 0) {
+        console.log('No user found with user_id:', customer.metadata.userId);
+        return;
+      }
+      
+      // Aggiorna i record trovati con il customer ID
+      for (const settings of userSettingsByUserId) {
+        await supabase
+          .from('user_settings')
+          .update({
+            body: {
+              ...settings.body,
+              is_payment_set: true,
+            },
+            stripe_customer_id: customer.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', settings.id);
+      }
+      return;
+    }
     return;
   }
 
@@ -90,7 +111,6 @@ async function handleCustomerUpdated(customer: Stripe.Customer) {
         body: {
           ...settings.body,
           is_payment_set: true, // Se il cliente è stato aggiornato, probabilmente ha un metodo di pagamento
-          stripe_customer_id: customer.id, // Assicuriamoci che il customer ID sia sempre aggiornato
         },
         updated_at: new Date().toISOString(),
       })
@@ -110,30 +130,49 @@ async function handleTaxIdUpdated(event: Stripe.Event) {
   // Recupera i dettagli fiscali
   const fiscalCode = taxId.value;
   
-  // Recupera l'oggetto customer per ottenere i metadata
-  const customer = await stripe.customers.retrieve(customerId);
-  
-  if (!customer || customer.deleted) {
-    console.log('Customer not found or deleted');
-    return;
-  }
-  
-  // Ottieni l'ID utente dai metadata
-  const userId = customer.metadata.userId;
-  
-  if (!userId) {
-    console.log('No user ID found in customer metadata');
-    return;
-  }
-
-  // Trova l'utente nel database tramite l'ID utente dai metadata
+  // Trova l'utente nel database tramite lo stripe_customer_id
   const { data: userSettings } = await supabase
     .from('user_settings')
     .select('*')
-    .eq('user_id', userId);
+    .eq('stripe_customer_id', customerId);
 
   if (!userSettings || userSettings.length === 0) {
-    console.log('No user found with user ID:', userId);
+    console.log('No user found with stripe_customer_id:', customerId);
+    
+    // Se non troviamo il record con stripe_customer_id, recuperiamo customer e proviamo con i metadata userId
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!customer || customer.deleted) {
+      console.log('Customer not found or deleted');
+      return;
+    }
+    
+    if (customer.metadata && customer.metadata.userId) {
+      const { data: userSettingsByUserId } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', customer.metadata.userId);
+        
+      if (!userSettingsByUserId || userSettingsByUserId.length === 0) {
+        console.log('No user found with user_id:', customer.metadata.userId);
+        return;
+      }
+      
+      // Aggiorna i record trovati con il customer ID e il codice fiscale
+      for (const settings of userSettingsByUserId) {
+        await supabase
+          .from('user_settings')
+          .update({
+            body: {
+              ...settings.body,
+              fiscal_code: fiscalCode,
+            },
+            stripe_customer_id: customerId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', settings.id);
+      }
+      return;
+    }
     return;
   }
 
@@ -145,7 +184,6 @@ async function handleTaxIdUpdated(event: Stripe.Event) {
         body: {
           ...settings.body,
           fiscal_code: fiscalCode,
-          stripe_customer_id: customerId, // Assicuriamoci che il customer ID sia sempre aggiornato
         },
         updated_at: new Date().toISOString(),
       })
@@ -166,22 +204,6 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
     return;
   }
 
-  // Recupera l'oggetto customer per ottenere i metadata
-  const customer = await stripe.customers.retrieve(customerId);
-  
-  if (!customer || customer.deleted) {
-    console.log('Customer not found or deleted');
-    return;
-  }
-  
-  // Ottieni l'ID utente dai metadata
-  const userId = customer.metadata.userId;
-  
-  if (!userId) {
-    console.log('No user ID found in customer metadata');
-    return;
-  }
-
   // Crea oggetto con informazioni della carta
   const cardInfo = {
     id: paymentMethod.id,
@@ -191,14 +213,50 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
     expYear: paymentMethod.card.exp_year
   };
 
-  // Trova l'utente nel database tramite l'ID utente dai metadata
+  // Trova l'utente nel database tramite lo stripe_customer_id
   const { data: userSettings } = await supabase
     .from('user_settings')
     .select('*')
-    .eq('user_id', userId);
+    .eq('stripe_customer_id', customerId);
 
   if (!userSettings || userSettings.length === 0) {
-    console.log('No user found with user ID:', userId);
+    console.log('No user found with stripe_customer_id:', customerId);
+    
+    // Se non troviamo il record con stripe_customer_id, recuperiamo customer e proviamo con i metadata userId
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!customer || customer.deleted) {
+      console.log('Customer not found or deleted');
+      return;
+    }
+    
+    if (customer.metadata && customer.metadata.userId) {
+      const { data: userSettingsByUserId } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', customer.metadata.userId);
+        
+      if (!userSettingsByUserId || userSettingsByUserId.length === 0) {
+        console.log('No user found with user_id:', customer.metadata.userId);
+        return;
+      }
+      
+      // Aggiorna i record trovati con il customer ID e i dati della carta
+      for (const settings of userSettingsByUserId) {
+        await supabase
+          .from('user_settings')
+          .update({
+            body: {
+              ...settings.body,
+              is_payment_set: true,
+              stripe_payment_method: cardInfo,
+            },
+            stripe_customer_id: customerId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', settings.id);
+      }
+      return;
+    }
     return;
   }
 
@@ -211,7 +269,6 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
           ...settings.body,
           is_payment_set: true,
           stripe_payment_method: cardInfo,
-          stripe_customer_id: customerId, // Assicuriamoci che il customer ID sia sempre aggiornato
         },
         updated_at: new Date().toISOString(),
       })
@@ -228,22 +285,6 @@ async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent) {
   const supabase = createRouteHandlerClient({ cookies });
 
   if (!setupIntent.payment_method) {
-    return;
-  }
-
-  // Recupera l'oggetto customer per ottenere i metadata
-  const customer = await stripe.customers.retrieve(customerId);
-  
-  if (!customer || customer.deleted) {
-    console.log('Customer not found or deleted');
-    return;
-  }
-  
-  // Ottieni l'ID utente dai metadata
-  const userId = customer.metadata.userId;
-  
-  if (!userId) {
-    console.log('No user ID found in customer metadata');
     return;
   }
 
@@ -270,14 +311,51 @@ async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent) {
     expYear: paymentMethod.card.exp_year
   };
 
-  // Trova l'utente nel database tramite l'ID utente dai metadata
+  // Trova l'utente nel database tramite lo stripe_customer_id
   const { data: userSettings } = await supabase
     .from('user_settings')
     .select('*')
-    .eq('user_id', userId);
+    .eq('stripe_customer_id', customerId);
 
   if (!userSettings || userSettings.length === 0) {
-    console.log('No user found with user ID:', userId);
+    console.log('No user found with stripe_customer_id:', customerId);
+    
+    // Se non troviamo il record con stripe_customer_id, recuperiamo customer e proviamo con i metadata userId
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!customer || customer.deleted) {
+      console.log('Customer not found or deleted');
+      return;
+    }
+    
+    if (customer.metadata && customer.metadata.userId) {
+      const { data: userSettingsByUserId } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', customer.metadata.userId);
+        
+      if (!userSettingsByUserId || userSettingsByUserId.length === 0) {
+        console.log('No user found with user_id:', customer.metadata.userId);
+        return;
+      }
+      
+      // Aggiorna i record trovati con il customer ID, codice fiscale e dati della carta
+      for (const settings of userSettingsByUserId) {
+        await supabase
+          .from('user_settings')
+          .update({
+            body: {
+              ...settings.body,
+              is_payment_set: true,
+              stripe_payment_method: cardInfo,
+              fiscal_code: fiscalCode || settings.body?.fiscal_code,
+            },
+            stripe_customer_id: customerId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', settings.id);
+      }
+      return;
+    }
     return;
   }
 
@@ -291,7 +369,6 @@ async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent) {
           is_payment_set: true,
           stripe_payment_method: cardInfo,
           fiscal_code: fiscalCode || settings.body?.fiscal_code,
-          stripe_customer_id: customerId, // Assicuriamoci che il customer ID sia sempre aggiornato
         },
         updated_at: new Date().toISOString(),
       })
