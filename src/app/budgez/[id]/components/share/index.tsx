@@ -41,6 +41,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ budgetId }) => {
   const [emailSuggestions, setEmailSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadSharedUsers();
@@ -336,6 +337,9 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ budgetId }) => {
   const handleSelectEmail = (selectedEmail: string) => {
     setEmail(selectedEmail);
     setShowSuggestions(false);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const handleInputFocus = () => {
@@ -344,9 +348,11 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ budgetId }) => {
   };
 
   const handleClickOutside = (e: MouseEvent) => {
-    if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
-      setShowSuggestions(false);
+    if ((inputRef.current && inputRef.current.contains(e.target as Node)) || 
+        (dropdownRef.current && dropdownRef.current.contains(e.target as Node))) {
+      return;
     }
+    setShowSuggestions(false);
   };
 
   useEffect(() => {
@@ -395,12 +401,18 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ budgetId }) => {
               </Button>
               
               {showSuggestions && emailSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 mt-1 w-[calc(100%-48px)] max-h-60 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                <div 
+                  ref={dropdownRef} 
+                  className="absolute top-full left-0 mt-1 w-[calc(100%-48px)] max-h-60 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg z-50"
+                >
                   {emailSuggestions.map((suggestion, index) => (
                     <div 
                       key={index} 
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                      onClick={() => handleSelectEmail(suggestion)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectEmail(suggestion);
+                      }}
                     >
                       {suggestion}
                     </div>

@@ -47,6 +47,7 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
   const [emailSuggestions, setEmailSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const emailInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load current sharing mode from database
   useEffect(() => {
@@ -682,6 +683,9 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
   const handleSelectEmail = (selectedEmail: string) => {
     setRecipientEmail(selectedEmail);
     setShowSuggestions(false);
+    if (emailInputRef.current) {
+      emailInputRef.current.focus();
+    }
   };
 
   const handleInputFocus = () => {
@@ -690,9 +694,12 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
   };
 
   const handleClickOutside = (e: MouseEvent) => {
-    if (emailInputRef.current && !emailInputRef.current.contains(e.target as Node)) {
-      setShowSuggestions(false);
+    // Non chiudere se il click è sull'input o sulla tendina
+    if ((emailInputRef.current && emailInputRef.current.contains(e.target as Node)) || 
+        (dropdownRef.current && dropdownRef.current.contains(e.target as Node))) {
+      return;
     }
+    setShowSuggestions(false);
   };
 
   useEffect(() => {
@@ -882,12 +889,18 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
                 </Button>
                 
                 {showSuggestions && emailSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 mt-1 w-[calc(100%-48px)] max-h-60 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                  <div 
+                    ref={dropdownRef}
+                    className="absolute top-full left-0 mt-1 w-[calc(100%-48px)] max-h-60 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg z-50"
+                  >
                     {emailSuggestions.map((suggestion, index) => (
                       <div 
                         key={index} 
                         className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                        onClick={() => handleSelectEmail(suggestion)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectEmail(suggestion);
+                        }}
                       >
                         {suggestion}
                       </div>
