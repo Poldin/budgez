@@ -469,19 +469,29 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
   const checkPaymentMethod = async () => {
     try {
       setIsLoadingPaymentInfo(true);
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
       
-      if (!response.ok) {
-        throw new Error('Errore nel recupero delle informazioni di pagamento');
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error('Utente non autenticato');
+        return false;
       }
       
-      const data = await response.json();
-
-      // If payment method is not set up, show payment dialog
-      if (!data.exists || !data.hasPaymentMethod) {
+      // Query user_settings table for the current user
+      const { data: userSettings, error } = await supabase
+        .from('user_settings')
+        .select('body')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (error) {
+        console.error('Errore nel recupero delle impostazioni utente:', error);
+        return false;
+      }
+      
+      // Check if stripe_payment_method exists in the body
+      if (!userSettings || !userSettings.body || !userSettings.body.stripe_payment_method) {
         setShowPaymentDialog(true);
         return false;
       }

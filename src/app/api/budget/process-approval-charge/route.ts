@@ -232,7 +232,7 @@ export async function POST(request: Request) {
     }
 
     // Check if the user has a Stripe customer ID
-    const stripeCustomerId = userSettings.body?.stripe_customer_id;
+    const stripeCustomerId = userSettings.stripe_customer_id;
     if (!stripeCustomerId) {
       return NextResponse.json(
         { error: 'No payment method set up for this user' },
@@ -250,8 +250,54 @@ export async function POST(request: Request) {
     
     // Flag if we're converting from a different currency
     const isConvertingCurrency = originalCurrency.toUpperCase() !== 'EUR';
+
+    // Check if the user has a payment method set up
+    const hasPaymentMethod = userSettings.body?.stripe_payment_method ? true : false;
     
-    
+    // If no payment method found, save record with NPM status
+    if (!hasPaymentMethod) {
+      console.log('No payment method found for customer', { customerId: stripeCustomerId });
+      
+      // Save the record in the database without processing payment
+      const { data: paymentRecord, error: paymentRecordError } = await supabase
+        .from('budget_payments')
+        .insert({
+          budget_id: budgetId,
+          user_id: ownerId,
+          amount: feeAmountDecimal,
+          currency: originalCurrency,
+          payment_amount_eur: isConvertingCurrency ? null : feeAmountDecimal,
+          payment_intent_id: null, // No payment intent created
+          status: 'NPM', // No Payment Method
+          approval_id: approvalId,
+          payment_metadata: {
+            feePercentage: '0.1%',
+            originalAmount: totalAmount.toString(),
+            originalCurrency: originalCurrency,
+            isConverted: isConvertingCurrency ? 'true' : 'false'
+          }
+        })
+        .select('id')
+        .single();
+
+      if (paymentRecordError) {
+        console.error('Error storing no payment method record:', paymentRecordError);
+      }
+
+      return NextResponse.json({
+        success: true,
+        paymentId: paymentRecord?.id,
+        amount: feeAmountDecimal,
+        currency: originalCurrency,
+        status: 'NPM',
+        isConverted: isConvertingCurrency,
+        message: 'No payment method found for customer'
+      });
+    }
+
+    // Get payment method ID
+    const paymentMethodId = userSettings.body?.stripe_payment_method?.id;
+
     // Check if amount is too small (less than 10 EUR)
     // If too small, save record with TSTBP status without attempting Stripe payment
     if (paymentAmount < 10) {
@@ -296,60 +342,6 @@ export async function POST(request: Request) {
     
     // Convert to cents for Stripe (Stripe requires amount in smallest currency unit)
     const feeAmountCents = Math.round(paymentAmount * 100);
-
-    // Retrieve the customer to get their default payment method
-    let paymentMethodId;
-    try {
-      // Recupera il cliente senza expand
-      const customer = await stripe.customers.retrieve(stripeCustomerId) as Stripe.Customer;
-      
-      // Ottieni l'ID del metodo di pagamento predefinito dalle invoice_settings
-      paymentMethodId = customer.invoice_settings?.default_payment_method as string;
-      
-      // Check if customer has a default payment method
-      if (!paymentMethodId) {
-        console.log('No default payment method found for customer', { customerId: stripeCustomerId });
-        
-        // Save the record in the database without processing payment
-        const { data: paymentRecord, error: paymentRecordError } = await supabase
-          .from('budget_payments')
-          .insert({
-            budget_id: budgetId,
-            user_id: ownerId,
-            amount: feeAmountDecimal,
-            currency: originalCurrency,
-            payment_amount_eur: isConvertingCurrency ? null : feeAmountDecimal,
-            payment_intent_id: null, // No payment intent created
-            status: 'NPM', // No Payment Method
-            approval_id: approvalId,
-            payment_metadata: {
-              feePercentage: '0.1%',
-              originalAmount: totalAmount.toString(),
-              originalCurrency: originalCurrency,
-              isConverted: isConvertingCurrency ? 'true' : 'false'
-            }
-          })
-          .select('id')
-          .single();
-
-        if (paymentRecordError) {
-          console.error('Error storing no payment method record:', paymentRecordError);
-        }
-
-        return NextResponse.json({
-          success: true,
-          paymentId: paymentRecord?.id,
-          amount: feeAmountDecimal,
-          currency: originalCurrency,
-          status: 'NPM',
-          isConverted: isConvertingCurrency,
-          message: 'No default payment method found for customer'
-        });
-      }
-    } catch (error) {
-      console.error('Error retrieving customer payment method:', error);
-      throw error;
-    }
 
     // 7. Create PaymentIntent with Stripe
     const paymentIntent = await stripe.paymentIntents.create({

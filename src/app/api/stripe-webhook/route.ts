@@ -42,6 +42,8 @@ export async function POST(req: Request) {
       await handleTaxIdUpdated(event);
     } else if (event.type === 'payment_method.attached') {
       await handlePaymentMethodAttached(event.data.object as Stripe.PaymentMethod);
+    } else if (event.type === 'payment_method.detached') {
+      await handlePaymentMethodDetached(event.data.object as Stripe.PaymentMethod);
     } else if (event.type === 'setup_intent.succeeded') {
       await handleSetupIntentSucceeded(event.data.object as Stripe.SetupIntent);
     }
@@ -342,6 +344,80 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
     console.log('DEBUG: Update result:', updateError ? `Error: ${updateError.message}` : 'Success');
   }
   console.log('====== END DEBUG: handlePaymentMethodAttached ======');
+}
+
+// Gestisce la rimozione di un metodo di pagamento
+async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod) {
+  const customerId = paymentMethod.customer as string;
+  console.log('Payment method detached for customer:', customerId);
+  
+  // Creiamo il client Supabase all'interno della funzione
+  const supabase = createRouteHandlerClient({ cookies });
+
+  // Trova l'utente nel database tramite lo stripe_customer_id
+  const { data: userSettings } = await supabase
+    .from('user_settings')
+    .select('*')
+    .eq('stripe_customer_id', customerId);
+
+  if (!userSettings || userSettings.length === 0) {
+    console.log('No user found with stripe_customer_id:', customerId);
+    
+    // Se non troviamo il record con stripe_customer_id, recuperiamo customer e proviamo con i metadata userId
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!customer || customer.deleted) {
+      console.log('Customer not found or deleted');
+      return;
+    }
+    
+    if (customer.metadata && customer.metadata.userId) {
+      const { data: userSettingsByUserId } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', customer.metadata.userId);
+        
+      if (!userSettingsByUserId || userSettingsByUserId.length === 0) {
+        console.log('No user found with user_id:', customer.metadata.userId);
+        return;
+      }
+      
+      // Aggiorna i record trovati rimuovendo le informazioni della carta
+      for (const settings of userSettingsByUserId) {
+        const updatedBody = { ...settings.body };
+        delete updatedBody.stripe_payment_method;
+        
+        await supabase
+          .from('user_settings')
+          .update({
+            body: {
+              ...updatedBody,
+              is_payment_set: false,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', settings.id);
+      }
+      return;
+    }
+    return;
+  }
+
+  for (const settings of userSettings) {
+    // Rimuove le informazioni della carta dal database
+    const updatedBody = { ...settings.body };
+    delete updatedBody.stripe_payment_method;
+    
+    await supabase
+      .from('user_settings')
+      .update({
+        body: {
+          ...updatedBody,
+          is_payment_set: false,
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', settings.id);
+  }
 }
 
 // Gestisce il successo di una setup intent

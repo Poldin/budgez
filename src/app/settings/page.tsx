@@ -839,10 +839,10 @@ export default function SettingsPage() {
                               <div className="flex items-start gap-3">
                                 <CheckCircle className="text-green-500 h-5 w-5 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <h3 className="font-medium">Metodo di pagamento e dati fiscali configurati</h3>
+                                  <h3 className="font-medium">Metodo di pagamento configurato</h3>
                                   <p className="text-sm text-gray-500 mt-1">
                                     Hai configurato correttamente il tuo metodo di pagamento e i dati fiscali.
-                                    Gli addebiti avverranno automaticamente quando un cliente accetta un preventivo (0,1% del valore).
+                                    Gli addebiti avverranno automaticamente quando un cliente accetta un preventivo.
                                   </p>
                                 </div>
                               </div>
@@ -854,13 +854,6 @@ export default function SettingsPage() {
                                     <p className="font-medium">{formatCardInfo(stripeInfo.cardInfo)?.display}</p>
                                     <p className="text-sm text-gray-500">Scade: {formatCardInfo(stripeInfo.cardInfo)?.expiry}</p>
                                   </div>
-                                </div>
-                              )}
-                              
-                              {stripeInfo.fiscalCode && (
-                                <div className="bg-white p-4 border rounded-md">
-                                  <h4 className="text-sm text-gray-500 mb-1">Codice Fiscale / Partita IVA:</h4>
-                                  <p className="font-medium">{stripeInfo.fiscalCode}</p>
                                 </div>
                               )}
                               
