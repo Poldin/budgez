@@ -194,13 +194,23 @@ async function handleTaxIdUpdated(event: Stripe.Event) {
 // Gestisce l'aggiunta di un metodo di pagamento
 async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) {
   const customerId = paymentMethod.customer as string;
+  console.log('====== DEBUG: handlePaymentMethodAttached ======');
   console.log('Payment method attached for customer:', customerId);
+  console.log('Payment method details:', {
+    id: paymentMethod.id,
+    type: paymentMethod.type,
+    card: paymentMethod.card ? {
+      brand: paymentMethod.card.brand,
+      last4: paymentMethod.card.last4
+    } : 'N/A'
+  });
   
   // Creiamo il client Supabase all'interno della funzione
   const supabase = createRouteHandlerClient({ cookies });
 
   // Verifica che sia una carta
   if (paymentMethod.type !== 'card' || !paymentMethod.card) {
+    console.log('DEBUG: Not a card payment method, exiting');
     return;
   }
 
@@ -212,57 +222,112 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
     expMonth: paymentMethod.card.exp_month,
     expYear: paymentMethod.card.exp_year
   };
+  console.log('DEBUG: Card info prepared:', cardInfo);
 
   // Trova l'utente nel database tramite lo stripe_customer_id
-  const { data: userSettings } = await supabase
+  console.log('DEBUG: Searching for user with stripe_customer_id:', customerId);
+  const { data: userSettings, error: userSettingsError } = await supabase
     .from('user_settings')
     .select('*')
     .eq('stripe_customer_id', customerId);
+  
+  console.log('DEBUG: Query result:', { 
+    found: userSettings ? userSettings.length : 0, 
+    error: userSettingsError ? userSettingsError.message : 'none' 
+  });
+  
+  if (userSettings) {
+    console.log('DEBUG: Records found:', userSettings.length);
+    if (userSettings.length > 0) {
+      console.log('DEBUG: First record id:', userSettings[0].id);
+      console.log('DEBUG: User ID in first record:', userSettings[0].user_id);
+    }
+  }
 
   if (!userSettings || userSettings.length === 0) {
-    console.log('No user found with stripe_customer_id:', customerId);
+    console.log('DEBUG: No user found with stripe_customer_id:', customerId);
     
-    // Se non troviamo il record con stripe_customer_id, recuperiamo customer e proviamo con i metadata userId
-    const customer = await stripe.customers.retrieve(customerId);
-    if (!customer || customer.deleted) {
-      console.log('Customer not found or deleted');
-      return;
+    // Proviamo a fare una query generica sulla tabella per vedere se esistono record
+    console.log('DEBUG: Checking if table has any records');
+    const { data: allSettings, error: allSettingsError } = await supabase
+      .from('user_settings')
+      .select('id, user_id, stripe_customer_id')
+      .limit(5);
+    
+    console.log('DEBUG: Sample records in table:', allSettings);
+    if (allSettingsError) {
+      console.log('DEBUG: Error querying table:', allSettingsError.message);
     }
     
-    if (customer.metadata && customer.metadata.userId) {
-      const { data: userSettingsByUserId } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', customer.metadata.userId);
-        
-      if (!userSettingsByUserId || userSettingsByUserId.length === 0) {
-        console.log('No user found with user_id:', customer.metadata.userId);
+    // Se non troviamo il record con stripe_customer_id, recuperiamo customer e proviamo con i metadata userId
+    console.log('DEBUG: Retrieving customer from Stripe to get metadata');
+    try {
+      const customer = await stripe.customers.retrieve(customerId);
+      
+      if (!customer || 'deleted' in customer) {
+        console.log('DEBUG: Customer not found or deleted');
         return;
       }
       
-      // Aggiorna i record trovati con il customer ID e i dati della carta
-      for (const settings of userSettingsByUserId) {
-        await supabase
+      console.log('DEBUG: Customer retrieved:', { 
+        id: customer.id, 
+        metadata: customer.metadata
+      });
+      
+      console.log('DEBUG: Customer metadata:', customer.metadata);
+      
+      if (customer.metadata && customer.metadata.userId) {
+        console.log('DEBUG: Found userId in metadata:', customer.metadata.userId);
+        const { data: userSettingsByUserId, error: userIdQueryError } = await supabase
           .from('user_settings')
-          .update({
-            body: {
-              ...settings.body,
-              is_payment_set: true,
-              stripe_payment_method: cardInfo,
-            },
-            stripe_customer_id: customerId,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', settings.id);
+          .select('*')
+          .eq('user_id', customer.metadata.userId);
+        
+        console.log('DEBUG: Query by user_id result:', {
+          found: userSettingsByUserId ? userSettingsByUserId.length : 0,
+          error: userIdQueryError ? userIdQueryError.message : 'none'
+        });
+          
+        if (!userSettingsByUserId || userSettingsByUserId.length === 0) {
+          console.log('DEBUG: No user found with user_id:', customer.metadata.userId);
+          return;
+        }
+        
+        // Aggiorna i record trovati con il customer ID e i dati della carta
+        console.log('DEBUG: Updating records found by user_id');
+        for (const settings of userSettingsByUserId) {
+          console.log('DEBUG: Updating record id:', settings.id);
+          const { error: updateError } = await supabase
+            .from('user_settings')
+            .update({
+              body: {
+                ...settings.body,
+                is_payment_set: true,
+                stripe_payment_method: cardInfo,
+              },
+              stripe_customer_id: customerId,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', settings.id);
+            
+          console.log('DEBUG: Update result:', updateError ? `Error: ${updateError.message}` : 'Success');
+        }
+        return;
+      } else {
+        console.log('DEBUG: No userId found in customer metadata');
       }
-      return;
+    } catch (error) {
+      console.error('DEBUG: Error retrieving customer:', error);
     }
+    
+    console.log('DEBUG: Could not find user by stripe_customer_id or metadata.userId, exiting');
     return;
   }
 
+  console.log('DEBUG: Updating records found by stripe_customer_id');
   for (const settings of userSettings) {
-    // Aggiorna le informazioni della carta nel database
-    await supabase
+    console.log('DEBUG: Updating record id:', settings.id);
+    const { error: updateError } = await supabase
       .from('user_settings')
       .update({
         body: {
@@ -273,7 +338,10 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
         updated_at: new Date().toISOString(),
       })
       .eq('id', settings.id);
+      
+    console.log('DEBUG: Update result:', updateError ? `Error: ${updateError.message}` : 'Success');
   }
+  console.log('====== END DEBUG: handlePaymentMethodAttached ======');
 }
 
 // Gestisce il successo di una setup intent
