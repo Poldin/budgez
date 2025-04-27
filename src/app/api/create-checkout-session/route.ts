@@ -64,9 +64,14 @@ export async function GET() {
         type: 'card',
       });
       
+      // Get tax IDs (fiscal code)
+      const taxIds = await stripe.customers.listTaxIds(customer.id);
+      const fiscalCode = taxIds.data.length > 0 ? taxIds.data[0].value : null;
+      
       // Recupera le info sulla carta se disponibile
       const hasPaymentMethod = paymentMethods.data.length > 0;
       const cardInfo = hasPaymentMethod ? {
+        id: paymentMethods.data[0].id,
         brand: paymentMethods.data[0].card?.brand,
         last4: paymentMethods.data[0].card?.last4,
         expMonth: paymentMethods.data[0].card?.exp_month,
@@ -77,6 +82,7 @@ export async function GET() {
         exists: true,
         hasPaymentMethod,
         cardInfo,
+        fiscalCode,
         customer: {
           email: customer.email,
           name: customer.name
@@ -173,8 +179,9 @@ export async function POST() {
       // Campi aggiuntivi da raccogliere
       customer_update: {
         name: 'auto',
-        address: 'auto'
-      }
+        address: 'auto',
+      },
+      billing_address_collection: 'required',
     });
 
     return NextResponse.json({ url: session.url });

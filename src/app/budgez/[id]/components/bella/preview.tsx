@@ -182,18 +182,9 @@ export default function BellaPreview({
           // Get currency symbol from settings if available
           if (snapshotData.settings?.currencySymbol) {
             setCurrencySymbol(snapshotData.settings.currencySymbol)
-          } else if (snapshotData.settings?.currency) {
-            // Try to determine symbol from currency code
-            const symbols: Record<string, string> = {
-              'EUR': '€',
-              'USD': '$',
-              'GBP': '£',
-              'CHF': 'CHF',
-              'JPY': '¥',
-              'CAD': 'C$',
-              'AUD': 'A$'
-            }
-            setCurrencySymbol(symbols[snapshotData.settings.currency] || '€')
+          } else {
+            // Default to euro if no currency symbol provided
+            setCurrencySymbol('€')
           }
           
           setLoading(false)
@@ -220,21 +211,11 @@ export default function BellaPreview({
         if (data?.settings?.currency) {
           setCurrency(data.settings.currency)
           
-          // Set currency symbol if available, otherwise infer from currency code
+          // Set currency symbol if available, otherwise default to euro
           if (data.settings.currencySymbol) {
             setCurrencySymbol(data.settings.currencySymbol)
           } else {
-            // Try to determine symbol from currency code
-            const symbols: Record<string, string> = {
-              'EUR': '€',
-              'USD': '$',
-              'GBP': '£',
-              'CHF': 'CHF',
-              'JPY': '¥',
-              'CAD': 'C$',
-              'AUD': 'A$'
-            }
-            setCurrencySymbol(symbols[data.settings.currency] || '€')
+            setCurrencySymbol('€')
           }
         }
 

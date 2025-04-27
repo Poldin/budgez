@@ -39,6 +39,14 @@ interface UserSettings {
     is_payment_set?: boolean;
     is_initial_form_?: boolean;
     stripe_customer_id?: string;
+    stripe_payment_method?: {
+      id?: string;
+      brand?: string;
+      last4?: string;
+      expMonth?: number;
+      expYear?: number;
+    };
+    fiscal_code?: string;
   };
 }
 
@@ -63,6 +71,7 @@ type StripeInfo = {
   exists: boolean;
   hasPaymentMethod: boolean;
   cardInfo?: CardInfo | null;
+  fiscalCode?: string | null;
   customer?: {
     email?: string;
     name?: string;
@@ -99,27 +108,47 @@ export default function SettingsPage() {
 
   // Funzioni per i pagamenti
   const fetchStripeInfo = async () => {
-    if (!user) return;
+    if (!user) return null;
     
     try {
       setLoadingPaymentInfo(true);
-      console.log('Calling stripe info API...');
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
       
-      if (!response.ok) {
-        throw new Error('Errore nel recupero delle informazioni di pagamento');
+      // Check if we have payment info in database
+      if (settings?.body?.is_payment_set && settings?.body?.stripe_payment_method) {
+        const dbStripeInfo: StripeInfo = {
+          exists: true,
+          hasPaymentMethod: settings.body.is_payment_set,
+          cardInfo: settings.body.stripe_payment_method,
+          fiscalCode: settings.body.fiscal_code,
+          customer: {
+            email: user.email,
+            name: user.user_metadata?.user_name
+          }
+        };
+        setStripeInfo(dbStripeInfo);
+        setLoadingPaymentInfo(false);
+        return dbStripeInfo;
       }
       
-      const data = await response.json();
-      console.log('Stripe info received:', data);
-      setStripeInfo(data);
-    } catch (error) {
-      console.error('Error fetching Stripe info:', error);
-    } finally {
+      // Nessuna info nel database, restituisce stato di default
+      const defaultStripeInfo: StripeInfo = {
+        exists: false,
+        hasPaymentMethod: false,
+        cardInfo: null,
+        fiscalCode: null,
+        customer: {
+          email: user.email,
+          name: user.user_metadata?.user_name
+        }
+      };
+      
+      setStripeInfo(defaultStripeInfo);
       setLoadingPaymentInfo(false);
+      return defaultStripeInfo;
+    } catch (error) {
+      console.error('Error fetching payment info from database:', error);
+      setLoadingPaymentInfo(false);
+      return null;
     }
   };
   
@@ -129,6 +158,10 @@ export default function SettingsPage() {
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // Add fiscal code parameter to be used in API
+          includeFiscalCode: true
+        })
       });
       
       if (!response.ok) {
@@ -176,7 +209,7 @@ export default function SettingsPage() {
     }
   };
 
-  // Check for URL parameters
+  // Update useEffect to check for payment success and save payment info
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const paymentSuccess = searchParams.get('payment_success');
@@ -190,8 +223,9 @@ export default function SettingsPage() {
       
       setSuccessMessage('Metodo di pagamento configurato con successo!');
       
-      // Aggiorna le informazioni di Stripe
-      fetchStripeInfo();
+      // Dopo il ritorno da Stripe, dobbiamo recuperare le informazioni aggiornate
+      // Ricarica tutte le impostazioni dell'utente per ottenere i dati aggiornati
+      fetchUserSettings();
     }
     
     if (paymentCancelled === 'true') {
@@ -439,7 +473,7 @@ export default function SettingsPage() {
   useEffect(() => {
     // Chiamiamo fetchStripeInfo solo quando user è disponibile e non stiamo caricando
     if (user && !loading) {
-      console.log('User is loaded, fetching Stripe info...');
+      console.log('User is loaded, fetching payment info from database...');
       fetchStripeInfo();
     }
   }, [user, loading]); // Dipende da user e loading
@@ -820,6 +854,13 @@ export default function SettingsPage() {
                                     <p className="font-medium">{formatCardInfo(stripeInfo.cardInfo)?.display}</p>
                                     <p className="text-sm text-gray-500">Scade: {formatCardInfo(stripeInfo.cardInfo)?.expiry}</p>
                                   </div>
+                                </div>
+                              )}
+                              
+                              {stripeInfo.fiscalCode && (
+                                <div className="bg-white p-4 border rounded-md">
+                                  <h4 className="text-sm text-gray-500 mb-1">Codice Fiscale / Partita IVA:</h4>
+                                  <p className="font-medium">{stripeInfo.fiscalCode}</p>
                                 </div>
                               )}
                               

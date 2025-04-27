@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Signature } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
 
 interface RealSignatureProps {
   budgetId: string
@@ -27,20 +26,18 @@ export default function RealSignature({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [signatureDate, setSignatureDate] = useState<string | null>(null)
   const [signatureName, setSignatureName] = useState<string | null>(null)
-  const [generatedOtp, setGeneratedOtp] = useState<string | null>(null)
   const [showApprovalDetailsDialog, setShowApprovalDetailsDialog] = useState(false)
 
   // Check if budget is already approved on component mount
   const checkApprovalStatus = async () => {
     try {
-      const { data, error } = await supabase
-        .from('budget_approvals')
-        .select('created_at, name, email')
-        .eq('budget_id', budgetId)
-        .eq('approved', true)
-        .maybeSingle()
-
-      if (error) throw error
+      const response = await fetch(`/api/budget/approval-status?budgetId=${budgetId}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch approval status')
+      }
+      
+      const { data } = await response.json()
       
       if (data) {
         setIsApproved(true)
@@ -74,45 +71,21 @@ export default function RealSignature({
     setIsSubmitting(true)
     
     try {
-      // Generate a random 6-digit OTP
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
-      
-      // Store the OTP for later verification
-      setGeneratedOtp(otpCode)
-      
-      // Send the OTP via email
-      const response = await fetch('/api/send-email', {
+      const response = await fetch('/api/budget/send-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          to: email,
-          subject: 'Codice di verifica per approvazione preventivo',
-          content: `
-            <p>Ciao ${name},</p>
-            <p>Ecco il tuo codice di verifica per approvare il preventivo:</p>
-            <div style="
-              font-size: 24px;
-              font-weight: bold;
-              margin: 20px 0;
-              padding: 15px;
-              background-color: #f5f5f5;
-              border-radius: 5px;
-              text-align: center;
-              letter-spacing: 5px;
-            ">
-              ${otpCode}
-            </div>
-            <p>Il codice è valido solo per questa sessione.</p>
-            <p>Se non hai richiesto questo codice, puoi ignorare questa email.</p>
-          `
+          budgetId,
+          email,
+          name
         }),
       })
       
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Errore nell\'invio dell\'email')
+        throw new Error(errorData.error || 'Errore nell\'invio dell\'OTP')
       }
       
       toast.success('Codice OTP inviato alla tua email')
@@ -136,130 +109,48 @@ export default function RealSignature({
     setIsSubmitting(true)
     
     try {
-      // Verify the OTP code matches the generated one
-      if (otp !== generatedOtp) {
-        toast.error('Codice OTP non valido')
+      const response = await fetch('/api/budget/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          budgetId,
+          email,
+          otp
+        }),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Codice OTP non valido o scaduto')
         return
       }
       
-      // First, get the current budget data to store as a snapshot
-      const { data: budgetData, error: budgetError } = await supabase
-        .from('budgets')
-        .select('body, name')
-        .eq('id', budgetId)
-        .single()
-        
-      if (budgetError) throw budgetError
+      const data = await response.json()
       
-      if (!budgetData || !budgetData.body) {
-        toast.error('Errore nel recupero dei dati del preventivo')
-        return
-      }
-      
-      // Record the approval in the database with the budget snapshot
-      const { error } = await supabase
-        .from('budget_approvals')
-        .insert({
-          budget_id: budgetId,
-          email: email,
-          name: name,
-          approved: true,
-          body_approval: budgetData.body // Store snapshot of the budget at time of approval
-        })
-        
-      if (error) throw error
-      
-      // Fetch all connected users who should be notified (owner, editor, viewer roles)
-      const { data: connectedUsers, error: usersError } = await supabase
-        .from('link_budget_users')
-        .select('user_id, external_email, user_role')
-        .eq('budget_id', budgetId)
-        .in('user_role', ['owner', 'editor', 'viewer'])
-      
-      if (usersError) throw usersError
-
-      if (connectedUsers && connectedUsers.length > 0) {
-        // Get user emails - either from external_email or auth.users table
-        for (const user of connectedUsers) {
-          let recipientEmail = user.external_email;
-          
-          // If external_email is not available but we have a user_id, fetch from auth.users
-          if (!recipientEmail && user.user_id) {
-            const { data: userData, error: userError } = await supabase
-              .from('auth.users')
-              .select('email')
-              .eq('id', user.user_id)
-              .single()
-              
-            if (userError) {
-              console.error('Error fetching user email:', userError)
-              continue // Skip this user and continue with the next one
-            }
-            
-            if (userData) {
-              recipientEmail = userData.email
-            }
-          }
-          
-          // Send notification email if we have a valid email
-          if (recipientEmail) {
-            const formattedDate = new Date().toLocaleDateString()
-            const formattedTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-            const budgetName = budgetData.name || 'Preventivo'
-            const budgetLink = `${window.location.origin}/budget/${budgetId}`
-            
-            await fetch('/api/send-email', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                to: recipientEmail,
-                subject: `Preventivo "${budgetName}" approvato`,
-                content: `
-                  <p>Gentile utente,</p>
-                  <p>Ti informiamo che il preventivo <strong>"${budgetName}"</strong> è stato approvato.</p>
-                  <div style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
-                    <p><strong>Dettagli approvazione:</strong></p>
-                    <p>Data: ${formattedDate}</p>
-                    <p>Ora: ${formattedTime}</p>
-                    <p>Nome: ${name}</p>
-                    <p>Email: ${email}</p>
-                  </div>
-                  <p>Puoi visualizzare il preventivo approvato al seguente link:</p>
-                  <p><a href="${budgetLink}" style="display: inline-block; background-color: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 10px 0;">Visualizza Preventivo</a></p>
-                  <p>È stata salvata una copia del preventivo al momento dell'approvazione. Anche in caso di modifiche future al preventivo originale, la versione approvata rimarrà invariata.</p>
-                `
-              }),
-            }).catch(err => {
-              console.error(`Error sending notification to ${recipientEmail}:`, err)
-            })
-          }
-        }
-      }
-
       setShowSuccess(true)
       
       // Update local state
-      const now = new Date().toISOString()
       setIsApproved(true)
-      setSignatureDate(now)
-      setSignatureName(name)
+      setSignatureDate(data.approvalDate)
+      setSignatureName(data.name)
       
-      // Reset after 3 seconds
-      setTimeout(() => {
-        setShowSuccess(false)
-        setShowOtpInput(false)
-        setOtp('')
-        setGeneratedOtp(null)
-        setDialogOpen(false)
-      }, 3000)
+      // Rimosso il timer di 3 secondi per lasciare che l'utente chiuda manualmente
     } catch (error) {
       console.error('Error verifying OTP:', error)
       toast.error('Errore nella verifica del codice OTP')
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Funzione per chiudere il dialog e resettare gli stati
+  const handleCloseSuccessDialog = () => {
+    setShowSuccess(false)
+    setShowOtpInput(false)
+    setOtp('')
+    setDialogOpen(false)
   }
 
   // Function to format currency with symbol
@@ -330,9 +221,15 @@ export default function RealSignature({
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Preventivo firmato con successo!</h3>
                 <p className="text-sm text-gray-500 mb-2">La firma digitale è stata apposta correttamente.</p>
-                <p className="text-sm text-gray-500 bg-blue-50 p-3 rounded-md border border-blue-100">
+                <p className="text-sm text-gray-500 bg-blue-50 p-3 rounded-md border border-blue-100 mb-4">
                   <strong>Nota:</strong> È stata salvata una copia del preventivo attuale. Anche in caso di modifiche future al preventivo originale, la versione approvata rimarrà invariata.
                 </p>
+                <button
+                  onClick={handleCloseSuccessDialog}
+                  className="w-full bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-md"
+                >
+                  Chiudi
+                </button>
               </div>
             ) : showOtpInput ? (
               <form onSubmit={handleOtpSubmit} className="space-y-4">
