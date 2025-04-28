@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Globe, Copy, Mail, CheckCheck, Trash2, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
+import { Copy, Mail, CheckCheck, Trash2, ExternalLink, AlertCircle, Loader2, Megaphone } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +41,7 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoadingPaymentInfo, setIsLoadingPaymentInfo] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showNonOwnerDialog, setShowNonOwnerDialog] = useState(false);
   const [isButtonLoading, setIsButtonLoading] = useState(false);
   const [showQuoteValidationDialog, setShowQuoteValidationDialog] = useState(false);
   const [quoteValidationError, setQuoteValidationError] = useState<string | null>(null);
@@ -481,6 +482,25 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
         toast.error('Utente non autenticato');
         return false;
       }
+
+      // First, check if the user is the owner of the budget
+      const { data: linkData, error: linkError } = await supabase
+        .from('link_budget_users')
+        .select('user_role')
+        .eq('budget_id', budgetId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (linkError) {
+        console.error('Errore nel recupero del ruolo utente:', linkError);
+        return false;
+      }
+
+      // If user is not the owner, show the non-owner dialog
+      if (!linkData || linkData.user_role !== 'owner') {
+        setShowNonOwnerDialog(true);
+        return false;
+      }
       
       // Query user_settings table for the current user
       const { data: userSettings, error } = await supabase
@@ -714,7 +734,7 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
       <Button 
         variant="outline" 
         size="sm" 
-        className="flex items-center gap-1"
+        className="flex items-center gap-1 bg-black text-white hover:bg-gray-800 hover:text-white"
         onClick={handleDialogTrigger}
         disabled={isButtonLoading || isLoadingPaymentInfo}
       >
@@ -725,7 +745,7 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
           </>
         ) : (
           <>
-            <Globe className="h-4 w-4" />
+            <Megaphone className="h-4 w-4 animate-pulse" />
             Pubblica
           </>
         )}
@@ -769,6 +789,40 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
         </DialogContent>
       </Dialog>
 
+      {/* Non-Owner Dialog */}
+      <Dialog open={showNonOwnerDialog} onOpenChange={setShowNonOwnerDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Impossibile procedere</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-6">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="text-yellow-500 h-5 w-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium">Configurazione necessaria</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Per procedere con la pubblicazione, il proprietario del budget deve configurare un metodo di pagamento valido.
+                  Questo è richiesto per l&apos;addebito automatico della commissione (0,1%) quando un cliente accetta un preventivo.
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Contatta il proprietario del budget per richiedere la configurazione del metodo di pagamento.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={() => setShowNonOwnerDialog(false)}
+              className="w-full"
+            >
+              Ho capito
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Payment Method Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="sm:max-w-[500px]">
@@ -782,7 +836,7 @@ const PublishDialog: React.FC<PublishDialogProps> = ({ budgetId, publicId }) => 
               <div>
                 <h3 className="font-medium">Configurazione necessaria</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Prima di poter pubblicare un budget, è necessario configurare un metodo di pagamento valido.
+                  Come proprietario del budget, è necessario configurare un metodo di pagamento valido per procedere con la pubblicazione.
                   Questo è richiesto per l&apos;addebito automatico della commissione (0,1%) quando un cliente accetta un preventivo.
                 </p>
               </div>
