@@ -43,7 +43,7 @@ export default function LandingPage() {
                 <Button size="lg" onClick={() => router.push('/signup')} className="font-bold">
                   Inizia gratis
                 </Button>
-                <Link href="https://tally.so/r/wkJWVR" target="_blank" rel="noopener noreferrer">
+                <Link href="https://tally.so/r/np51bb" target="_blank" rel="noopener noreferrer">
                   <Button size="lg" variant="outline" className='bg-gray-600 hover:bg-gray-800 border-2 border-gray-00 animate-pulse text-white'>
                     Compila la survey!
                   </Button>
