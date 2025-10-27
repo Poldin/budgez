@@ -10,12 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, Download, FileDown, Library, FileJson, Copy, ArrowUp, ArrowDown, Check } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, Download, FileDown, FileJson, Copy, ArrowUp, ArrowDown, Check, Search } from 'lucide-react';
 import { translations, type Language } from '@/lib/translations';
-import TemplatesSidebar from '@/components/templates-sidebar';
 import CurrencySelector from '@/components/currency-selector';
 import { budgetTemplates } from '@/lib/budget-templates';
 import Footer from '@/components/footer/footer';
+import GanttChart from '@/components/gantt-chart';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 interface Resource {
   id: string;
@@ -44,6 +46,8 @@ interface Activity {
   resources: ResourceAssignment[];
   vat: number; // Percentuale IVA specifica per questa attività
   discount?: ActivityDiscount; // Sconto opzionale per l'attività
+  startDate?: string; // Data inizio attività (ISO format)
+  endDate?: string; // Data fine attività (ISO format)
 }
 
 interface GeneralDiscount {
@@ -54,9 +58,24 @@ interface GeneralDiscount {
 }
 
 export default function HomePage() {
+  // Funzione per calcolare il giorno dell'anno
+  const getDayOfYear = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now.getTime() - start.getTime();
+    const oneDay = 1000 * 60 * 60 * 24;
+    return Math.floor(diff / oneDay);
+  };
+
+  const getDefaultBudgetName = () => {
+    const now = new Date();
+    return `Preventivo #${getDayOfYear()}/${now.getFullYear()}`;
+  };
+
   const [language, setLanguage] = useState<Language>('it');
   const [currency, setCurrency] = useState('€');
   const [defaultVat, setDefaultVat] = useState(22); // IVA default 22%
+  const [budgetName, setBudgetName] = useState(getDefaultBudgetName());
   const [resources, setResources] = useState<Resource[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [generalDiscount, setGeneralDiscount] = useState<GeneralDiscount>({
@@ -66,21 +85,59 @@ export default function HomePage() {
     applyOn: 'taxable'
   });
   const [showFloatingTotal, setShowFloatingTotal] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [jsonDialogOpen, setJsonDialogOpen] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
   const [tableCopied, setTableCopied] = useState(false);
-  const [randomTemplates, setRandomTemplates] = useState<typeof budgetTemplates>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [randomizedTags, setRandomizedTags] = useState<string[]>([]);
+  const [randomizedTemplates, setRandomizedTemplates] = useState<typeof budgetTemplates>([]);
+  const [isClient, setIsClient] = useState(false);
   const finalTotalRef = useRef<HTMLDivElement>(null);
 
   const t = translations[language];
 
-  // Seleziona 7 template casuali all'avvio
+  // Inizializza randomizzazione solo sul client
   React.useEffect(() => {
-    const shuffled = [...budgetTemplates].sort(() => 0.5 - Math.random());
-    setRandomTemplates(shuffled.slice(0, 7));
+    setIsClient(true);
+    const allTags = Array.from(new Set(budgetTemplates.flatMap(t => t.tags)));
+    const shuffled = [...allTags].sort(() => 0.5 - Math.random());
+    setRandomizedTags(shuffled);
+    
+    // Randomizza anche i template per la visualizzazione iniziale
+    const shuffledTemplates = [...budgetTemplates].sort(() => 0.5 - Math.random()).slice(0, 10);
+    setRandomizedTemplates(shuffledTemplates);
   }, []);
+
+  // Filtra template in base a ricerca e tag selezionati
+  const filteredTemplates = React.useMemo(() => {
+    const filtered = budgetTemplates.filter(template => {
+      const matchesSearch = searchQuery === '' || 
+        template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        template.description.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesTags = selectedTags.length === 0 || 
+        selectedTags.some(tag => template.tags.includes(tag));
+      
+      return matchesSearch && matchesTags;
+    });
+
+    // Se non ci sono filtri attivi, usa i template randomizzati precaricati
+    if (searchQuery === '' && selectedTags.length === 0) {
+      return isClient ? randomizedTemplates : filtered.slice(0, 10);
+    }
+    
+    return filtered;
+  }, [searchQuery, selectedTags, randomizedTemplates, isClient]);
+
+  const toggleTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter(t => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
 
   // Hide floating total when final total section is visible
   React.useEffect(() => {
@@ -357,6 +414,78 @@ export default function HomePage() {
     });
   };
 
+  // Converte una Date in formato YYYY-MM-DD preservando la data locale (senza shift UTC)
+  const formatDateToLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const generateGanttHTML = () => {
+    // Filtra attività con date
+    const activitiesWithDates = activities.filter(a => a.startDate && a.endDate);
+    if (activitiesWithDates.length === 0) return '';
+
+    // Calcola date min/max e scala temporale
+    const dates = activitiesWithDates.flatMap(a => [
+      new Date(a.startDate!),
+      new Date(a.endDate!)
+    ]);
+    const rawMinDate = new Date(Math.min(...dates.map(d => d.getTime())));
+    const rawMaxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    
+    const durationDays = Math.ceil((rawMaxDate.getTime() - rawMinDate.getTime()) / (1000 * 60 * 60 * 24));
+    const paddingDays = Math.max(1, Math.ceil(durationDays * 0.05));
+    
+    const minDate = new Date(rawMinDate);
+    minDate.setDate(minDate.getDate() - paddingDays);
+    const maxDate = new Date(rawMaxDate);
+    maxDate.setDate(maxDate.getDate() + paddingDays);
+    
+    const totalDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Genera barre Gantt
+    const ganttBars = activitiesWithDates.map((activity, idx) => {
+      const start = new Date(activity.startDate!);
+      const end = new Date(activity.endDate!);
+      const offsetDays = Math.max(0, Math.ceil((start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)));
+      const barDurationDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const leftPercent = (offsetDays / totalDays) * 100;
+      const widthPercent = (barDurationDays / totalDays) * 100;
+      
+      const hue = (idx * 360) / activitiesWithDates.length;
+      
+      return `
+        <div style="display: flex; align-items: center; margin-bottom: 12px; page-break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;">
+          <div style="width: 200px; flex-shrink: 0; padding-right: 16px;">
+            <div style="font-size: 12px; font-weight: 600;">${activity.name}</div>
+            <div style="font-size: 10px; color: #666;">
+              ${start.toLocaleDateString('it-IT')} - ${end.toLocaleDateString('it-IT')}
+            </div>
+          </div>
+          <div style="flex: 1; position: relative; height: 40px; background: #f5f5f5; border-radius: 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;">
+            <div style="position: absolute; left: ${leftPercent}%; width: ${widthPercent}%; height: 28px; top: 6px; background: hsl(${hue}, 70%, 60%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 8px; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;">
+              ${activity.name}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div style="page-break-before: always; margin-top: 40px; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;">
+        <h2 style="color: #1a1a1a; border-bottom: 2px solid #1a1a1a; padding-bottom: 8px; margin-bottom: 20px; font-size: 20px;">
+          Timeline Progetto
+        </h2>
+        <div style="font-size: 11px; color: #666; margin-bottom: 16px;">
+          Periodo: ${minDate.toLocaleDateString('it-IT')} - ${maxDate.toLocaleDateString('it-IT')} • Durata: ${totalDays} giorni
+        </div>
+        ${ganttBars}
+      </div>
+    `;
+  };
+
   const exportToPDF = () => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -365,13 +494,27 @@ export default function HomePage() {
       const vatAmount = calculateGrandVat();
       const totalBeforeGeneralDiscount = calculateGrandTotalBeforeGeneralDiscount();
       const generalDiscountAmount = calculateGeneralDiscountAmount();
+      const ganttHTML = generateGanttHTML();
       
       const html = `
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Budgez - Preventivo</title>
+          <title>Budgez - ${budgetName}</title>
           <style>
+            @page {
+              margin: 0;
+            }
+            @media print {
+              body {
+                margin: 1.5cm;
+              }
+              * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+              }
+            }
             body {
               font-family: Arial, sans-serif;
               padding: 30px;
@@ -470,7 +613,7 @@ export default function HomePage() {
           </style>
         </head>
         <body>
-          <h1>Preventivo</h1>
+          <h1>${budgetName}</h1>
           
           <table>
             <thead>
@@ -507,7 +650,7 @@ export default function HomePage() {
                     <tr class="resource-row">
                       ${resIndex === 0 ? `
                         <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" class="activity-header">
-                          ${activity.name}
+                          ${activity.name} - ${currency}${formatNumber(activityTotalWithVat)}
                         </td>
                       ` : ''}
                       <td>${resource.name}</td>
@@ -583,6 +726,7 @@ export default function HomePage() {
               </tr>
             </tbody>
           </table>
+          ${ganttHTML}
         </body>
         </html>
       `;
@@ -594,6 +738,7 @@ export default function HomePage() {
 
   const exportToJSON = () => {
     const config = {
+      budgetName,
       currency,
       defaultVat,
       resources,
@@ -601,17 +746,31 @@ export default function HomePage() {
       generalDiscount,
       exportDate: new Date().toISOString(),
     };
+    
+    // Formatta la data: YYYYMMDD_HHMMSS
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+    const dateTimeStr = `${dateStr}_${timeStr}`;
+    
+    // Sanifica il nome del preventivo per il nome file
+    const sanitizedName = budgetName
+      .replace(/[<>:"/\\|?*]/g, '') // Rimuove caratteri non validi
+      .replace(/\s+/g, '_') // Sostituisce spazi con underscore
+      .slice(0, 50); // Limita la lunghezza
+    
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `budget-config-${Date.now()}.json`;
+    a.download = `Budgez_${sanitizedName}_${dateTimeStr}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const copyToClipboard = async () => {
     const config = {
+      budgetName,
       currency,
       defaultVat,
       resources,
@@ -772,12 +931,15 @@ export default function HomePage() {
   };
 
   const loadConfiguration = (config: {
+    budgetName?: string;
     currency?: string;
     defaultVat?: number;
     resources?: unknown[];
     activities?: unknown[];
     generalDiscount?: unknown;
   }) => {
+    // Non caricare il budgetName dai template, solo dalle configurazioni personalizzate
+    if (config.budgetName) setBudgetName(config.budgetName);
     if (config.currency) setCurrency(config.currency);
     if (config.defaultVat !== undefined) setDefaultVat(config.defaultVat);
     if (config.resources) setResources(config.resources as unknown as Resource[]);
@@ -813,14 +975,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Templates Sidebar */}
-      <TemplatesSidebar 
-        language={language}
-        onSelectTemplate={loadConfiguration}
-        templates={budgetTemplates}
-        isOpen={sidebarOpen}
-        onOpenChange={setSidebarOpen}
-      />
 
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/80 backdrop-blur-sm">
@@ -870,79 +1024,121 @@ export default function HomePage() {
               <AccordionContent>
                 <Card>
                   <CardContent className="pt-6 space-y-4">
+                    {/* Budget Name */}
+                    <div className="border-b pb-4 mb-4">
+                      <Label htmlFor="budgetName" className="text-base font-semibold mb-2 block">
+                        {t.budgetName}
+                      </Label>
+                      <Input
+                        id="budgetName"
+                        value={budgetName}
+                        onChange={(e) => setBudgetName(e.target.value)}
+                        placeholder={getDefaultBudgetName()}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {t.budgetNamePlaceholder}
+                      </p>
+                    </div>
+
                     {/* Load Configuration Buttons */}
                     <div className="border-b pb-4 mb-4">
-                      <Label className="text-base font-semibold mb-2 block">
-                        {t.startHere}
-                      </Label>
-                      <p className="text-sm text-gray-600 mb-3">
-                        {t.templateIntro}
-                      </p>
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <Button 
-                          onClick={() => setSidebarOpen(true)} 
-                          variant="default"
-                          className="w-full"
-                        >
-                          <Library className="h-4 w-4 mr-2" />
-                          {t.viewAllTemplates}
-                        </Button>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-base font-semibold">
+                          {t.startHere}
+                        </Label>
                         <Button 
                           onClick={() => setJsonDialogOpen(true)} 
                           variant="outline"
-                          className="w-full"
+                          className="w-fit"
+                          size="sm"
                         >
                           <FileJson className="h-4 w-4 mr-2" />
                           {t.customConfiguration}
                         </Button>
                       </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        {t.templateIntro}
+                      </p>
 
-                      {/* Template Preview Cards */}
-                      {randomTemplates.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">
-                            {t.recommendedTemplates}
-                          </p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {randomTemplates.map((template) => (
-                              <Card 
-                                key={template.id}
-                                className="cursor-pointer hover:shadow-md hover:border-gray-400 transition-all duration-200"
-                                onClick={() => loadConfiguration(template.config)}
+                      {/* Template Search and Filter Section */}
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">
+                          {t.recommendedTemplates}
+                        </p>
+                        
+                        {/* Search Bar */}
+                        <div className="relative mb-3">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            type="text"
+                            placeholder={`Ricerca tra i ${budgetTemplates.length} template`}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                          />
+                        </div>
+
+                        {/* Horizontal Scrollable Tags */}
+                        <div className="mb-4 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400">
+                          <div className="flex gap-2 min-w-max">
+                            {randomizedTags.map(tag => (
+                              <Badge
+                                key={tag}
+                                variant={selectedTags.includes(tag) ? "default" : "outline"}
+                                className="cursor-pointer whitespace-nowrap text-xs px-3 py-1"
+                                onClick={() => toggleTag(tag)}
                               >
-                                <CardHeader className="pb-2 pt-3 px-3">
-                                  <CardTitle className="text-sm font-semibold leading-tight">
-                                    {template.name}
-                                  </CardTitle>
-                                </CardHeader>
-                                <CardContent className="px-3 pb-3">
-                                  <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                                    {template.description}
-                                  </p>
-                                  <div className="flex flex-wrap gap-1 mb-2">
-                                    {template.tags.slice(0, 2).map((tag) => (
-                                      <span 
-                                        key={tag}
-                                        className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded"
-                                      >
-                                        {tag}
-                                      </span>
-                                    ))}
-                                    {template.tags.length > 2 && (
-                                      <span className="text-xs text-gray-400 px-1">
-                                        +{template.tags.length - 2}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {template.config.resources.length} {t.resourcesCount} · {template.config.activities.length} {t.activitiesCount}
-                                  </div>
-                                </CardContent>
-                              </Card>
+                                {tag}
+                              </Badge>
                             ))}
                           </div>
                         </div>
-                      )}
+
+                        {/* Template Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {filteredTemplates.map((template) => (
+                            <Card 
+                              key={template.id}
+                              className="cursor-pointer hover:shadow-md hover:border-gray-400 transition-all duration-200"
+                              onClick={() => loadConfiguration(template.config)}
+                            >
+                              <CardHeader className="pb-2 pt-3 px-3">
+                                <CardTitle className="text-sm font-semibold leading-tight">
+                                  {template.name}
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="px-3 pb-3">
+                                <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                                  {template.description}
+                                </p>
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                  {template.tags.slice(0, 2).map((tag) => (
+                                    <span 
+                                      key={tag}
+                                      className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {template.tags.length > 2 && (
+                                    <span className="text-xs text-gray-400 px-1">
+                                      +{template.tags.length - 2}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {template.config.resources.length} {t.resourcesCount} · {template.config.activities.length} {t.activitiesCount}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                          {filteredTemplates.length === 0 && (
+                            <div className="col-span-2 text-center py-8 text-gray-500 text-sm">
+                              Nessun template trovato
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Currency and VAT on same row */}
@@ -1191,6 +1387,26 @@ export default function HomePage() {
                         onChange={(e) => updateActivity(activity.id, 'description', e.target.value)}
                         placeholder={t.activityDescription}
                         rows={2}
+                      />
+                    </div>
+
+                    {/* Date Attività */}
+                    <div>
+                      <Label>Periodo Attività</Label>
+                      <DateRangePicker
+                        value={{
+                          from: activity.startDate ? new Date(activity.startDate) : undefined,
+                          to: activity.endDate ? new Date(activity.endDate) : undefined,
+                        }}
+                        onChange={(range) => {
+                          if (range.from) {
+                            updateActivity(activity.id, 'startDate', formatDateToLocal(range.from));
+                          }
+                          if (range.to) {
+                            updateActivity(activity.id, 'endDate', formatDateToLocal(range.to));
+                          }
+                        }}
+                        placeholder="Seleziona periodo attività"
                       />
                     </div>
 
@@ -1649,6 +1865,16 @@ export default function HomePage() {
                   />
                 </CardContent>
               </Card>
+
+              {/* Gantt Chart Timeline */}
+              {activities.length > 0 && (
+                <div className="mt-6">
+                  <GanttChart 
+                    activities={activities}
+                    onUpdateActivity={updateActivity}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
