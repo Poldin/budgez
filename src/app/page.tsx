@@ -18,6 +18,7 @@ import { budgetTemplates } from '@/lib/budget-templates';
 import Footer from '@/components/footer/footer';
 import GanttChart from '@/components/gantt-chart';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import PDFExportDialog from '@/components/pdf-export-dialog';
 
 // Componente per animare il subtitle parola per parola
 const AnimatedSubtitle = ({ text }: { text: string }) => {
@@ -145,6 +146,7 @@ export default function HomePage() {
   const [randomizedTags, setRandomizedTags] = useState<string[]>([]);
   const [randomizedTemplates, setRandomizedTemplates] = useState<typeof budgetTemplates>([]);
   const [isClient, setIsClient] = useState(false);
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const finalTotalRef = useRef<HTMLDivElement>(null);
 
   const t = translations[language];
@@ -538,253 +540,7 @@ export default function HomePage() {
   };
 
   const exportToPDF = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      const total = calculateGrandTotal();
-      const subtotal = calculateGrandSubtotal();
-      const vatAmount = calculateGrandVat();
-      const totalBeforeGeneralDiscount = calculateGrandTotalBeforeGeneralDiscount();
-      const generalDiscountAmount = calculateGeneralDiscountAmount();
-      const ganttHTML = generateGanttHTML();
-      
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Budgez - ${budgetName}</title>
-          <style>
-            @page {
-              margin: 0;
-            }
-            @media print {
-              body {
-                margin: 1.5cm;
-              }
-              * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                color-adjust: exact !important;
-              }
-            }
-            body {
-              font-family: Arial, sans-serif;
-              padding: 30px;
-              max-width: 1000px;
-              margin: 0 auto;
-              font-size: 12px;
-            }
-            h1 {
-              color: #1a1a1a;
-              border-bottom: 3px solid #1a1a1a;
-              padding-bottom: 8px;
-              margin-bottom: 20px;
-              font-size: 24px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin: 10px 0;
-            }
-            th {
-              background-color: #1a1a1a;
-              color: white;
-              padding: 8px 10px;
-              text-align: left;
-              font-weight: bold;
-              font-size: 11px;
-              text-transform: uppercase;
-            }
-            td {
-              padding: 6px 10px;
-              border-bottom: 1px solid #e5e5e5;
-            }
-            .activity-header {
-              background-color: #f5f5f5;
-              font-weight: bold;
-              font-size: 13px;
-            }
-            .activity-desc {
-              font-size: 11px;
-              color: #666;
-              font-style: italic;
-              padding: 4px 10px;
-            }
-            .resource-row td {
-              padding-left: 20px;
-            }
-            .activity-total-row {
-              background-color: #f9f9f9;
-              font-weight: bold;
-              border-top: 2px solid #ddd;
-            }
-            .activity-total-row td {
-              padding: 8px 10px;
-            }
-            .summary-section {
-              margin-top: 20px;
-              border: 2px solid #1a1a1a;
-            }
-            .summary-row {
-              background-color: #f5f5f5;
-            }
-            .summary-row td {
-              padding: 8px 10px;
-              font-weight: bold;
-            }
-            .discount-row {
-              background-color: #fef3c7;
-              color: #b45309;
-            }
-            .discount-row td {
-              padding: 8px 10px;
-              font-weight: bold;
-            }
-            .grand-total-row {
-              background-color: #1a1a1a;
-              color: white;
-            }
-            .grand-total-row td {
-              padding: 12px 10px;
-              font-size: 16px;
-              font-weight: bold;
-            }
-            .text-right {
-              text-align: right;
-            }
-            .text-center {
-              text-align: center;
-            }
-            .smaller {
-              font-size: 10px;
-            }
-            .discount-badge {
-              color: #b45309;
-              font-size: 10px;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>${budgetName}</h1>
-          
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 30%;">${t.activityName}</th>
-                <th style="width: 25%;">${t.resourceName}</th>
-                <th style="width: 15%;" class="text-center">Dettagli</th>
-                <th style="width: 10%;" class="text-right">${t.subtotal}</th>
-                <th style="width: 10%;" class="text-right">IVA</th>
-                <th style="width: 10%;" class="text-right">${t.total}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${activities.map((activity) => {
-                const activitySubtotal = calculateActivityTotal(activity);
-                const activityDiscountAmount = calculateActivityDiscountAmount(activity);
-                const activityTotalWithVat = calculateActivityTotalWithVat(activity);
-                
-                let rows = '';
-                
-                // Activity resources
-                activity.resources.forEach((assignment, resIndex) => {
-                  const resource = resources.find(r => r.id === assignment.resourceId);
-                  if (!resource) return;
-                  
-                  const cost = calculateResourceCost(assignment.resourceId, assignment.hours, assignment.fixedPrice);
-                  const detailText = resource.costType === 'hourly' 
-                    ? `${assignment.hours}h × ${currency}${formatNumber(resource.pricePerHour)}/h`
-                    : resource.costType === 'quantity'
-                    ? `${assignment.hours} × ${currency}${formatNumber(resource.pricePerHour)}/u`
-                    : `${currency}${formatNumber(assignment.fixedPrice)}`;
-                  
-                  rows += `
-                    <tr class="resource-row">
-                      ${resIndex === 0 ? `
-                        <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" class="activity-header">
-                          ${activity.name} - ${currency}${formatNumber(activityTotalWithVat)}
-                        </td>
-                      ` : ''}
-                      <td>${resource.name}</td>
-                      <td class="text-center smaller">${detailText}</td>
-                      <td class="text-right">${currency}${formatNumber(cost)}</td>
-                      ${resIndex === 0 ? `
-                        <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" class="text-right" style="vertical-align: top;">
-                          ${currency}${formatNumber(activitySubtotal * activity.vat / 100)}<br/>
-                          <span class="smaller">(${activity.vat}%)</span>
-                        </td>
-                        <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" class="text-right" style="font-weight: bold; vertical-align: top;">
-                          ${currency}${formatNumber(activityTotalWithVat)}
-                          ${activity.discount?.enabled && activityDiscountAmount > 0 ? `<br/><span class="discount-badge">-${currency}${formatNumber(activityDiscountAmount)} ${t.discount}</span>` : ''}
-                        </td>
-                      ` : ''}
-                    </tr>
-                  `;
-                });
-                
-                // Activity description (if exists)
-                if (activity.description) {
-                  rows += `
-                    <tr>
-                      <td colspan="2" class="activity-desc">${activity.description}</td>
-                    </tr>
-                  `;
-                }
-                
-                // Activity total row
-                rows += `
-                  <tr class="activity-total-row">
-                    <td colspan="3" class="text-right">${t.total} ${activity.name}:</td>
-                    <td class="text-right">${currency}${formatNumber(activitySubtotal)}</td>
-                    <td class="text-right">${currency}${formatNumber(activitySubtotal * activity.vat / 100)}</td>
-                    <td class="text-right">${currency}${formatNumber(activityTotalWithVat)}</td>
-                  </tr>
-                `;
-                
-                return rows;
-              }).join('')}
-            </tbody>
-          </table>
-          
-          <table class="summary-section">
-            <tbody>
-              <tr class="summary-row">
-                <td style="width: 70%;" class="text-right">${t.subtotal}:</td>
-                <td style="width: 30%;" class="text-right">${currency}${formatNumber(subtotal)}</td>
-              </tr>
-              <tr class="summary-row">
-                <td class="text-right">${t.vatAmount}:</td>
-                <td class="text-right">${currency}${formatNumber(vatAmount)}</td>
-              </tr>
-              ${calculateTotalActivityDiscounts() > 0 ? `
-                <tr class="discount-row">
-                  <td class="text-right">${t.discount} ${t.activities}:</td>
-                  <td class="text-right">-${currency}${formatNumber(calculateTotalActivityDiscounts())}</td>
-                </tr>
-              ` : ''}
-              ${generalDiscount.enabled && generalDiscountAmount > 0 ? `
-                <tr class="summary-row">
-                  <td class="text-right">${t.beforeDiscount}:</td>
-                  <td class="text-right">${currency}${formatNumber(totalBeforeGeneralDiscount)}</td>
-                </tr>
-                <tr class="discount-row">
-                  <td class="text-right">${t.generalDiscount}:</td>
-                  <td class="text-right">-${currency}${formatNumber(generalDiscountAmount)}</td>
-                </tr>
-              ` : ''}
-              <tr class="grand-total-row">
-                <td class="text-right">${t.finalTotal}:</td>
-                <td class="text-right">${currency}${formatNumber(total)}</td>
-              </tr>
-            </tbody>
-          </table>
-          ${ganttHTML}
-        </body>
-        </html>
-      `;
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.print();
-    }
+    setPdfDialogOpen(true);
   };
 
   const exportToJSON = () => {
@@ -1989,6 +1745,30 @@ export default function HomePage() {
 
       {/* Footer */}
       <Footer language={language} onLanguageChange={setLanguage} />
+
+      {/* PDF Export Dialog */}
+      <PDFExportDialog
+        open={pdfDialogOpen}
+        onOpenChange={setPdfDialogOpen}
+        budgetName={budgetName}
+        currency={currency}
+        resources={resources}
+        activities={activities}
+        generalDiscount={generalDiscount}
+        translations={t}
+        formatNumber={formatNumber}
+        calculateResourceCost={calculateResourceCost}
+        calculateActivityTotal={calculateActivityTotal}
+        calculateActivityDiscountAmount={calculateActivityDiscountAmount}
+        calculateActivityTotalWithVat={calculateActivityTotalWithVat}
+        calculateGrandSubtotal={calculateGrandSubtotal}
+        calculateGrandVat={calculateGrandVat}
+        calculateGrandTotalBeforeGeneralDiscount={calculateGrandTotalBeforeGeneralDiscount}
+        calculateGeneralDiscountAmount={calculateGeneralDiscountAmount}
+        calculateGrandTotal={calculateGrandTotal}
+        calculateTotalActivityDiscounts={calculateTotalActivityDiscounts}
+        generateGanttHTML={generateGanttHTML}
+      />
     </div>
   );
 }
