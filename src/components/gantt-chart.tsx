@@ -195,15 +195,24 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
     const start = new Date(activityStart);
     const end = new Date(activityEnd);
     
-    // Calcola l'offset dall'inizio
-    const offsetDays = Math.max(0, Math.ceil((start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)));
+    // Normalizza le date all'inizio del giorno per confronti precisi
+    const normalizedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const normalizedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    const normalizedMin = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+    const normalizedMax = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
     
-    // Calcola la durata in giorni
-    const durationDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    // Calcola l'offset in giorni dall'inizio (più preciso)
+    const offsetDays = Math.floor((normalizedStart.getTime() - normalizedMin.getTime()) / (1000 * 60 * 60 * 24));
     
-    // Calcola le percentuali
-    const leftPercent = (offsetDays / totalDays) * 100;
-    const widthPercent = (durationDays / totalDays) * 100;
+    // Calcola la durata in giorni (incluso il giorno finale)
+    const durationDays = Math.floor((normalizedEnd.getTime() - normalizedStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Calcola il totale giorni del range
+    const totalDaysInRange = Math.floor((normalizedMax.getTime() - normalizedMin.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Calcola le percentuali basate sul totale giorni effettivo
+    const leftPercent = (offsetDays / totalDaysInRange) * 100;
+    const widthPercent = (durationDays / totalDaysInRange) * 100;
     
     return {
       left: `${Math.max(0, Math.min(100, leftPercent))}%`,
@@ -309,7 +318,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
 
             {/* Righe delle attività */}
             <div className="space-y-2">
-              {activitiesWithDates.map((activity, idx) => {
+              {activitiesWithDates.map((activity) => {
                 const position = calculateBarPosition(activity.startDate!, activity.endDate!);
                 
                 return (
@@ -337,12 +346,12 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                        {/* Barra del Gantt */}
                        {position.isVisible && (
                          <div 
-                           className="absolute top-1/2 -translate-y-1/2 h-8 rounded transition-all"
+                           className="absolute top-1/2 -translate-y-1/2 h-8 rounded transition-all group-hover:shadow-md"
                            style={{
                              left: position.left,
                              width: position.width,
-                             backgroundColor: `hsl(${(idx * 360) / activitiesWithDates.length}, 70%, 60%)`,
-                             opacity: 0.9
+                             backgroundColor: '#6b7280', // gray-500
+                             opacity: 0.85
                            }}
                          />
                        )}

@@ -47,7 +47,7 @@ export default function HowToPage() {
           {/* Steps */}
           <div className="space-y-6 mb-16">
             {/* Step 1 */}
-            <Card className="border-l-4 border-l-gray-900">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
@@ -62,7 +62,7 @@ export default function HowToPage() {
             </Card>
 
             {/* Step 2 */}
-            <Card className="border-l-4 border-l-gray-900">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
@@ -77,7 +77,7 @@ export default function HowToPage() {
             </Card>
 
             {/* Step 3 */}
-            <Card className="border-l-4 border-l-gray-900">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
@@ -92,7 +92,7 @@ export default function HowToPage() {
             </Card>
 
             {/* Step 4 */}
-            <Card className="border-l-4 border-l-gray-900">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
@@ -107,7 +107,7 @@ export default function HowToPage() {
             </Card>
 
             {/* Step 5 */}
-            <Card className="border-l-4 border-l-gray-900">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
@@ -118,6 +118,21 @@ export default function HowToPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 ml-11">{t.step5Desc}</p>
+              </CardContent>
+            </Card>
+
+            {/* Step 6 - Timeline */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                    6
+                  </div>
+                  <span>{t.step6Title}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 ml-11">{t.step6Desc}</p>
               </CardContent>
             </Card>
           </div>
