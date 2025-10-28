@@ -60,7 +60,7 @@ export const translations = {
     hours: "Ore",
     quantity: "Quantità",
     totalEstimate: "TOTALE",
-    exportPDF: "Esporta PDF",
+    exportPDF: "Esporta",
     exportJSON: "Salva Configurazione",
     delete: "Elimina",
     noResources: "Nessuna risorsa disponibile",

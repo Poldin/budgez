@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileDown, Upload, X } from 'lucide-react';
+import { FileDown, FileText, Upload, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { headerTemplates} from '@/lib/header-templates';
 import { contractTemplates} from '@/lib/contract-templates';
+import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, HeadingLevel, ImageRun } from 'docx';
+import { saveAs } from 'file-saver';
 
 
 interface Resource {
@@ -590,6 +592,432 @@ Firma _______________________________`,
     `;
   };
 
+  const handleExportDocx = async () => {
+    try {
+      const total = calculateGrandTotal();
+      const subtotal = calculateGrandSubtotal();
+      const vatAmount = calculateGrandVat();
+      const totalBeforeGeneralDiscount = calculateGrandTotalBeforeGeneralDiscount();
+      const generalDiscountAmount = calculateGeneralDiscountAmount();
+
+      // Crea il documento
+      const docChildren: (Paragraph | Table)[] = [];
+
+      // Header section
+      const headerParagraphs: Paragraph[] = [];
+      
+      // Company info (left side)
+      if (pdfConfig.companyLogo) {
+        try {
+          // Converti base64 in blob per l'immagine
+          const mimeType = pdfConfig.companyLogo.split(',')[0].split(':')[1].split(';')[0];
+          
+          // Fetch per convertire in Blob
+          const response = await fetch(pdfConfig.companyLogo);
+          const blob = await response.blob();
+          const arrayBuffer = await blob.arrayBuffer();
+          const imageBuffer = new Uint8Array(arrayBuffer);
+          
+          headerParagraphs.push(
+            new Paragraph({
+              children: [
+                new ImageRun({
+                  data: imageBuffer,
+                  transformation: {
+                    width: 200,
+                    height: 80,
+                  },
+                  type: mimeType.includes('png') ? 'png' : 'jpg',
+                }),
+              ],
+            })
+          );
+        } catch (error) {
+          console.error('Error adding logo to DOCX:', error);
+        }
+      }
+      
+      if (pdfConfig.companyName) {
+        headerParagraphs.push(
+          new Paragraph({
+            text: pdfConfig.companyName,
+            heading: HeadingLevel.HEADING_2,
+            spacing: { after: 200 },
+          })
+        );
+      }
+      
+      if (pdfConfig.companyInfo) {
+        pdfConfig.companyInfo.split('\n').forEach(line => {
+          headerParagraphs.push(
+            new Paragraph({
+              text: line,
+              spacing: { after: 100 },
+            })
+          );
+        });
+      }
+
+      // Header text (right side) 
+      if (pdfConfig.headerText) {
+        headerParagraphs.push(
+          new Paragraph({
+            text: '',
+            spacing: { after: 200 },
+          })
+        );
+        pdfConfig.headerText.split('\n').forEach(line => {
+          headerParagraphs.push(
+            new Paragraph({
+              text: line,
+              alignment: AlignmentType.RIGHT,
+              spacing: { after: 100 },
+            })
+          );
+        });
+      }
+
+      docChildren.push(...headerParagraphs);
+
+      // Title
+      docChildren.push(
+        new Paragraph({
+          text: budgetName,
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 400, after: 400 },
+        })
+      );
+
+      // Activities table
+      const tableRows: TableRow[] = [];
+
+      // Header row
+      tableRows.push(
+        new TableRow({
+          tableHeader: true,
+          children: [
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: t.activityName, bold: true, color: 'FFFFFF' })] })],
+              width: { size: 30, type: WidthType.PERCENTAGE },
+              shading: { fill: '1a1a1a' },
+            }),
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: t.resourceName, bold: true, color: 'FFFFFF' })] })],
+              width: { size: 25, type: WidthType.PERCENTAGE },
+              shading: { fill: '1a1a1a' },
+            }),
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: 'Dettagli', bold: true, color: 'FFFFFF' })], alignment: AlignmentType.CENTER })],
+              width: { size: 15, type: WidthType.PERCENTAGE },
+              shading: { fill: '1a1a1a' },
+            }),
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: t.subtotal, bold: true, color: 'FFFFFF' })], alignment: AlignmentType.RIGHT })],
+              width: { size: 10, type: WidthType.PERCENTAGE },
+              shading: { fill: '1a1a1a' },
+            }),
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: 'IVA', bold: true, color: 'FFFFFF' })], alignment: AlignmentType.RIGHT })],
+              width: { size: 10, type: WidthType.PERCENTAGE },
+              shading: { fill: '1a1a1a' },
+            }),
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: t.total, bold: true, color: 'FFFFFF' })], alignment: AlignmentType.RIGHT })],
+              width: { size: 10, type: WidthType.PERCENTAGE },
+              shading: { fill: '1a1a1a' },
+            }),
+          ],
+        })
+      );
+
+      // Activity rows
+      activities.forEach((activity) => {
+        const activitySubtotal = calculateActivityTotal(activity);
+        const activityDiscountAmount = calculateActivityDiscountAmount(activity);
+        const activityTotalWithVat = calculateActivityTotalWithVat(activity);
+
+        // Resources
+        activity.resources.forEach((assignment, resIndex) => {
+          const resource = resources.find(r => r.id === assignment.resourceId);
+          if (!resource) return;
+
+          const cost = calculateResourceCost(assignment.resourceId, assignment.hours, assignment.fixedPrice);
+          const detailText = resource.costType === 'hourly' 
+            ? `${assignment.hours}h × ${currency}${formatNumber(resource.pricePerHour)}/h`
+            : resource.costType === 'quantity'
+            ? `${assignment.hours} × ${currency}${formatNumber(resource.pricePerHour)}/u`
+            : `${currency}${formatNumber(assignment.fixedPrice)}`;
+
+          const rowCells: TableCell[] = [];
+
+          if (resIndex === 0) {
+            rowCells.push(
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: `${activity.name} - ${currency}${formatNumber(activityTotalWithVat)}`,
+                        bold: true,
+                      }),
+                    ],
+                  }),
+                ],
+                rowSpan: activity.resources.length + (activity.description ? 1 : 0),
+                shading: { fill: 'f5f5f5' },
+              })
+            );
+          }
+
+          rowCells.push(
+            new TableCell({
+              children: [new Paragraph({ text: resource.name })],
+            }),
+            new TableCell({
+              children: [new Paragraph({ text: detailText, alignment: AlignmentType.CENTER })],
+            }),
+            new TableCell({
+              children: [new Paragraph({ text: `${currency}${formatNumber(cost)}`, alignment: AlignmentType.RIGHT })],
+            })
+          );
+
+          if (resIndex === 0) {
+            rowCells.push(
+              new TableCell({
+                children: [
+                  new Paragraph({ 
+                    text: `${currency}${formatNumber(activitySubtotal * activity.vat / 100)}`, 
+                    alignment: AlignmentType.RIGHT 
+                  }),
+                  new Paragraph({ 
+                    text: `(${activity.vat}%)`, 
+                    alignment: AlignmentType.RIGHT 
+                  }),
+                ],
+                rowSpan: activity.resources.length + (activity.description ? 1 : 0),
+              }),
+              new TableCell({
+                children: [
+                  new Paragraph({ 
+                    children: [
+                      new TextRun({
+                        text: `${currency}${formatNumber(activityTotalWithVat)}`,
+                        bold: true,
+                      }),
+                    ],
+                    alignment: AlignmentType.RIGHT,
+                  }),
+                  ...(activity.discount?.enabled && activityDiscountAmount > 0 ? [
+                    new Paragraph({ 
+                      text: `-${currency}${formatNumber(activityDiscountAmount)} ${t.discount}`, 
+                      alignment: AlignmentType.RIGHT,
+                    })
+                  ] : []),
+                ],
+                rowSpan: activity.resources.length + (activity.description ? 1 : 0),
+              })
+            );
+          }
+
+          tableRows.push(new TableRow({ children: rowCells }));
+        });
+
+        // Description row
+        if (activity.description) {
+          tableRows.push(
+            new TableRow({
+              children: [
+                new TableCell({
+                  children: [new Paragraph({ children: [new TextRun({ text: activity.description, italics: true })] })],
+                  columnSpan: 2,
+                }),
+              ],
+            })
+          );
+        }
+
+        // Activity total row
+        tableRows.push(
+          new TableRow({
+            children: [
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `${t.total} ${activity.name}:`, bold: true })], alignment: AlignmentType.RIGHT })],
+                columnSpan: 3,
+                shading: { fill: 'f9f9f9' },
+              }),
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `${currency}${formatNumber(activitySubtotal)}`, bold: true })], alignment: AlignmentType.RIGHT })],
+                shading: { fill: 'f9f9f9' },
+              }),
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `${currency}${formatNumber(activitySubtotal * activity.vat / 100)}`, bold: true })], alignment: AlignmentType.RIGHT })],
+                shading: { fill: 'f9f9f9' },
+              }),
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `${currency}${formatNumber(activityTotalWithVat)}`, bold: true })], alignment: AlignmentType.RIGHT })],
+                shading: { fill: 'f9f9f9' },
+              }),
+            ],
+          })
+        );
+      });
+
+      const activitiesTable = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: tableRows,
+      });
+
+      docChildren.push(activitiesTable);
+
+      // Summary table
+      const summaryRows: TableRow[] = [];
+
+      summaryRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: `${t.subtotal}:`, bold: true })], alignment: AlignmentType.RIGHT })],
+              width: { size: 70, type: WidthType.PERCENTAGE },
+              shading: { fill: 'f5f5f5' },
+            }),
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: `${currency}${formatNumber(subtotal)}`, bold: true })], alignment: AlignmentType.RIGHT })],
+              width: { size: 30, type: WidthType.PERCENTAGE },
+              shading: { fill: 'f5f5f5' },
+            }),
+          ],
+        })
+      );
+
+      summaryRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: `${t.vatAmount}:`, bold: true })], alignment: AlignmentType.RIGHT })],
+              shading: { fill: 'f5f5f5' },
+            }),
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: `${currency}${formatNumber(vatAmount)}`, bold: true })], alignment: AlignmentType.RIGHT })],
+              shading: { fill: 'f5f5f5' },
+            }),
+          ],
+        })
+      );
+
+      if (calculateTotalActivityDiscounts() > 0) {
+        summaryRows.push(
+          new TableRow({
+            children: [
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `${t.discount} ${t.activities}:`, bold: true })], alignment: AlignmentType.RIGHT })],
+                shading: { fill: 'fef3c7' },
+              }),
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `-${currency}${formatNumber(calculateTotalActivityDiscounts())}`, bold: true })], alignment: AlignmentType.RIGHT })],
+                shading: { fill: 'fef3c7' },
+              }),
+            ],
+          })
+        );
+      }
+
+      if (generalDiscount.enabled && generalDiscountAmount > 0) {
+        summaryRows.push(
+          new TableRow({
+            children: [
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `${t.beforeDiscount}:`, bold: true })], alignment: AlignmentType.RIGHT })],
+                shading: { fill: 'f5f5f5' },
+              }),
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `${currency}${formatNumber(totalBeforeGeneralDiscount)}`, bold: true })], alignment: AlignmentType.RIGHT })],
+                shading: { fill: 'f5f5f5' },
+              }),
+            ],
+          })
+        );
+        summaryRows.push(
+          new TableRow({
+            children: [
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `${t.generalDiscount}:`, bold: true })], alignment: AlignmentType.RIGHT })],
+                shading: { fill: 'fef3c7' },
+              }),
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: `-${currency}${formatNumber(generalDiscountAmount)}`, bold: true })], alignment: AlignmentType.RIGHT })],
+                shading: { fill: 'fef3c7' },
+              }),
+            ],
+          })
+        );
+      }
+
+      summaryRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: `${t.finalTotal}:`, bold: true, color: 'FFFFFF' })], alignment: AlignmentType.RIGHT })],
+              shading: { fill: '1a1a1a' },
+            }),
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: `${currency}${formatNumber(total)}`, bold: true, color: 'FFFFFF' })], alignment: AlignmentType.RIGHT })],
+              shading: { fill: '1a1a1a' },
+            }),
+          ],
+        })
+      );
+
+      const summaryTable = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: summaryRows,
+      });
+
+      docChildren.push(
+        new Paragraph({ text: '', spacing: { before: 400 } }),
+        summaryTable
+      );
+
+      // Contract terms
+      if (pdfConfig.contractTerms) {
+        docChildren.push(
+          new Paragraph({
+            text: '',
+            pageBreakBefore: true,
+            spacing: { before: 400 },
+          }),
+          new Paragraph({
+            text: 'Condizioni Contrattuali',
+            heading: HeadingLevel.HEADING_2,
+            spacing: { after: 300 },
+          })
+        );
+
+        pdfConfig.contractTerms.split('\n').forEach(line => {
+          docChildren.push(
+            new Paragraph({
+              text: line,
+              spacing: { after: 100 },
+            })
+          );
+        });
+      }
+
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: docChildren,
+        }],
+      });
+
+      // Genera e salva il file
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `${budgetName}.docx`);
+    } catch (error) {
+      console.error('Error generating DOCX:', error);
+      alert('Errore durante la generazione del file DOCX');
+    }
+  };
+
   const handleExport = () => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -835,14 +1263,25 @@ Firma _______________________________`,
           >
             Annulla
           </Button>
-          <Button
-            onClick={handleExport}
-            size="lg"
-            className="gap-2"
-          >
-            <FileDown className="h-5 w-5" />
-            Esporta PDF
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={handleExportDocx}
+              size="lg"
+              variant="outline"
+              className="gap-2"
+            >
+              <FileText className="h-5 w-5" />
+              Esporta DOCX
+            </Button>
+            <Button
+              onClick={handleExport}
+              size="lg"
+              className="gap-2"
+            >
+              <FileDown className="h-5 w-5" />
+              Esporta PDF
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
