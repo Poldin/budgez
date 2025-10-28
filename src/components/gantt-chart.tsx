@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { NumberInput } from "@/components/ui/number-input";
-import { Calendar, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Calendar, ArrowRight, ArrowLeft, CalendarClock } from 'lucide-react';
 
 interface Activity {
   id: string;
@@ -257,7 +257,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                     <div className="col-span-9">
                       <Label className="text-xs text-gray-600 mb-1 block">Periodo</Label>
                       <DateRangePicker
-                        key={activity.id}
+                        key={`${activity.id}-${activity.startDate}-${activity.endDate}`}
                         value={{
                           from: activity.startDate ? new Date(activity.startDate) : undefined,
                           to: activity.endDate ? new Date(activity.endDate) : undefined,
@@ -331,21 +331,63 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
     
     const shiftAmount = globalShiftDays * direction; // -1 per indietro, +1 per avanti
     
-    // Applica lo shift a tutte le attività con date
+    // Calcola tutte le nuove date prima di applicare gli aggiornamenti
+    const updates: Array<{ id: string; startDate?: string; endDate?: string }> = [];
+    
     activities.forEach(activity => {
+      const update: { id: string; startDate?: string; endDate?: string } = { id: activity.id };
+      
       if (activity.startDate) {
         const newStart = new Date(activity.startDate);
         newStart.setDate(newStart.getDate() + shiftAmount);
-        onUpdateActivity(activity.id, 'startDate', formatDateToLocal(newStart));
+        update.startDate = formatDateToLocal(newStart);
       }
+      
       if (activity.endDate) {
         const newEnd = new Date(activity.endDate);
         newEnd.setDate(newEnd.getDate() + shiftAmount);
-        onUpdateActivity(activity.id, 'endDate', formatDateToLocal(newEnd));
+        update.endDate = formatDateToLocal(newEnd);
+      }
+      
+      if (update.startDate || update.endDate) {
+        updates.push(update);
+      }
+    });
+    
+    // Applica tutti gli aggiornamenti
+    updates.forEach(update => {
+      if (update.startDate) {
+        onUpdateActivity(update.id, 'startDate', update.startDate);
+      }
+      if (update.endDate) {
+        onUpdateActivity(update.id, 'endDate', update.endDate);
       }
     });
     
     setGlobalShiftDays(0);
+  };
+
+  // Calcola lo shift necessario per portare la data più vecchia a oggi
+  const calculateShiftToToday = () => {
+    // Trova la data di inizio più vecchia
+    const startDates = activities
+      .filter(a => a.startDate)
+      .map(a => new Date(a.startDate!));
+    
+    if (startDates.length === 0) return;
+    
+    const oldestDate = new Date(Math.min(...startDates.map(d => d.getTime())));
+    const today = new Date();
+    
+    // Normalizza entrambe le date all'inizio del giorno
+    const normalizedOldest = new Date(oldestDate.getFullYear(), oldestDate.getMonth(), oldestDate.getDate());
+    const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    // Calcola i giorni di differenza
+    const daysDiff = Math.round((normalizedToday.getTime() - normalizedOldest.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Setta il valore nell'input dello shift globale
+    setGlobalShiftDays(Math.abs(daysDiff));
   };
 
   // Applica shift individuale a una singola attività
@@ -411,11 +453,20 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
               <h3 className="text-sm font-semibold">Configurazione Rapida Date</h3>
               
               {/* Global Shift Controls */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-1 text-xs text-gray-600">
                   <span className="hidden sm:inline">Shift:</span>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={calculateShiftToToday}
+                    className="h-8 px-2"
+                    title="Calcola shift per portare a oggi"
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -455,25 +506,25 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                       {activity.name || 'Attività senza nome'}
                     </p>
                   </div>
-                  <div className="col-span-6">
-                    <Label className="text-xs text-gray-600 mb-1 block">Periodo</Label>
-                    <DateRangePicker
-                      key={activity.id}
-                      value={{
-                        from: activity.startDate ? new Date(activity.startDate) : undefined,
-                        to: activity.endDate ? new Date(activity.endDate) : undefined,
-                      }}
-                      onChange={(range) => {
-                        if (range.from) {
-                          onUpdateActivity(activity.id, 'startDate', formatDateToLocal(range.from));
-                        }
-                        if (range.to) {
-                          onUpdateActivity(activity.id, 'endDate', formatDateToLocal(range.to));
-                        }
-                      }}
-                      placeholder="Seleziona periodo"
-                    />
-                  </div>
+                    <div className="col-span-6">
+                      <Label className="text-xs text-gray-600 mb-1 block">Periodo</Label>
+                      <DateRangePicker
+                        key={`${activity.id}-${activity.startDate}-${activity.endDate}`}
+                        value={{
+                          from: activity.startDate ? new Date(activity.startDate) : undefined,
+                          to: activity.endDate ? new Date(activity.endDate) : undefined,
+                        }}
+                        onChange={(range) => {
+                          if (range.from) {
+                            onUpdateActivity(activity.id, 'startDate', formatDateToLocal(range.from));
+                          }
+                          if (range.to) {
+                            onUpdateActivity(activity.id, 'endDate', formatDateToLocal(range.to));
+                          }
+                        }}
+                        placeholder="Seleziona periodo"
+                      />
+                    </div>
                   <div className="col-span-3">
                     <div className="flex items-end justify-end gap-1">
                       <Button
