@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { NumberInput } from "@/components/ui/number-input";
-import { Calendar, Info, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Calendar, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface Activity {
   id: string;
@@ -39,7 +39,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
     [activities]
   );
 
-  // Calcola le date minime e massime con padding
+  // Calcola le date minime e massime con padding (normalizzate per evitare problemi di timezone)
   const { minDate, maxDate, totalDays, viewType } = useMemo(() => {
     if (activitiesWithDates.length === 0) {
       const now = new Date();
@@ -54,14 +54,18 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
     const rawMinDate = new Date(Math.min(...dates.map(d => d.getTime())));
     const rawMaxDate = new Date(Math.max(...dates.map(d => d.getTime())));
     
+    // Normalizza le date raw (solo anno, mese, giorno)
+    const normalizedRawMin = new Date(rawMinDate.getFullYear(), rawMinDate.getMonth(), rawMinDate.getDate());
+    const normalizedRawMax = new Date(rawMaxDate.getFullYear(), rawMaxDate.getMonth(), rawMaxDate.getDate());
+    
     // Calcola la durata in giorni
-    const durationDays = Math.ceil((rawMaxDate.getTime() - rawMinDate.getTime()) / (1000 * 60 * 60 * 24));
+    const durationDays = Math.ceil((normalizedRawMax.getTime() - normalizedRawMin.getTime()) / (1000 * 60 * 60 * 24));
     
     // Aggiungi padding (5% su ogni lato, minimo 1 giorno)
     const paddingDays = Math.max(1, Math.ceil(durationDays * 0.05));
-    const minDate = new Date(rawMinDate);
+    const minDate = new Date(normalizedRawMin);
     minDate.setDate(minDate.getDate() - paddingDays);
-    const maxDate = new Date(rawMaxDate);
+    const maxDate = new Date(normalizedRawMax);
     maxDate.setDate(maxDate.getDate() + paddingDays);
     
     const totalDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -84,8 +88,8 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
     const result = [];
     
     if (viewType === 'day') {
-      // Mostra giorni - dividi uniformemente il periodo totale
-      const numDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      // Mostra giorni - calcola il numero di giorni nel range
+      const numDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       for (let i = 0; i < numDays; i++) {
         const current = new Date(minDate);
         current.setDate(current.getDate() + i);
@@ -97,7 +101,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
       }
     } else if (viewType === 'week') {
       // Mostra settimane - dividi il periodo in settimane da 7 giorni
-      const numDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const numDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       const numWeeks = Math.ceil(numDays / 7);
       
       for (let i = 0; i < numWeeks; i++) {
@@ -202,19 +206,17 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
     // Normalizza le date all'inizio del giorno per confronti precisi
     const normalizedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const normalizedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    const normalizedMin = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
-    const normalizedMax = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
     
-    // Calcola l'offset in giorni dall'inizio (più preciso)
-    const offsetDays = Math.floor((normalizedStart.getTime() - normalizedMin.getTime()) / (1000 * 60 * 60 * 24));
+    // Calcola il totale giorni nel range (stesso metodo usato nelle colonne)
+    const totalDaysInRange = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Calcola l'offset in giorni dall'inizio
+    const offsetDays = Math.round((normalizedStart.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24));
     
     // Calcola la durata in giorni (incluso il giorno finale)
-    const durationDays = Math.floor((normalizedEnd.getTime() - normalizedStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const durationDays = Math.round((normalizedEnd.getTime() - normalizedStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    // Calcola il totale giorni del range
-    const totalDaysInRange = Math.floor((normalizedMax.getTime() - normalizedMin.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    
-    // Calcola le percentuali basate sul totale giorni effettivo
+    // Calcola le percentuali basate sul totale giorni
     const leftPercent = (offsetDays / totalDaysInRange) * 100;
     const widthPercent = (durationDays / totalDaysInRange) * 100;
     
@@ -321,9 +323,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
               {/* Global Shift Controls */}
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 text-xs text-gray-600">
-                  <Info className="h-3 w-3" />
-                  <span className="hidden sm:inline">Shift globale (giorni):</span>
-                  <span className="sm:hidden">Shift:</span>
+                  <span className="hidden sm:inline">Shift:</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
@@ -357,10 +357,6 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
               </div>
             </div>
             
-            <p className="text-xs text-gray-500 mb-3">
-              Inserisci i giorni e clicca la freccia: ← indietro, → avanti
-            </p>
-            
             <div className="space-y-3">
               {activities.map((activity) => (
                 <div key={activity.id} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border border-gray-200">
@@ -389,8 +385,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                     />
                   </div>
                   <div className="col-span-3">
-                    <Label className="text-xs text-gray-600 mb-1 block">Shift (gg)</Label>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-end justify-end gap-1">
                       <Button
                         size="sm"
                         variant="ghost"
@@ -437,16 +432,49 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
               <div className="w-48 flex-shrink-0 pr-4 py-2 font-semibold text-sm">
                 Attività
               </div>
-              <div className="flex-1 flex">
-                {timeColumns.map((column, idx) => (
-                  <div 
-                    key={idx} 
-                    className="flex-1 text-center py-2 border-l border-gray-200 text-xs font-semibold"
-                    style={{ minWidth: viewType === 'day' ? '40px' : '80px' }}
-                  >
-                    {column.label}
-                  </div>
-                ))}
+              <div className="flex-1 relative">
+                <div className="absolute inset-0 flex">
+                  {timeColumns.map((column, idx) => {
+                    // Calcola la larghezza in base ai giorni reali
+                    const totalDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                    
+                    // Calcola i giorni effettivi di questa colonna
+                    let columnDays = 1;
+                    if (viewType === 'day') {
+                      columnDays = 1;
+                    } else if (viewType === 'week') {
+                      // Per le settimane, calcola i giorni effettivi (l'ultima potrebbe essere parziale)
+                      const weekStart = new Date(column.date);
+                      const weekEnd = new Date(weekStart);
+                      weekEnd.setDate(weekEnd.getDate() + 6);
+                      
+                      // Limita weekEnd a maxDate se necessario
+                      const effectiveEnd = weekEnd > maxDate ? maxDate : weekEnd;
+                      columnDays = Math.round((effectiveEnd.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                    } else if (viewType === 'month') {
+                      // Per i mesi, calcola i giorni effettivi nel range
+                      const monthStart = new Date(column.date);
+                      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+                      
+                      // Limita al range minDate-maxDate
+                      const effectiveStart = monthStart < minDate ? minDate : monthStart;
+                      const effectiveEnd = monthEnd > maxDate ? maxDate : monthEnd;
+                      columnDays = Math.round((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                    }
+                    
+                    const widthPercent = (columnDays / totalDays) * 100;
+                    
+                    return (
+                      <div 
+                        key={idx} 
+                        className="text-center py-2 border-l border-gray-200 text-xs font-semibold"
+                        style={{ width: `${widthPercent}%` }}
+                      >
+                        {column.label}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -468,13 +496,44 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                     <div className="flex-1 relative h-12">
                       {/* Griglia verticale timeline */}
                       <div className="absolute inset-0 flex">
-                        {timeColumns.map((column, mIdx) => (
-                          <div 
-                            key={mIdx} 
-                            className="flex-1 border-l border-gray-100"
-                            style={{ minWidth: viewType === 'day' ? '40px' : '80px' }}
-                          />
-                        ))}
+                        {timeColumns.map((column, mIdx) => {
+                          // Calcola la larghezza in base ai giorni reali (stesso calcolo dell'header)
+                          const totalDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                          
+                          // Calcola i giorni effettivi di questa colonna
+                          let columnDays = 1;
+                          if (viewType === 'day') {
+                            columnDays = 1;
+                          } else if (viewType === 'week') {
+                            // Per le settimane, calcola i giorni effettivi (l'ultima potrebbe essere parziale)
+                            const weekStart = new Date(column.date);
+                            const weekEnd = new Date(weekStart);
+                            weekEnd.setDate(weekEnd.getDate() + 6);
+                            
+                            // Limita weekEnd a maxDate se necessario
+                            const effectiveEnd = weekEnd > maxDate ? maxDate : weekEnd;
+                            columnDays = Math.round((effectiveEnd.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                          } else if (viewType === 'month') {
+                            // Per i mesi, calcola i giorni effettivi nel range
+                            const monthStart = new Date(column.date);
+                            const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+                            
+                            // Limita al range minDate-maxDate
+                            const effectiveStart = monthStart < minDate ? minDate : monthStart;
+                            const effectiveEnd = monthEnd > maxDate ? maxDate : monthEnd;
+                            columnDays = Math.round((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                          }
+                          
+                          const widthPercent = (columnDays / totalDays) * 100;
+                          
+                          return (
+                            <div 
+                              key={mIdx} 
+                              className="border-l border-gray-100"
+                              style={{ width: `${widthPercent}%` }}
+                            />
+                          );
+                        })}
                       </div>
                       
                        {/* Barra del Gantt */}

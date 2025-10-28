@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
@@ -18,6 +18,56 @@ import { budgetTemplates } from '@/lib/budget-templates';
 import Footer from '@/components/footer/footer';
 import GanttChart from '@/components/gantt-chart';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+
+// Componente per animare il subtitle parola per parola
+const AnimatedSubtitle = ({ text }: { text: string }) => {
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const words = text.split(' ');
+
+  useEffect(() => {
+    // Animazione solo una volta all'ingresso
+    const timeouts: NodeJS.Timeout[] = [];
+    
+    // Delay iniziale prima di iniziare l'animazione
+    const initialDelay = setTimeout(() => {
+      words.forEach((_, index) => {
+        const timeout = setTimeout(() => {
+          setHighlightedIndex(index);
+        }, index * 350); // 350ms tra ogni parola
+        timeouts.push(timeout);
+      });
+
+      // Reset dopo che tutte le parole sono state evidenziate
+      const resetTimeout = setTimeout(() => {
+        setHighlightedIndex(-1);
+      }, words.length * 350 + 1500); // Attende 1.5 secondi dopo l'ultima parola
+      timeouts.push(resetTimeout);
+    }, 500);
+    
+    timeouts.push(initialDelay);
+
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
+  }, [text]);
+
+  return (
+    <span className="inline-flex flex-wrap justify-center gap-x-2">
+      {words.map((word, index) => (
+        <span
+          key={index}
+          className={`transition-all duration-300 ${
+            highlightedIndex === index
+              ? 'bg-yellow-200 px-1 rounded'
+              : 'text-gray-600'
+          }`}
+        >
+          {word}
+        </span>
+      ))}
+    </span>
+  );
+};
 
 interface Resource {
   id: string;
@@ -89,6 +139,7 @@ export default function HomePage() {
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
   const [tableCopied, setTableCopied] = useState(false);
+  const [configCopied, setConfigCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [randomizedTags, setRandomizedTags] = useState<string[]>([]);
@@ -780,9 +831,11 @@ export default function HomePage() {
     };
     try {
       await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
-      alert('Configurazione copiata negli appunti!');
+      setConfigCopied(true);
+      setTimeout(() => setConfigCopied(false), 3000);
     } catch {
-      alert('Errore nella copia. Riprova.');
+      // Silenziosamente ignora gli errori
+      console.error('Errore nella copia della configurazione');
     }
   };
 
@@ -917,13 +970,13 @@ export default function HomePage() {
         })
       ]);
       setTableCopied(true);
-      setTimeout(() => setTableCopied(false), 2000);
+      setTimeout(() => setTableCopied(false), 3000);
     } catch {
       // Fallback for browsers that don't support ClipboardItem
       try {
         await navigator.clipboard.writeText(generateTableHTML());
         setTableCopied(true);
-        setTimeout(() => setTableCopied(false), 2000);
+        setTimeout(() => setTableCopied(false), 3000);
       } catch (err2) {
         console.error('Errore nella copia:', err2);
       }
@@ -1010,8 +1063,8 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto">
           {/* Subtitle */}
           <div className="text-center mb-8">
-            <p className="text-xl text-gray-600">
-              {t.subtitle}
+            <p className="text-xl">
+              <AnimatedSubtitle text={t.subtitle} />
             </p>
           </div>
 
@@ -1825,8 +1878,18 @@ export default function HomePage() {
                     <Download className="h-5 w-5 mr-2" />
                     {t.exportJSON}
                   </Button>
-                  <Button onClick={copyToClipboard} size="lg" variant="outline" className="px-4">
-                    <Copy className="h-5 w-5" />
+                  <Button 
+                    onClick={copyToClipboard} 
+                    size="lg" 
+                    variant={configCopied ? "default" : "outline"} 
+                    className={`px-4 transition-all ${configCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                    disabled={configCopied}
+                  >
+                    {configCopied ? (
+                      <Check className="h-5 w-5 text-white" />
+                    ) : (
+                      <Copy className="h-5 w-5" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -1840,20 +1903,15 @@ export default function HomePage() {
                     </CardTitle>
                     <Button 
                       onClick={copyTableToClipboard} 
-                      variant={tableCopied ? "outline" : "default"} 
+                      variant={tableCopied ? "default" : "default"} 
                       size="sm"
+                      className={`transition-all ${tableCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
                       disabled={tableCopied}
                     >
                       {tableCopied ? (
-                        <>
-                          <Check className="h-4 w-4 mr-2 text-green-600" />
-                          <span className="text-green-600">{t.copied}</span>
-                        </>
+                        <Check className="h-4 w-4 text-white" />
                       ) : (
-                        <>
-                          <Copy className="h-4 w-4 mr-2" />
-                          {t.copy}
-                        </>
+                        <Copy className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
