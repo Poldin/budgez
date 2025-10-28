@@ -254,7 +254,7 @@ Firma _______________________________`,
           .logo-section {
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             padding: 15px;
             background-color: #fafafa;
             border: 1px solid #e5e5e5;
@@ -270,13 +270,13 @@ Firma _______________________________`,
             font-size: 18px;
             font-weight: bold;
             color: #1a1a1a;
-            text-align: center;
+            text-align: left;
             padding: 10px;
           }
           .company-info {
             font-size: 10px;
             color: #555;
-            text-align: center;
+            text-align: left;
             white-space: pre-wrap;
             line-height: 1.6;
           }
@@ -284,7 +284,7 @@ Firma _______________________________`,
             flex: 0 0 50%;
             padding: 15px;
             background-color: #f9f9f9;
-            border: 2px solid #1a1a1a;
+            border: 0.5px solid #cccccc;
             white-space: pre-wrap;
             font-size: 11px;
             text-align: right;
@@ -292,7 +292,6 @@ Firma _______________________________`,
           }
           h1 {
             color: #1a1a1a;
-            border-bottom: 3px solid #1a1a1a;
             padding-bottom: 8px;
             margin-bottom: 20px;
             font-size: 24px;
@@ -382,13 +381,9 @@ Firma _______________________________`,
             margin-top: 40px;
             page-break-before: always;
             padding: 20px;
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 4px;
           }
           .contract-terms h2 {
             color: #1a1a1a;
-            border-bottom: 2px solid #1a1a1a;
             padding-bottom: 8px;
             margin-bottom: 15px;
             font-size: 18px;
@@ -588,65 +583,6 @@ Firma _______________________________`,
           <div class="contract-terms">
             <h2>Condizioni Contrattuali</h2>
             <div class="contract-terms-content">${pdfConfig.contractTerms}</div>
-          </div>
-        ` : ''}
-        
-        ${(pdfConfig.signatureSection.companyName || pdfConfig.signatureSection.signerName) ? `
-          <div class="signature-section">
-            <h2>Firma per Accettazione</h2>
-            <div class="signature-grid">
-              <div class="signature-box">
-                <h3 style="margin-top: 0; font-size: 14px; color: #1a1a1a;">Per il Fornitore</h3>
-                ${pdfConfig.signatureSection.companyName ? `
-                  <div class="signature-field">
-                    <label>Azienda</label>
-                    <div class="value">${pdfConfig.signatureSection.companyName}</div>
-                  </div>
-                ` : ''}
-                ${pdfConfig.signatureSection.signerName ? `
-                  <div class="signature-field">
-                    <label>Nome e Cognome</label>
-                    <div class="value">${pdfConfig.signatureSection.signerName}</div>
-                  </div>
-                ` : ''}
-                ${pdfConfig.signatureSection.signerRole ? `
-                  <div class="signature-field">
-                    <label>Ruolo</label>
-                    <div class="value">${pdfConfig.signatureSection.signerRole}</div>
-                  </div>
-                ` : ''}
-                ${pdfConfig.signatureSection.place ? `
-                  <div class="signature-field">
-                    <label>Luogo</label>
-                    <div class="value">${pdfConfig.signatureSection.place}</div>
-                  </div>
-                ` : ''}
-                ${pdfConfig.signatureSection.date ? `
-                  <div class="signature-field">
-                    <label>Data</label>
-                    <div class="value">${pdfConfig.signatureSection.date}</div>
-                  </div>
-                ` : ''}
-                <div class="signature-line">Firma</div>
-              </div>
-              
-              <div class="signature-box">
-                <h3 style="margin-top: 0; font-size: 14px; color: #1a1a1a;">Per il Cliente</h3>
-                <div class="signature-field">
-                  <label>Nome e Cognome</label>
-                  <div class="value">_____________________________</div>
-                </div>
-                <div class="signature-field">
-                  <label>Azienda/P.IVA</label>
-                  <div class="value">_____________________________</div>
-                </div>
-                <div class="signature-field">
-                  <label>Luogo e Data</label>
-                  <div class="value">_____________________________</div>
-                </div>
-                <div class="signature-line">Firma</div>
-              </div>
-            </div>
           </div>
         ` : ''}
       </body>
