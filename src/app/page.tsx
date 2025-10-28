@@ -1692,10 +1692,19 @@ export default function HomePage() {
         <div className="fixed bottom-6 right-6 z-40 animate-in slide-in-from-bottom-4 duration-300">
           <Card className="shadow-2xl border-2 border-gray-900 bg-gradient-to-r from-gray-900 to-gray-800 text-white">
             <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-3xl font-bold">
+              <div className="flex items-center gap-3">
+                <p className="text-2xl font-bold">
                   {currency}{formatNumber(calculateGrandTotal())}
                 </p>
+                <Button 
+                  onClick={exportToPDF} 
+                  size="sm" 
+                  variant="ghost"
+                  className="text-white hover:bg-gray-700 hover:text-white p-2"
+                  title="Esporta PDF"
+                >
+                  <FileDown className="h-5 w-5" />
+                </Button>
               </div>
             </CardContent>
           </Card>
