@@ -997,12 +997,7 @@ export default function HomePage() {
                 <div className="space-y-3">
                   {resources.map((resource, index) => (
                 <Card key={resource.id}>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold">
-                      {resource.name || `${t.resourceName} ${index + 1}`}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-6">
                     <div className="grid grid-cols-12 gap-3 items-end">
                       {/* Nome e Tipo sulla stessa riga */}
                       <div className="col-span-5">
@@ -1011,6 +1006,7 @@ export default function HomePage() {
                           value={resource.name}
                           onChange={(e) => updateResource(resource.id, 'name', e.target.value)}
                           placeholder={t.resourceName}
+                          className="font-bold"
                         />
                       </div>
 

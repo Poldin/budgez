@@ -3,7 +3,7 @@ import { Instagram, Twitter, Linkedin, Facebook, Youtube, Mail, Coffee, Briefcas
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import type { Language } from '@/lib/translations';
+import { translations, type Language } from '@/lib/translations';
 
 interface FooterProps {
   language: Language;
@@ -13,6 +13,8 @@ interface FooterProps {
 const Footer = ({ language, onLanguageChange }: FooterProps) => {
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  
+  const t = translations[language];
 
   const copyLink = () => {
     const url = window.location.origin;
@@ -52,18 +54,28 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
 
           {/* Resources Links */}
           <div className="col-span-1">
-            <h3 className="font-semibold text-gray-900 mb-4">Risorse</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">{t.footerResources}</h3>
             <ul className="space-y-3">
               <li>
-                <a href="/how-to" className="text-gray-600 hover:text-gray-900 text-sm">Come funziona?</a>
+                <a href="/how-to" className="text-gray-600 hover:text-gray-900 text-sm">{t.footerHowItWorks}</a>
               </li>
               <li>
                 <button 
                   onClick={() => setSupportDialogOpen(true)}
                   className="text-gray-600 hover:text-gray-900 text-sm underline-offset-4 hover:underline"
                 >
-                  Supportaci!
+                  {t.footerSupport}
                 </button>
+              </li>
+              <li>
+                <a 
+                  href="https://discord.gg/as35SNuG" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-gray-600 hover:text-gray-900 text-sm underline-offset-4 hover:underline"
+                >
+                  {t.footerJoinDiscord}
+                </a>
               </li>
             </ul>
           </div>
@@ -86,11 +98,11 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
                 </SelectContent>
               </Select>
               <span className="text-gray-400 cursor-not-allowed text-xs">
-                Privacy e termini
+                {t.footerPrivacy}
               </span>
             </div>
             <div className="text-gray-600 text-xs">
-              © 2025 Budgez. Tutti i diritti riservati
+              {t.footerCopyright}
             </div>
           </div>
         </div>
@@ -100,7 +112,7 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
       <Dialog open={supportDialogOpen} onOpenChange={setSupportDialogOpen}>
         <DialogContent className="min-w-[60vw] h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">Supportaci! 💙</DialogTitle>
+            <DialogTitle className="text-2xl font-bold">{t.supportDialogTitle}</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6 py-4">
@@ -111,17 +123,16 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
                   <Mail className="h-8 w-8 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">Segnala bug o suggerisci miglioramenti</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t.supportBugTitle}</h3>
                   <p className="text-gray-600 mb-4">
-                    Hai trovato un errore o hai un&apos;idea per migliorare Budgez? 
-                    Faccelo sapere! Il tuo feedback è prezioso per rendere questa app sempre migliore.
+                    {t.supportBugDesc}
                   </p>
                   <Button 
                     onClick={() => window.open('mailto:scrivici@techero.xyz?subject=Bug/Miglioramento Budgez', '_blank')}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     <Mail className="h-4 w-4 mr-2" />
-                    Scrivici a scrivici@techero.xyz
+                    {t.supportEmailButton}
                   </Button>
                 </div>
               </div>
@@ -134,17 +145,16 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
                   <Coffee className="h-8 w-8 text-amber-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">Offrici un caffè ☕</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t.supportCoffeeTitle}</h3>
                   <p className="text-gray-600 mb-4">
-                    Se Budgez ti è stato utile e vuoi supportare il nostro lavoro, 
-                    puoi offrirci un caffè! Ogni contributo ci aiuta a mantenere il progetto attivo e gratuito.
+                    {t.supportCoffeeDesc}
                   </p>
                   <Button 
                     onClick={() => window.open('https://www.paypal.com/pool/9jx1uzoDgg?sr=wccr', '_blank')}
                     className="bg-amber-600 hover:bg-amber-700"
                   >
                     <Coffee className="h-4 w-4 mr-2" />
-                    Offri un caffè con PayPal
+                    {t.supportCoffeeButton}
                   </Button>
                 </div>
               </div>
@@ -157,17 +167,16 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
                   <Briefcase className="h-8 w-8 text-green-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">Opportunità di business</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t.supportBusinessTitle}</h3>
                   <p className="text-gray-600 mb-4">
-                    Cerchi uno sviluppatore per il tuo progetto? Hai un&apos;opportunità di business o collaborazione? 
-                    Siamo sempre aperti a nuove sfide e partnership interessanti.
+                    {t.supportBusinessDesc}
                   </p>
                   <Button 
                     onClick={() => window.open('mailto:scrivici@techero.xyz?subject=Opportunità Business', '_blank')}
                     className="bg-green-600 hover:bg-green-700"
                   >
                     <Briefcase className="h-4 w-4 mr-2" />
-                    Scrivici a scrivici@techero.xyz
+                    {t.supportEmailButton}
                   </Button>
                 </div>
               </div>
@@ -180,10 +189,9 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
                   <Share2 className="h-8 w-8 text-purple-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">Condividi Budgez</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t.supportShareTitle}</h3>
                   <p className="text-gray-600 mb-4">
-                    Ti piace Budgez? Aiutaci a crescere condividendo il progetto con i tuoi amici e colleghi!
-                    Più persone lo usano, più possiamo migliorarlo per tutti.
+                    {t.supportShareDesc}
                   </p>
                   <Button 
                     onClick={copyLink}
@@ -192,12 +200,12 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
                     {linkCopied ? (
                       <>
                         <Check className="h-4 w-4 mr-2" />
-                        Link copiato!
+                        {t.supportShareCopied}
                       </>
                     ) : (
                       <>
                         <Share2 className="h-4 w-4 mr-2" />
-                        Copia link
+                        {t.supportShareButton}
                       </>
                     )}
                   </Button>
