@@ -86,17 +86,49 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
   // Genera le colonne della timeline in base al tipo di visualizzazione
   const timeColumns = useMemo(() => {
     const result = [];
+    const MIN_COLUMN_WIDTH = 60; // Larghezza minima in pixel per colonna
+    const CONTAINER_WIDTH = 800; // Larghezza minima del contenitore
     
     if (viewType === 'day') {
       // Mostra giorni - calcola il numero di giorni nel range
       const numDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      for (let i = 0; i < numDays; i++) {
+      
+      // Calcola il raggruppamento necessario
+      const maxColumns = Math.floor(CONTAINER_WIDTH / MIN_COLUMN_WIDTH);
+      const groupSize = Math.max(1, Math.ceil(numDays / maxColumns));
+      
+      for (let i = 0; i < numDays; i += groupSize) {
         const current = new Date(minDate);
         current.setDate(current.getDate() + i);
+        const groupEnd = new Date(current);
+        groupEnd.setDate(groupEnd.getDate() + groupSize - 1);
+        
+        // Limita groupEnd a maxDate
+        if (groupEnd > maxDate) {
+          groupEnd.setTime(maxDate.getTime());
+        }
+        
+        // Calcola i giorni effettivi in questo gruppo
+        const actualDays = Math.round((groupEnd.getTime() - current.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // Formatta la label in modo intelligente
+        let label;
+        if (actualDays === 1) {
+          // Un solo giorno: mostra solo la data
+          label = current.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+        } else if (current.getMonth() === groupEnd.getMonth()) {
+          // Stesso mese: mostra "1-5 ott"
+          label = `${current.getDate()}-${groupEnd.getDate()} ${current.toLocaleDateString('it-IT', { month: 'short' })}`;
+        } else {
+          // Mesi diversi: mostra "28 set - 2 ott"
+          label = `${current.getDate()} ${current.toLocaleDateString('it-IT', { month: 'short' })} - ${groupEnd.getDate()} ${groupEnd.toLocaleDateString('it-IT', { month: 'short' })}`;
+        }
+        
         result.push({
           date: new Date(current),
-          label: current.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }),
-          type: 'day' as const
+          label,
+          type: 'day' as const,
+          days: actualDays
         });
       }
     } else if (viewType === 'week') {
@@ -104,22 +136,41 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
       const numDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       const numWeeks = Math.ceil(numDays / 7);
       
-      for (let i = 0; i < numWeeks; i++) {
+      // Calcola il raggruppamento necessario
+      const maxColumns = Math.floor(CONTAINER_WIDTH / MIN_COLUMN_WIDTH);
+      const groupSize = Math.max(1, Math.ceil(numWeeks / maxColumns));
+      
+      for (let i = 0; i < numWeeks; i += groupSize) {
         const weekStart = new Date(minDate);
         weekStart.setDate(weekStart.getDate() + (i * 7));
         const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
+        weekEnd.setDate(weekEnd.getDate() + (groupSize * 7) - 1);
         
         // Assicurati che weekEnd non superi maxDate
         if (weekEnd > maxDate) {
           weekEnd.setTime(maxDate.getTime());
         }
         
+        const actualDays = Math.round((weekEnd.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // Formatta la label in modo intelligente
+        let label;
+        if (actualDays <= 7 && groupSize === 1) {
+          // Una sola settimana
+          label = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`;
+        } else if (weekStart.getMonth() === weekEnd.getMonth()) {
+          // Stesso mese: mostra "1/10 - 15/10"
+          label = `${weekStart.getDate()}-${weekEnd.getDate()}/${weekEnd.getMonth() + 1}`;
+        } else {
+          // Mesi diversi: mostra "28/9 - 5/10"
+          label = `${weekStart.getDate()}/${weekStart.getMonth() + 1} - ${weekEnd.getDate()}/${weekEnd.getMonth() + 1}`;
+        }
+        
         result.push({
           date: new Date(weekStart),
-          label: `${weekStart.getDate()}/${weekStart.getMonth() + 1}`,
+          label,
           type: 'week' as const,
-          days: 7
+          days: actualDays
         });
       }
     } else {
@@ -127,14 +178,53 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
       const current = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
       const endMonth = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
       
+      // Conta i mesi totali
+      let totalMonths = 0;
+      const tempDate = new Date(current);
+      while (tempDate <= endMonth) {
+        totalMonths++;
+        tempDate.setMonth(tempDate.getMonth() + 1);
+      }
+      
+      // Calcola il raggruppamento necessario
+      const maxColumns = Math.floor(CONTAINER_WIDTH / MIN_COLUMN_WIDTH);
+      const groupSize = Math.max(1, Math.ceil(totalMonths / maxColumns));
+      
+      //const monthIndex = 0;
       while (current <= endMonth) {
+        const groupStart = new Date(current);
+        const groupEnd = new Date(current);
+        groupEnd.setMonth(groupEnd.getMonth() + groupSize - 1);
+        
+        // Calcola i giorni effettivi
+        const effectiveStart = groupStart < minDate ? minDate : groupStart;
+        const effectiveEndMonth = groupEnd > endMonth ? endMonth : groupEnd;
+        const lastDayOfMonth = new Date(effectiveEndMonth.getFullYear(), effectiveEndMonth.getMonth() + 1, 0);
+        const effectiveEnd = lastDayOfMonth > maxDate ? maxDate : lastDayOfMonth;
+        const days = Math.round((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // Formatta la label in modo intelligente
+        let label;
+        if (groupSize === 1) {
+          // Un solo mese
+          label = current.toLocaleDateString('it-IT', { month: 'short', year: 'numeric' });
+        } else if (groupStart.getFullYear() === effectiveEndMonth.getFullYear()) {
+          // Stesso anno: mostra "gen - mar 2025"
+          label = `${groupStart.toLocaleDateString('it-IT', { month: 'short' })} - ${effectiveEndMonth.toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })}`;
+        } else {
+          // Anni diversi: mostra "dic 2024 - feb 2025"
+          label = `${groupStart.toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })} - ${effectiveEndMonth.toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })}`;
+        }
+        
         result.push({
           date: new Date(current),
-          label: current.toLocaleDateString('it-IT', { month: 'short', year: 'numeric' }),
+          label,
           type: 'month' as const,
-          days: new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate()
+          days
         });
-        current.setMonth(current.getMonth() + 1);
+        
+        current.setMonth(current.getMonth() + groupSize);
+        //monthIndex += groupSize;
       }
     }
     
@@ -435,33 +525,9 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
               <div className="flex-1 relative">
                 <div className="absolute inset-0 flex">
                   {timeColumns.map((column, idx) => {
-                    // Calcola la larghezza in base ai giorni reali
+                    // Usa i giorni calcolati nella colonna
                     const totalDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                    
-                    // Calcola i giorni effettivi di questa colonna
-                    let columnDays = 1;
-                    if (viewType === 'day') {
-                      columnDays = 1;
-                    } else if (viewType === 'week') {
-                      // Per le settimane, calcola i giorni effettivi (l'ultima potrebbe essere parziale)
-                      const weekStart = new Date(column.date);
-                      const weekEnd = new Date(weekStart);
-                      weekEnd.setDate(weekEnd.getDate() + 6);
-                      
-                      // Limita weekEnd a maxDate se necessario
-                      const effectiveEnd = weekEnd > maxDate ? maxDate : weekEnd;
-                      columnDays = Math.round((effectiveEnd.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                    } else if (viewType === 'month') {
-                      // Per i mesi, calcola i giorni effettivi nel range
-                      const monthStart = new Date(column.date);
-                      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-                      
-                      // Limita al range minDate-maxDate
-                      const effectiveStart = monthStart < minDate ? minDate : monthStart;
-                      const effectiveEnd = monthEnd > maxDate ? maxDate : monthEnd;
-                      columnDays = Math.round((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                    }
-                    
+                    const columnDays = column.days || 1;
                     const widthPercent = (columnDays / totalDays) * 100;
                     
                     return (
@@ -497,33 +563,9 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                       {/* Griglia verticale timeline */}
                       <div className="absolute inset-0 flex">
                         {timeColumns.map((column, mIdx) => {
-                          // Calcola la larghezza in base ai giorni reali (stesso calcolo dell'header)
+                          // Usa i giorni calcolati nella colonna
                           const totalDays = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                          
-                          // Calcola i giorni effettivi di questa colonna
-                          let columnDays = 1;
-                          if (viewType === 'day') {
-                            columnDays = 1;
-                          } else if (viewType === 'week') {
-                            // Per le settimane, calcola i giorni effettivi (l'ultima potrebbe essere parziale)
-                            const weekStart = new Date(column.date);
-                            const weekEnd = new Date(weekStart);
-                            weekEnd.setDate(weekEnd.getDate() + 6);
-                            
-                            // Limita weekEnd a maxDate se necessario
-                            const effectiveEnd = weekEnd > maxDate ? maxDate : weekEnd;
-                            columnDays = Math.round((effectiveEnd.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                          } else if (viewType === 'month') {
-                            // Per i mesi, calcola i giorni effettivi nel range
-                            const monthStart = new Date(column.date);
-                            const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-                            
-                            // Limita al range minDate-maxDate
-                            const effectiveStart = monthStart < minDate ? minDate : monthStart;
-                            const effectiveEnd = monthEnd > maxDate ? maxDate : monthEnd;
-                            columnDays = Math.round((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                          }
-                          
+                          const columnDays = column.days || 1;
                           const widthPercent = (columnDays / totalDays) * 100;
                           
                           return (

@@ -852,7 +852,6 @@ export default function HomePage() {
           <tr>
             <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: left; font-weight: bold; border: 1px solid #ddd;">${t.activityName}</th>
             <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: left; font-weight: bold; border: 1px solid #ddd;">${t.resourceName}</th>
-            <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: center; font-weight: bold; border: 1px solid #ddd;">Dettagli</th>
             <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: right; font-weight: bold; border: 1px solid #ddd;">${t.subtotal}</th>
             <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: right; font-weight: bold; border: 1px solid #ddd;">IVA</th>
             <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: right; font-weight: bold; border: 1px solid #ddd;">${t.total}</th>
@@ -871,11 +870,6 @@ export default function HomePage() {
               if (!resource) return;
               
               const cost = calculateResourceCost(assignment.resourceId, assignment.hours, assignment.fixedPrice);
-              const detailText = resource.costType === 'hourly' 
-                ? `${assignment.hours}h × ${currency}${formatNumber(resource.pricePerHour)}/h`
-                : resource.costType === 'quantity'
-                ? `${assignment.hours} × ${currency}${formatNumber(resource.pricePerHour)}/u`
-                : `${currency}${formatNumber(assignment.fixedPrice)}`;
               
               rows += `
                 <tr>
@@ -885,14 +879,13 @@ export default function HomePage() {
                     </td>
                   ` : ''}
                   <td style="padding: 6px 10px 6px 20px; border: 1px solid #ddd;">${resource.name}</td>
-                  <td style="text-align: center; padding: 6px 10px; font-size: 10px; border: 1px solid #ddd;">${detailText}</td>
                   <td style="text-align: right; padding: 6px 10px; border: 1px solid #ddd;">${currency}${formatNumber(cost)}</td>
                   ${resIndex === 0 ? `
                     <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" style="text-align: right; padding: 6px 10px; border: 1px solid #ddd; vertical-align: top;">
                       <div>${currency}${formatNumber(activitySubtotal * activity.vat / 100)}</div>
                       <div style="font-size: 10px;">(${activity.vat}%)</div>
                     </td>
-                    <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" style="text-align: right; font-weight: bold; padding: 6px 10px; border: 1px solid #ddd; vertical-align: top;">
+                    <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" style="text-align: right; padding: 6px 10px; border: 1px solid #ddd; vertical-align: top;">
                       ${currency}${formatNumber(activityTotalWithVat)}
                       ${activity.discount?.enabled && activityDiscountAmount > 0 ? `<div style="font-size: 10px; color: #b45309;">-${currency}${formatNumber(activityDiscountAmount)} ${t.discount}</div>` : ''}
                     </td>
@@ -913,7 +906,7 @@ export default function HomePage() {
             
             rows += `
               <tr style="background-color: #f9f9f9; font-weight: bold;">
-                <td colspan="3" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.total} ${activity.name}:</td>
+                <td colspan="2" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;"></td>
                 <td style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${currency}${formatNumber(activitySubtotal)}</td>
                 <td style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${currency}${formatNumber(activitySubtotal * activity.vat / 100)}</td>
                 <td style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${currency}${formatNumber(activityTotalWithVat)}</td>
@@ -925,31 +918,31 @@ export default function HomePage() {
         </tbody>
         <tfoot>
           <tr style="background-color: #f5f5f5; font-weight: bold;">
-            <td colspan="5" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.subtotal}:</td>
+            <td colspan="4" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.subtotal}:</td>
             <td style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${currency}${formatNumber(subtotal)}</td>
           </tr>
           <tr style="background-color: #f5f5f5; font-weight: bold;">
-            <td colspan="5" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.vatAmount}:</td>
+            <td colspan="4" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.vatAmount}:</td>
             <td style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${currency}${formatNumber(vatAmount)}</td>
           </tr>
           ${calculateTotalActivityDiscounts() > 0 ? `
             <tr style="background-color: #fef3c7; font-weight: bold; color: #b45309;">
-              <td colspan="5" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.discount} ${t.activities}:</td>
+              <td colspan="4" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.discount} ${t.activities}:</td>
               <td style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">-${currency}${formatNumber(calculateTotalActivityDiscounts())}</td>
             </tr>
           ` : ''}
           ${generalDiscount.enabled && generalDiscountAmount > 0 ? `
             <tr style="background-color: #fef3c7; font-weight: bold;">
-              <td colspan="5" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.beforeDiscount}:</td>
+              <td colspan="4" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.beforeDiscount}:</td>
               <td style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${currency}${formatNumber(totalBeforeGeneralDiscount)}</td>
             </tr>
             <tr style="background-color: #fef3c7; font-weight: bold; color: #b45309;">
-              <td colspan="5" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.generalDiscount}:</td>
+              <td colspan="4" style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">${t.generalDiscount}:</td>
               <td style="text-align: right; padding: 8px 10px; border: 1px solid #ddd;">-${currency}${formatNumber(generalDiscountAmount)}</td>
             </tr>
           ` : ''}
           <tr style="background-color: #1a1a1a; color: white; font-weight: bold;">
-            <td colspan="5" style="text-align: right; padding: 12px 10px; font-size: 16px; border: 1px solid #ddd;">${t.finalTotal}:</td>
+            <td colspan="4" style="text-align: right; padding: 12px 10px; font-size: 16px; border: 1px solid #ddd;"></td>
             <td style="text-align: right; padding: 12px 10px; font-size: 16px; border: 1px solid #ddd;">${currency}${formatNumber(total)}</td>
           </tr>
         </tfoot>
