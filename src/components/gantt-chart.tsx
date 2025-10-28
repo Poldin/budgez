@@ -163,7 +163,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                     <div className="col-span-9">
                       <Label className="text-xs text-gray-600 mb-1 block">Periodo</Label>
                       <DateRangePicker
-                        key={`${activity.id}-${activity.startDate}-${activity.endDate}`}
+                        key={activity.id}
                         value={{
                           from: activity.startDate ? new Date(activity.startDate) : undefined,
                           to: activity.endDate ? new Date(activity.endDate) : undefined,
@@ -372,7 +372,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                   <div className="col-span-6">
                     <Label className="text-xs text-gray-600 mb-1 block">Periodo</Label>
                     <DateRangePicker
-                      key={`${activity.id}-${activity.startDate}-${activity.endDate}`}
+                      key={activity.id}
                       value={{
                         from: activity.startDate ? new Date(activity.startDate) : undefined,
                         to: activity.endDate ? new Date(activity.endDate) : undefined,

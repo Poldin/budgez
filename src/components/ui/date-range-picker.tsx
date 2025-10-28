@@ -28,15 +28,46 @@ export function DateRangePicker({
     from: value?.from,
     to: value?.to,
   });
+  const [open, setOpen] = React.useState(false);
+  const dateRef = React.useRef<DateRange | undefined>(date);
+
+  // Aggiorna il ref ogni volta che date cambia
+  React.useEffect(() => {
+    dateRef.current = date;
+  }, [date]);
 
   const handleSelect = (range: DateRange | undefined) => {
     setDate(range);
+    dateRef.current = range; // Aggiorna immediatamente il ref
+    
     if (onChange && range) {
       onChange({
         from: range.from,
         to: range.to,
       });
     }
+    
+    // Se abbiamo solo la prima data, assicurati che il popover rimanga aperto
+    if (range?.from && !range?.to) {
+      setOpen(true);
+    }
+    
+    // Chiudi SOLO se entrambe le date sono state selezionate
+    if (range?.from && range?.to) {
+      setTimeout(() => setOpen(false), 150);
+    }
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    // Usa il ref per avere i valori più aggiornati
+    const currentDate = dateRef.current;
+    
+    // Se sta cercando di chiudere ma abbiamo solo una data, riapri immediatamente
+    if (!newOpen && currentDate?.from && !currentDate?.to) {
+      setTimeout(() => setOpen(true), 0);
+      return;
+    }
+    setOpen(newOpen);
   };
 
   // Formatta il testo da mostrare nel pulsante
@@ -54,7 +85,7 @@ export function DateRangePicker({
 
   return (
     <div className={cn("grid gap-2", className)}>
-      <Popover>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
             id="date"
@@ -68,7 +99,11 @@ export function DateRangePicker({
             {formatDateRange()}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent 
+          className="w-auto p-0" 
+          align="start"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <Calendar
             initialFocus
             mode="range"
