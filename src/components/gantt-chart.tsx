@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Calendar } from 'lucide-react';
+import { NumberInput } from "@/components/ui/number-input";
+import { Calendar, Info, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface Activity {
   id: string;
@@ -29,6 +30,8 @@ const formatDateToLocal = (date: Date): string => {
 
 export default function GanttChart({ activities, onUpdateActivity }: GanttChartProps) {
   const [showQuickConfig, setShowQuickConfig] = useState(true); // Aperto di default
+  const [globalShiftDays, setGlobalShiftDays] = useState<number>(0);
+  const [individualShifts, setIndividualShifts] = useState<Record<string, number>>({});
 
   // Filtra solo le attività con date valide
   const activitiesWithDates = useMemo(
@@ -151,15 +154,16 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
               <h3 className="text-sm font-semibold mb-3 text-blue-900">Imposta le date per visualizzare la timeline</h3>
               <div className="space-y-3">
                 {activities.map((activity) => (
-                  <div key={activity.id} className="grid grid-cols-12 gap-3 items-center bg-white p-3 rounded border border-blue-100">
-                    <div className="col-span-4">
-                      <p className="text-sm font-medium truncate" title={activity.name}>
+                  <div key={activity.id} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border border-blue-100">
+                    <div className="col-span-3">
+                      <p className="text-xs font-medium truncate" title={activity.name}>
                         {activity.name || 'Attività senza nome'}
                       </p>
                     </div>
-                    <div className="col-span-8">
+                    <div className="col-span-9">
                       <Label className="text-xs text-gray-600 mb-1 block">Periodo</Label>
                       <DateRangePicker
+                        key={`${activity.id}-${activity.startDate}-${activity.endDate}`}
                         value={{
                           from: activity.startDate ? new Date(activity.startDate) : undefined,
                           to: activity.endDate ? new Date(activity.endDate) : undefined,
@@ -172,7 +176,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                             onUpdateActivity(activity.id, 'endDate', formatDateToLocal(range.to));
                           }
                         }}
-                        placeholder="Seleziona date inizio e fine"
+                        placeholder="Seleziona periodo"
                       />
                     </div>
                   </div>
@@ -229,6 +233,55 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
     });
   };
 
+  // Applica shift globale a tutte le attività
+  const applyGlobalShift = (direction: number) => {
+    if (!onUpdateActivity || globalShiftDays === 0) return;
+    
+    const shiftAmount = globalShiftDays * direction; // -1 per indietro, +1 per avanti
+    
+    // Applica lo shift a tutte le attività con date
+    activities.forEach(activity => {
+      if (activity.startDate) {
+        const newStart = new Date(activity.startDate);
+        newStart.setDate(newStart.getDate() + shiftAmount);
+        onUpdateActivity(activity.id, 'startDate', formatDateToLocal(newStart));
+      }
+      if (activity.endDate) {
+        const newEnd = new Date(activity.endDate);
+        newEnd.setDate(newEnd.getDate() + shiftAmount);
+        onUpdateActivity(activity.id, 'endDate', formatDateToLocal(newEnd));
+      }
+    });
+    
+    setGlobalShiftDays(0);
+  };
+
+  // Applica shift individuale a una singola attività
+  const applyIndividualShift = (activityId: string, direction: number) => {
+    if (!onUpdateActivity) return;
+    
+    const shiftDays = individualShifts[activityId] || 0;
+    if (shiftDays === 0) return;
+    
+    const shiftAmount = shiftDays * direction; // -1 per indietro, +1 per avanti
+    
+    const activity = activities.find(a => a.id === activityId);
+    if (!activity) return;
+    
+    if (activity.startDate) {
+      const newStart = new Date(activity.startDate);
+      newStart.setDate(newStart.getDate() + shiftAmount);
+      onUpdateActivity(activity.id, 'startDate', formatDateToLocal(newStart));
+    }
+    if (activity.endDate) {
+      const newEnd = new Date(activity.endDate);
+      newEnd.setDate(newEnd.getDate() + shiftAmount);
+      onUpdateActivity(activity.id, 'endDate', formatDateToLocal(newEnd));
+    }
+    
+    setIndividualShifts(prev => ({ ...prev, [activityId]: 0 }));
+  };
+
   const getViewTypeLabel = () => {
     if (viewType === 'day') return 'Giorni';
     if (viewType === 'week') return 'Settimane';
@@ -262,18 +315,64 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
         {/* Quick Configuration Panel */}
         {showQuickConfig && onUpdateActivity && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 className="text-sm font-semibold mb-3">Configurazione Rapida Date</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Configurazione Rapida Date</h3>
+              
+              {/* Global Shift Controls */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 text-xs text-gray-600">
+                  <Info className="h-3 w-3" />
+                  <span className="hidden sm:inline">Shift globale (giorni):</span>
+                  <span className="sm:hidden">Shift:</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => applyGlobalShift(-1)}
+                    disabled={globalShiftDays === 0}
+                    className="h-8 px-2"
+                    title="Sposta indietro"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <NumberInput
+                    value={Math.abs(globalShiftDays)}
+                    onChange={(value) => setGlobalShiftDays(Math.abs(value))}
+                    placeholder="0"
+                    min={0}
+                    className="w-16 h-8 text-xs text-center"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => applyGlobalShift(1)}
+                    disabled={globalShiftDays === 0}
+                    className="h-8 px-2"
+                    title="Sposta avanti"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-xs text-gray-500 mb-3">
+              Inserisci i giorni e clicca la freccia: ← indietro, → avanti
+            </p>
+            
             <div className="space-y-3">
               {activities.map((activity) => (
-                <div key={activity.id} className="grid grid-cols-12 gap-3 items-center">
-                  <div className="col-span-4">
-                    <p className="text-sm font-medium truncate" title={activity.name}>
+                <div key={activity.id} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border border-gray-200">
+                  <div className="col-span-3">
+                    <p className="text-xs font-medium truncate" title={activity.name}>
                       {activity.name || 'Attività senza nome'}
                     </p>
                   </div>
-                  <div className="col-span-8">
+                  <div className="col-span-6">
                     <Label className="text-xs text-gray-600 mb-1 block">Periodo</Label>
                     <DateRangePicker
+                      key={`${activity.id}-${activity.startDate}-${activity.endDate}`}
                       value={{
                         from: activity.startDate ? new Date(activity.startDate) : undefined,
                         to: activity.endDate ? new Date(activity.endDate) : undefined,
@@ -286,8 +385,43 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                           onUpdateActivity(activity.id, 'endDate', formatDateToLocal(range.to));
                         }
                       }}
-                      placeholder="Seleziona date inizio e fine"
+                      placeholder="Seleziona periodo"
                     />
+                  </div>
+                  <div className="col-span-3">
+                    <Label className="text-xs text-gray-600 mb-1 block">Shift (gg)</Label>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => applyIndividualShift(activity.id, -1)}
+                        disabled={!individualShifts[activity.id] || individualShifts[activity.id] === 0}
+                        className="h-8 px-1"
+                        title="Sposta indietro"
+                      >
+                        <ArrowLeft className="h-3 w-3" />
+                      </Button>
+                      <NumberInput
+                        value={Math.abs(individualShifts[activity.id] || 0)}
+                        onChange={(value) => setIndividualShifts(prev => ({ 
+                          ...prev, 
+                          [activity.id]: Math.abs(value)
+                        }))}
+                        placeholder="0"
+                        min={0}
+                        className="w-12 h-8 text-xs text-center"
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => applyIndividualShift(activity.id, 1)}
+                        disabled={!individualShifts[activity.id] || individualShifts[activity.id] === 0}
+                        className="h-8 px-1"
+                        title="Sposta avanti"
+                      >
+                        <ArrowRight className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}

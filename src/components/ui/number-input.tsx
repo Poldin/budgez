@@ -21,16 +21,16 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value;
       
-      // Permetti solo numeri, punto decimale e virgola
+      // Permetti solo numeri, punto decimale, virgola e segno meno
       // Sostituisci virgola con punto per i numeri decimali
       const sanitized = inputValue.replace(/,/g, '.');
       
-      // Permetti stringa vuota, numeri e un solo punto decimale
-      if (sanitized === '' || /^\d*\.?\d*$/.test(sanitized)) {
+      // Permetti stringa vuota, numeri, un solo punto decimale e segno meno all'inizio
+      if (sanitized === '' || sanitized === '-' || /^-?\d*\.?\d*$/.test(sanitized)) {
         setDisplayValue(inputValue);
         
         // Converti in numero solo se è un numero valido
-        if (sanitized === '' || sanitized === '.') {
+        if (sanitized === '' || sanitized === '.' || sanitized === '-') {
           onChange(0);
         } else {
           const numValue = parseFloat(sanitized);

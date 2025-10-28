@@ -215,7 +215,7 @@ export default function HomePage() {
   };
 
   const updateActivity = (id: string, field: keyof Activity, value: string | number | ResourceAssignment[] | ActivityDiscount | undefined) => {
-    setActivities(activities.map(a => 
+    setActivities(prevActivities => prevActivities.map(a => 
       a.id === id ? { ...a, [field]: value } : a
     ));
   };
@@ -1897,12 +1897,12 @@ export default function HomePage() {
 
       {/* JSON Configuration Dialog */}
       <Dialog open={jsonDialogOpen} onOpenChange={setJsonDialogOpen}>
-        <DialogContent className="min-w-[60vw]">
+        <DialogContent className="min-w-[60vw] h-[100vh] max-h-[95vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{t.loadCustomConfiguration}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="flex-1 flex flex-col space-y-4 overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden">
               <Label>{t.pasteYourJSON}</Label>
               <Textarea
                 placeholder='{"currency": "€", "resources": [...], "activities": [...]}'
@@ -1911,14 +1911,13 @@ export default function HomePage() {
                   setJsonInput(e.target.value);
                   setJsonError('');
                 }}
-                rows={10}
-                className="font-mono text-xs mt-2"
+                className="font-mono text-xs mt-2 flex-1 resize-none"
               />
               {jsonError && (
                 <p className="text-sm text-red-600 mt-2">{jsonError}</p>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
               <Button onClick={handleLoadJson} className="flex-1">
                 {t.load}
               </Button>
