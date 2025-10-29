@@ -27,7 +27,7 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
   return (
     <footer className="border-t border-gray-200 bg-white py-6 mt-10 p-4">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Logo and Social Links */}
           <div className="col-span-1">
             <div className="flex items-center space-x-2 mb-6">
@@ -52,6 +52,33 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
             </div>
           </div>
 
+          {/* Services Links */}
+          <div className="col-span-1">
+            <h3 className="font-semibold text-gray-900 mb-4">{t.footerServices}</h3>
+            <ul className="space-y-3">
+              <li>
+                <a 
+                  href="/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-gray-600 hover:text-gray-900 text-sm"
+                >
+                  {t.createBudget}
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="/requests" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-gray-600 hover:text-gray-900 text-sm"
+                >
+                  {t.requestQuote}
+                </a>
+              </li>
+            </ul>
+          </div>
+
           {/* Resources Links */}
           <div className="col-span-1">
             <h3 className="font-semibold text-gray-900 mb-4">{t.footerResources}</h3>
@@ -61,6 +88,7 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
               </li>
               <li>
                 <button 
+                  data-support-dialog
                   onClick={() => setSupportDialogOpen(true)}
                   className="text-gray-600 hover:text-gray-900 text-sm underline-offset-4 hover:underline"
                 >

@@ -15,7 +15,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "Budgez",
-  description: "send me a quote!",
+  description: "quotes at the speed of light.",
 };
 
 export default function RootLayout({

@@ -19,6 +19,7 @@ import Footer from '@/components/footer/footer';
 import GanttChart from '@/components/gantt-chart';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import PDFExportDialog from '@/components/pdf-export-dialog';
+import AppHeader from '@/components/app-header';
 
 // Componente per animare il subtitle parola per parola
 const AnimatedSubtitle = ({ text }: { text: string }) => {
@@ -779,33 +780,13 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
 
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold">B) Budgez</span>
-            </div>
-            
-              <div className="flex items-center space-x-4">
-              <Select value={language} onValueChange={(value) => setLanguage(value as Language)}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="it">🇮🇹 Italiano</SelectItem>
-                  <SelectItem value="en">🇬🇧 English</SelectItem>
-                  <SelectItem value="fr">🇫🇷 Français</SelectItem>
-                  <SelectItem value="de">🇩🇪 Deutsch</SelectItem>
-                  <SelectItem value="es">🇪🇸 Español</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={() => window.location.href = '/how-to'}>
-                {t.howItWorks}
-                </Button>
-              </div>
-          </div>
-        </div>
-      </header>
+      <AppHeader 
+        language={language}
+        onLanguageChange={setLanguage}
+        translations={t}
+        ctaText={t.requestQuote}
+        ctaHref="/requests"
+      />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-12">
