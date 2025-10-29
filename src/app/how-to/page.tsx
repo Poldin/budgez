@@ -3,12 +3,16 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, CheckCircle2, Zap, FileText, Download, Globe, Gift } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, Zap, FileText, Download, Globe, Gift } from 'lucide-react';
 import { translations, type Language } from '@/lib/translations';
 import Footer from '@/components/footer/footer';
 
+type TabType = 'create' | 'request';
+
 export default function HowToPage() {
   const [language, setLanguage] = useState<Language>('it');
+  const [activeTab, setActiveTab] = useState<TabType>('create');
   const t = translations[language];
 
   return (
@@ -21,10 +25,20 @@ export default function HowToPage() {
               <span className="text-lg font-bold">B) Budgez</span>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" onClick={() => window.location.href = '/'}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                {t.backToApp}
+            <div className="flex items-center space-x-3">
+              <Button 
+                variant="outline"
+                onClick={() => window.location.href = '/'}
+                className="hover:bg-gray-100"
+              >
+                {t.createBudget}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => window.location.href = '/requests'}
+                className="hover:bg-gray-100"
+              >
+                {t.requestQuote}
               </Button>
             </div>
           </div>
@@ -35,107 +49,204 @@ export default function HowToPage() {
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           {/* Hero Section */}
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold tracking-tight text-gray-900 mb-4">
+          <div className="text-center mb-8">
+            <h1 className="text-5xl font-bold tracking-tight text-gray-900 mb-3">
               {t.howItWorksTitle}
             </h1>
-            <p className="text-xl text-gray-600">
-              {t.howItWorksSubtitle}
+            <p className="text-sm text-gray-500 mb-6">
+              {t.howItWorksMainSubtitle}
             </p>
+            
+            {/* Tabs */}
+            <div className="flex gap-2 justify-center mb-8">
+              <Badge
+                variant={activeTab === 'create' ? "default" : "outline"}
+                className={`cursor-pointer px-6 py-3 text-base ${
+                  activeTab === 'create'
+                    ? 'bg-gray-900 hover:bg-gray-800 text-white'
+                    : 'hover:bg-gray-100'
+                }`}
+                onClick={() => setActiveTab('create')}
+              >
+                {t.tabCreateBudget}
+              </Badge>
+              <Badge
+                variant={activeTab === 'request' ? "default" : "outline"}
+                className={`cursor-pointer px-6 py-3 text-base ${
+                  activeTab === 'request'
+                    ? 'bg-gray-900 hover:bg-gray-800 text-white'
+                    : 'hover:bg-gray-100'
+                }`}
+                onClick={() => setActiveTab('request')}
+              >
+                {t.tabRequestQuote}
+              </Badge>
+            </div>
           </div>
 
-          {/* Steps */}
-          <div className="space-y-6 mb-16">
-            {/* Step 1 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
-                    1
-                  </div>
-                  <span>{t.step1Title}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 ml-11">{t.step1Desc}</p>
-              </CardContent>
-            </Card>
+          {/* Steps - Create Budget */}
+          {activeTab === 'create' && (
+            <div className="space-y-6 mb-16">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      1
+                    </div>
+                    <span>{t.step1Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.step1Desc}</p>
+                </CardContent>
+              </Card>
 
-            {/* Step 2 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
-                    2
-                  </div>
-                  <span>{t.step2Title}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 ml-11">{t.step2Desc}</p>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      2
+                    </div>
+                    <span>{t.step2Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.step2Desc}</p>
+                </CardContent>
+              </Card>
 
-            {/* Step 3 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
-                    3
-                  </div>
-                  <span>{t.step3Title}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 ml-11">{t.step3Desc}</p>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      3
+                    </div>
+                    <span>{t.step3Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.step3Desc}</p>
+                </CardContent>
+              </Card>
 
-            {/* Step 4 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
-                    4
-                  </div>
-                  <span>{t.step4Title}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 ml-11">{t.step4Desc}</p>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      4
+                    </div>
+                    <span>{t.step4Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.step4Desc}</p>
+                </CardContent>
+              </Card>
 
-            {/* Step 5 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
-                    5
-                  </div>
-                  <span>{t.step5Title}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 ml-11">{t.step5Desc}</p>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      5
+                    </div>
+                    <span>{t.step5Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.step5Desc}</p>
+                </CardContent>
+              </Card>
 
-            {/* Step 6 - Timeline */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
-                    6
-                  </div>
-                  <span>{t.step6Title}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 ml-11">{t.step6Desc}</p>
-              </CardContent>
-            </Card>
-          </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      6
+                    </div>
+                    <span>{t.step6Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.step6Desc}</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Steps - Request Quote */}
+          {activeTab === 'request' && (
+            <div className="space-y-6 mb-16">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      1
+                    </div>
+                    <span>{t.requestStep1Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.requestStep1Desc}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      2
+                    </div>
+                    <span>{t.requestStep2Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.requestStep2Desc}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      3
+                    </div>
+                    <span>{t.requestStep3Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.requestStep3Desc}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      4
+                    </div>
+                    <span>{t.requestStep4Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.requestStep4Desc}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                      5
+                    </div>
+                    <span>{t.requestStep5Title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 ml-11">{t.requestStep5Desc}</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Features Grid */}
           <div className="mb-12">
@@ -225,11 +336,10 @@ export default function HowToPage() {
           <div className="text-center">
             <Button 
               size="lg" 
-              onClick={() => window.location.href = '/'}
-              className="text-lg px-8 py-6"
+              onClick={() => window.location.href = activeTab === 'create' ? '/' : '/requests'}
+              className="bg-gray-900 hover:bg-gray-800 text-white text-lg px-8 py-6"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              {t.backToApp}
+              {activeTab === 'create' ? t.createBudget : t.requestQuote}
             </Button>
           </div>
         </div>
