@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Loader2 } from 'lucide-react';
+import { Search, Plus, Loader2, X } from 'lucide-react';
 import { translations, type Language } from '@/lib/translations';
 import AppHeader from '@/components/app-header';
 import Footer from '@/components/footer/footer';
@@ -214,8 +214,17 @@ function RequestsPageContent() {
                 placeholder={t.searchRequests}
                 value={searchQuery}
                 onChange={(e) => handleSearchQueryChange(e.target.value)}
-                className="pl-10 h-11"
+                className="pl-10 pr-10 h-11"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => handleSearchQueryChange('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 h-6 w-6 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded-sm transition-colors"
+                  aria-label="Cancella ricerca"
+                >
+                  <X className="h-4 w-4 text-gray-600" />
+                </button>
+              )}
             </div>
             <Button 
               className="bg-gray-900 hover:bg-gray-800 text-white h-11 gap-2"
