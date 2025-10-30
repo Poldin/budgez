@@ -267,6 +267,7 @@ Questa l'attività che ho bisogno di descrivere:`;
                   <SelectValue placeholder="Giorni" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="2">2 giorni</SelectItem>
                   <SelectItem value="5">5 giorni</SelectItem>
                   <SelectItem value="10">10 giorni</SelectItem>
                   <SelectItem value="20">20 giorni</SelectItem>
