@@ -91,7 +91,10 @@ export default function RequestCard({
   };
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col h-full">
+    <Card 
+      className="hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col h-full"
+      onClick={() => onViewDetails?.()}
+    >
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center gap-1 text-xs text-gray-700">
