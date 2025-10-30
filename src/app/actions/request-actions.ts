@@ -3,6 +3,61 @@
 import { createServerSupabaseClient } from '@/lib/database/supabase-client'
 import { TablesInsert } from '@/lib/database/supabase'
 
+// Upload PDF to Supabase Storage
+export async function uploadRequestPDF(formData: FormData) {
+  try {
+    const file = formData.get('file') as File
+    
+    if (!file) {
+      return { success: false, error: 'Nessun file fornito' }
+    }
+
+    // Validate file
+    if (file.size > 5 * 1024 * 1024) {
+      return { success: false, error: 'Il file deve essere massimo 5MB' }
+    }
+
+    if (file.type !== 'application/pdf') {
+      return { success: false, error: 'Solo file PDF sono accettati' }
+    }
+
+    const supabase = createServerSupabaseClient()
+    
+    // Generate unique filename
+    const timestamp = Date.now()
+    const randomString = Math.random().toString(36).substring(7)
+    const filename = `${timestamp}-${randomString}.pdf`
+
+    // Upload to Supabase Storage
+    const { error } = await supabase.storage
+      .from('attachements')
+      .upload(filename, file, {
+        contentType: 'application/pdf',
+        cacheControl: '3600',
+        upsert: false,
+      })
+
+    if (error) {
+      console.error('Error uploading file:', error)
+      return { success: false, error: 'Errore nel caricamento del file' }
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('attachements')
+      .getPublicUrl(filename)
+
+    return { 
+      success: true, 
+      url: urlData.publicUrl,
+      filename: filename 
+    }
+  } catch (error) {
+    console.error('Error in uploadRequestPDF:', error)
+    return { success: false, error: 'Errore imprevisto' }
+  }
+}
+
 // Crea una nuova richiesta
 export async function createRequest(requestData: {
   title: string
@@ -10,6 +65,7 @@ export async function createRequest(requestData: {
   budget?: number
   deadline: string
   verificationId: string
+  attachmentUrl?: string
 }) {
   try {
     const supabase = createServerSupabaseClient()
@@ -36,6 +92,7 @@ export async function createRequest(requestData: {
       deadline: requestData.deadline,
       verification_id: requestData.verificationId,
       is_verified: true,
+      attachment_url: requestData.attachmentUrl || null,
     }
 
     const { data, error } = await supabase
@@ -156,6 +213,91 @@ export async function searchRequests(query: string) {
     return { 
       success: false, 
       error: 'Errore imprevisto' 
+    }
+  }
+}
+
+// Ottieni il numero di proposte per una richiesta
+export async function getProposalsCountForRequest(requestId: string) {
+  try {
+    const supabase = createServerSupabaseClient()
+    
+    const { count, error } = await supabase
+      .from('proposals')
+      .select('*', { count: 'exact', head: true })
+      .eq('request_id', requestId)
+
+    if (error) {
+      console.error('Error counting proposals:', error)
+      return { 
+        success: false, 
+        error: 'Errore nel conteggio delle proposte',
+        count: 0
+      }
+    }
+
+    return { 
+      success: true, 
+      count: count || 0
+    }
+  } catch (error) {
+    console.error('Error in getProposalsCountForRequest:', error)
+    return { 
+      success: false, 
+      error: 'Errore imprevisto',
+      count: 0
+    }
+  }
+}
+
+// Ottieni il numero di proposte per multiple richieste
+export async function getProposalsCountsForRequests(requestIds: string[]) {
+  try {
+    const supabase = createServerSupabaseClient()
+    
+    if (requestIds.length === 0) {
+      return { 
+        success: true, 
+        data: {}
+      }
+    }
+    
+    const { data, error } = await supabase
+      .from('proposals')
+      .select('request_id')
+      .in('request_id', requestIds)
+
+    if (error) {
+      console.error('Error counting proposals:', error)
+      return { 
+        success: false, 
+        error: 'Errore nel conteggio delle proposte',
+        data: {}
+      }
+    }
+
+    // Count proposals per request
+    const counts: Record<string, number> = {}
+    requestIds.forEach(id => {
+      counts[id] = 0
+    })
+    
+    data?.forEach((proposal) => {
+      if (proposal.request_id) {
+        counts[proposal.request_id] = (counts[proposal.request_id] || 0) + 1
+      }
+    })
+
+    return { 
+      success: true, 
+      data: counts
+    }
+  } catch (error) {
+    console.error('Error in getProposalsCountsForRequests:', error)
+    return { 
+      success: false, 
+      error: 'Errore imprevisto',
+      data: {}
     }
   }
 }

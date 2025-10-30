@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import Footer from '@/components/footer/footer';
 import RequestCard from '@/components/request-card';
 import NewRequestDialog from '@/components/new-request-dialog';
 import RequestDetailsDialog from '@/components/request-details-dialog';
-import { getActiveRequests } from '@/app/actions/request-actions';
+import { getActiveRequests, getProposalsCountsForRequests } from '@/app/actions/request-actions';
 import { Tables } from '@/lib/database/supabase';
 
 // Tipo per le richieste con join email
@@ -19,6 +20,7 @@ type RequestWithEmail = Tables<'requests'> & {
   otp_verification: {
     email: string | null;
   } | null;
+  attachment_url: string | null;
 };
 
 // Tipo per le richieste
@@ -30,9 +32,12 @@ type RequestType = {
   deadline: string | null;
   email: string | null;
   created_at: string;
+  attachment_url: string | null;
+  proposalsCount?: number;
 };
 
-export default function RequestsPage() {
+function RequestsPageContent() {
+  const searchParams = useSearchParams();
   const [language, setLanguage] = useState<Language>('it');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSort, setSelectedSort] = useState<string>('all');
@@ -41,8 +46,27 @@ export default function RequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState<RequestType | null>(null);
   const [requests, setRequests] = useState<RequestType[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [autoOpenedForQuery, setAutoOpenedForQuery] = useState<string | null>(null);
 
   const t = translations[language];
+
+  // Handle rid parameter from URL
+  useEffect(() => {
+    const rid = searchParams.get('rid');
+    if (rid) {
+      setSearchQuery(rid);
+      // Reset auto-open flag when URL changes
+      setAutoOpenedForQuery(null);
+    }
+  }, [searchParams]);
+
+  // Reset auto-open flag when user manually changes search query
+  const handleSearchQueryChange = (value: string) => {
+    setSearchQuery(value);
+    if (value !== autoOpenedForQuery) {
+      setAutoOpenedForQuery(null);
+    }
+  };
 
   // Fetch requests from database
   const fetchRequests = useCallback(async () => {
@@ -59,7 +83,20 @@ export default function RequestsPage() {
         deadline: req.deadline,
         email: req.otp_verification?.email || null,
         created_at: req.created_at,
+        attachment_url: req.attachment_url || null,
       }));
+      
+      // Fetch proposals counts for all requests
+      const requestIds = transformedData.map(req => req.id);
+      const countsResult = await getProposalsCountsForRequests(requestIds);
+      
+      if (countsResult.success && countsResult.data) {
+        // Add proposals count to each request
+        const counts = countsResult.data as Record<string, number>;
+        transformedData.forEach(req => {
+          req.proposalsCount = counts[req.id] || 0;
+        });
+      }
       
       setRequests(transformedData);
     }
@@ -96,6 +133,7 @@ export default function RequestsPage() {
   const filteredRequests = requests
     .filter(request => {
       const matchesSearch = 
+        (request.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (request.title?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
         (request.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
       return matchesSearch;
@@ -128,6 +166,23 @@ export default function RequestsPage() {
       }
     });
 
+  // Auto-open details dialog when searching by exact UUID match
+  useEffect(() => {
+    if (!isLoadingRequests && searchQuery && filteredRequests.length === 1) {
+      // Check if the search query matches exactly the ID of the single result
+      const exactMatch = filteredRequests[0].id.toLowerCase() === searchQuery.toLowerCase();
+      // Only auto-open if we haven't already auto-opened for this query
+      if (exactMatch && !isDetailsDialogOpen && autoOpenedForQuery !== searchQuery) {
+        // Small delay to ensure UI is ready
+        const timer = setTimeout(() => {
+          handleViewDetails(filteredRequests[0]);
+          setAutoOpenedForQuery(searchQuery);
+        }, 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isLoadingRequests, searchQuery, filteredRequests, isDetailsDialogOpen, autoOpenedForQuery]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
@@ -158,7 +213,7 @@ export default function RequestsPage() {
                 type="text"
                 placeholder={t.searchRequests}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchQueryChange(e.target.value)}
                 className="pl-10 h-11"
               />
             </div>
@@ -208,6 +263,8 @@ export default function RequestsPage() {
                   budget={request.budget}
                   deadline={request.deadline ? new Date(request.deadline) : new Date()}
                   email={request.email || ''}
+                  attachmentUrl={request.attachment_url || undefined}
+                  proposalsCount={request.proposalsCount || 0}
                   onViewDetails={() => handleViewDetails(request)}
                 />
               ))}
@@ -245,9 +302,23 @@ export default function RequestsPage() {
           budget={selectedRequest.budget}
           deadline={selectedRequest.deadline ? new Date(selectedRequest.deadline) : new Date()}
           email={selectedRequest.email || ''}
+          attachmentUrl={selectedRequest.attachment_url || undefined}
+          proposalsCount={selectedRequest.proposalsCount || 0}
         />
       )}
     </div>
+  );
+}
+
+export default function RequestsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    }>
+      <RequestsPageContent />
+    </Suspense>
   );
 }
 

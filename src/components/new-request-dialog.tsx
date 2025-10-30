@@ -9,9 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NumberInput } from "@/components/ui/number-input";
-import { Copy, Check, Loader2, CheckCircle } from 'lucide-react';
+import { Copy, Check, Loader2, CheckCircle, Upload } from 'lucide-react';
 import EmailVerification from '@/components/email-verification';
-import { createRequest } from '@/app/actions/request-actions';
+import { createRequest, uploadRequestPDF } from '@/app/actions/request-actions';
 
 interface NewRequestDialogProps {
   open: boolean;
@@ -34,6 +34,7 @@ export default function NewRequestDialog({
   const [emailVerified, setEmailVerified] = useState(false);
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [deadlineDays, setDeadlineDays] = useState('10');
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [publishConfirmation, setPublishConfirmation] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -58,6 +59,21 @@ Questa l'attività che ho bisogno di descrivere:`;
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB
+        alert('Il file deve essere massimo 5MB');
+        return;
+      }
+      if (file.type !== 'application/pdf') {
+        alert('Solo file PDF sono accettati');
+        return;
+      }
+      setAttachmentFile(file);
+    }
+  };
+
   const handlePublish = async () => {
     if (!publishConfirmation) {
       // First click: show confirmation warning
@@ -74,45 +90,70 @@ Questa l'attività che ho bisogno di descrivere:`;
     setIsPublishing(true);
     setPublishError(null);
 
-    // Calcola la deadline
-    const deadline = new Date();
-    deadline.setDate(deadline.getDate() + parseInt(deadlineDays));
-
-    const result = await createRequest({
-      title: title.trim(),
-      description: description.trim(),
-      budget: budget > 0 ? budget : undefined,
-      deadline: deadline.toISOString(),
-      verificationId: verificationId,
-    });
-
-    setIsPublishing(false);
-
-    if (result.success) {
-      // Mostra successo per 2 secondi
-      setPublishSuccess(true);
-      
-      setTimeout(() => {
-        // Reset form
-        setTitle('');
-        setDescription('');
-        setBudget(0);
-        setEmail('');
-        setEmailVerified(false);
-        setVerificationId(null);
-        setDeadlineDays('10');
-        setPublishConfirmation(false);
-        setPublishSuccess(false);
-        onOpenChange(false);
+    try {
+      // Upload PDF if present
+      let attachmentUrl: string | undefined = undefined;
+      if (attachmentFile) {
+        const formData = new FormData();
+        formData.append('file', attachmentFile);
         
-        // Reload only the requests data
-        if (onRequestCreated) {
-          onRequestCreated();
+        const uploadResult = await uploadRequestPDF(formData);
+        
+        if (!uploadResult.success || !uploadResult.url) {
+          setPublishError(uploadResult.error || 'Errore nel caricamento del file');
+          setIsPublishing(false);
+          return;
         }
-      }, 2000);
-    } else {
-      setPublishError(result.error || 'Errore nella pubblicazione');
-      setPublishConfirmation(false);
+        
+        attachmentUrl = uploadResult.url;
+      }
+
+      // Calcola la deadline
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + parseInt(deadlineDays));
+
+      const result = await createRequest({
+        title: title.trim(),
+        description: description.trim(),
+        budget: budget > 0 ? budget : undefined,
+        deadline: deadline.toISOString(),
+        verificationId: verificationId,
+        attachmentUrl: attachmentUrl,
+      });
+
+      setIsPublishing(false);
+
+      if (result.success) {
+        // Mostra successo per 2 secondi
+        setPublishSuccess(true);
+        
+        setTimeout(() => {
+          // Reset form
+          setTitle('');
+          setDescription('');
+          setBudget(0);
+          setEmail('');
+          setEmailVerified(false);
+          setVerificationId(null);
+          setDeadlineDays('10');
+          setAttachmentFile(null);
+          setPublishConfirmation(false);
+          setPublishSuccess(false);
+          onOpenChange(false);
+          
+          // Reload only the requests data
+          if (onRequestCreated) {
+            onRequestCreated();
+          }
+        }, 2000);
+      } else {
+        setPublishError(result.error || 'Errore nella pubblicazione');
+        setPublishConfirmation(false);
+      }
+    } catch (error) {
+      console.error('Error publishing request:', error);
+      setPublishError('Errore imprevisto durante la pubblicazione');
+      setIsPublishing(false);
     }
   };
 
@@ -232,6 +273,32 @@ Questa l'attività che ho bisogno di descrivere:`;
                   <SelectItem value="30">30 giorni</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          {/* File Upload */}
+          <div className="space-y-2">
+            <Label htmlFor="attachment-file" className="text-sm font-medium">
+              Allegato PDF (opzionale)
+              <span className="text-gray-400 ml-2 font-normal">(max 5MB)</span>
+            </Label>
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="attachment-file"
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                <Upload className="h-4 w-4 text-gray-600" />
+                <span className="text-sm text-gray-700">
+                  {attachmentFile ? attachmentFile.name : 'Scegli file PDF'}
+                </span>
+              </label>
+              <input
+                id="attachment-file"
+                type="file"
+                accept=".pdf"
+                onChange={handleFileChange}
+                className="hidden"
+              />
             </div>
           </div>
 

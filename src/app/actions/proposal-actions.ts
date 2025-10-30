@@ -91,6 +91,7 @@ export async function createProposal(proposalData: {
       description: proposalData.description,
       attachment_url: proposalData.attachmentUrl,
       verification_id: proposalData.verificationId,
+      request_id: proposalData.requestId,
     }
 
     const { data, error } = await supabase

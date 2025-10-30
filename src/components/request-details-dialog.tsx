@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ShieldCheck, DollarSign, ArrowRight, ArrowLeft, Upload, Loader2, Check } from 'lucide-react';
+import { ShieldCheck, DollarSign, ArrowRight, ArrowLeft, Upload, Loader2, Check, FileText } from 'lucide-react';
 import EmailVerification from '@/components/email-verification';
 import { uploadProposalPDF, createProposal } from '@/app/actions/proposal-actions';
 
@@ -20,6 +20,8 @@ interface RequestDetailsDialogProps {
   budget: number | null;
   deadline: Date;
   email: string;
+  attachmentUrl?: string;
+  proposalsCount?: number;
 }
 
 const PROPOSAL_TITLE_MAX_LENGTH = 100;
@@ -34,6 +36,8 @@ export default function RequestDetailsDialog({
   budget,
   deadline,
   email,
+  attachmentUrl,
+  proposalsCount = 0,
 }: RequestDetailsDialogProps) {
   const [showProposalForm, setShowProposalForm] = useState(false);
   const [proposalTitle, setProposalTitle] = useState('');
@@ -199,7 +203,7 @@ export default function RequestDetailsDialog({
           // Details View
           <>
             <div className="flex-1 overflow-y-auto pr-2">
-              {/* Days Remaining Badge and Verified */}
+              {/* Days Remaining Badge, Verified, and Proposals Count */}
               <div className="flex items-center gap-3 mb-3">
                 <Badge 
                   variant={isUrgent ? "destructive" : "secondary"}
@@ -211,6 +215,12 @@ export default function RequestDetailsDialog({
                   <ShieldCheck className="h-3.5 w-3.5" />
                   <span className="font-medium">Verified</span>
                 </div>
+                <Badge 
+                  variant="outline"
+                  className="text-xs bg-blue-50 text-blue-700 border-blue-200 font-semibold"
+                >
+                  {proposalsCount} {proposalsCount === 1 ? 'proposta' : 'proposte'}
+                </Badge>
               </div>
 
               {/* Title */}
@@ -232,6 +242,21 @@ export default function RequestDetailsDialog({
                   {description}
                 </p>
               </div>
+
+              {/* Attachment */}
+              {attachmentUrl && (
+                <div className="mb-8">
+                  <a
+                    href={attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-gray-700"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span className="text-sm font-medium">Visualizza allegato PDF</span>
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Footer Actions */}

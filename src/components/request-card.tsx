@@ -4,7 +4,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DollarSign, ShieldCheck } from 'lucide-react';
+import { DollarSign, ShieldCheck, Share2, FileText } from 'lucide-react';
 
 interface RequestCardProps {
   id: string | number;
@@ -13,14 +13,19 @@ interface RequestCardProps {
   budget: number | null;
   deadline: Date;
   email: string;
+  attachmentUrl?: string;
+  proposalsCount?: number;
   onViewDetails?: () => void;
 }
 
 export default function RequestCard({
+  id,
   title,
   description,
   budget,
   deadline,
+  attachmentUrl,
+  proposalsCount = 0,
   onViewDetails,
 }: RequestCardProps) {
   
@@ -55,6 +60,34 @@ export default function RequestCard({
     return diffDays <= 7 && diffDays >= 0;
   })();
 
+  // Handle share functionality
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/requests?rid=${id}`;
+    
+    // Check if Web Share API is available
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: title,
+          text: `Dai un'occhiata a questa richiesta: ${title}`,
+          url: shareUrl,
+        });
+      } catch (err) {
+        // User cancelled or error occurred
+        console.log('Error sharing:', err);
+      }
+    } else {
+      // Fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Link copiato negli appunti!');
+      } catch (err) {
+        console.log('Error copying to clipboard:', err);
+      }
+    }
+  };
+
   return (
     <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col h-full">
       <CardHeader className="pb-3">
@@ -77,10 +110,28 @@ export default function RequestCard({
           {description}
         </p>
         
-        {/* Budget */}
-        <div className="flex items-center gap-2 text-sm text-gray-700 mb-4 mt-auto">
-          <DollarSign className="h-4 w-4 text-gray-400" />
-          <span className="font-medium">{formatBudget(budget)}</span>
+        {/* Budget and Proposals Count */}
+        <div className="flex items-center justify-between gap-3 text-sm text-gray-700 mb-4 mt-auto">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-gray-400" />
+              <span className="font-medium">{formatBudget(budget)}</span>
+            </div>
+            {attachmentUrl && (
+              <div className="flex items-center gap-1 text-xs text-gray-500">
+                <FileText className="h-3.5 w-3.5" />
+                <span>PDF</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Proposals Count Badge */}
+          <Badge 
+            variant="outline"
+            className="text-xs bg-blue-50 text-blue-700 border-blue-200 font-semibold"
+          >
+            {proposalsCount} {proposalsCount === 1 ? 'proposta' : 'proposte'}
+          </Badge>
         </div>
 
         {/* CTA Buttons */}
@@ -96,6 +147,17 @@ export default function RequestCard({
             }}
           >
             Visualizza dettagli
+          </Button>
+
+          {/* Share Button */}
+          <Button 
+            variant="outline" 
+            size="icon"
+            className="transition-all duration-300 shrink-0"
+            onClick={handleShare}
+            title="Condividi"
+          >
+            <Share2 className="h-4 w-4" />
           </Button>
         </div>
       </CardContent>

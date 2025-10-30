@@ -89,6 +89,7 @@ export type Database = {
           id: string
           title: string | null
           verification_id: string | null
+          request_id: string | null
         }
         Insert: {
           attachment_url?: string | null
@@ -97,6 +98,7 @@ export type Database = {
           id?: string
           title?: string | null
           verification_id?: string | null
+          request_id?: string | null
         }
         Update: {
           attachment_url?: string | null
@@ -105,6 +107,7 @@ export type Database = {
           id?: string
           title?: string | null
           verification_id?: string | null
+          request_id?: string | null
         }
         Relationships: [
           {
@@ -112,6 +115,13 @@ export type Database = {
             columns: ["verification_id"]
             isOneToOne: false
             referencedRelation: "otp_verification"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
             referencedColumns: ["id"]
           },
         ]
@@ -126,6 +136,7 @@ export type Database = {
           is_verified: boolean | null
           title: string | null
           verification_id: string | null
+          attachment_url: string | null
         }
         Insert: {
           budget?: number | null
@@ -136,6 +147,7 @@ export type Database = {
           is_verified?: boolean | null
           title?: string | null
           verification_id?: string | null
+          attachment_url?: string | null
         }
         Update: {
           budget?: number | null
@@ -146,6 +158,7 @@ export type Database = {
           is_verified?: boolean | null
           title?: string | null
           verification_id?: string | null
+          attachment_url?: string | null
         }
         Relationships: [
           {
