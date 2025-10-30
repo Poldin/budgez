@@ -195,10 +195,21 @@ function RequestsPageContent() {
       />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
+      <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Page Title */}
-          <div className="mb-8">
+          <div className="mb-6">
+            <Badge variant="outline" className="mb-3 text-sm px-3 py-1 flex items-center gap-2 w-fit">
+              {isLoadingRequests ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                </>
+              ) : (
+                <>
+                  {requests.length} {requests.length === 1 ? 'richiesta attiva' : 'richieste attive'}
+                </>
+              )}
+            </Badge>
             <h1 className="text-3xl font-bold text-gray-900 mb-3">{t.requestsPageTitle}</h1>
             <p className="text-base text-gray-600 max-w-3xl">
               Richiedi preventivi per le tue esigenze o consulta le richieste attive per proporre la tua offerta.
