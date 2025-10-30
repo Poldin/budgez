@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Instagram, Twitter, Linkedin, Facebook, Youtube, Mail, Coffee, Briefcase, Share2, Check } from 'lucide-react';
+import { Instagram, Twitter, Linkedin, Facebook, Youtube, Mail, Briefcase, Share2, Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
