@@ -1,10 +1,11 @@
 'use client'
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DollarSign, ShieldCheck, Share2, FileText } from 'lucide-react';
+import { DollarSign, ShieldCheck, Share2, FileText, ThumbsDown } from 'lucide-react';
+import ReportAbuseDialog from '@/components/report-abuse-dialog';
 
 interface RequestCardProps {
   id: string | number;
@@ -28,6 +29,7 @@ export default function RequestCard({
   proposalsCount = 0,
   onViewDetails,
 }: RequestCardProps) {
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   
   // Format budget for display
   const formatBudget = (budget: number | null): string => {
@@ -137,6 +139,20 @@ export default function RequestCard({
         {/* CTA Buttons */}
         <div className="flex gap-2 group/card-actions">
 
+          {/* Report Abuse Button */}
+          <Button 
+            variant="outline" 
+            size="icon"
+            className="transition-all duration-300 shrink-0 text-gray-500 hover:text-orange-600 hover:border-orange-300"
+            onClick={(e) => {
+              e.stopPropagation();
+              setReportDialogOpen(true);
+            }}
+            title="Segnala abuso"
+          >
+            <ThumbsDown className="h-4 w-4" />
+          </Button>
+
           {/* View Details Button */}
           <Button 
             variant="outline" 
@@ -161,6 +177,14 @@ export default function RequestCard({
           </Button>
         </div>
       </CardContent>
+
+      {/* Report Abuse Dialog */}
+      <ReportAbuseDialog
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        requestId={String(id)}
+        requestTitle={title}
+      />
     </Card>
   );
 }

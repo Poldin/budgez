@@ -87,36 +87,29 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          request_id: string | null
           title: string | null
           verification_id: string | null
-          request_id: string | null
         }
         Insert: {
           attachment_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          request_id?: string | null
           title?: string | null
           verification_id?: string | null
-          request_id?: string | null
         }
         Update: {
           attachment_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          request_id?: string | null
           title?: string | null
           verification_id?: string | null
-          request_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "proposals_verification_id_fkey"
-            columns: ["verification_id"]
-            isOneToOne: false
-            referencedRelation: "otp_verification"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "proposals_request_id_fkey"
             columns: ["request_id"]
@@ -124,10 +117,57 @@ export type Database = {
             referencedRelation: "requests"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "proposals_verification_id_fkey"
+            columns: ["verification_id"]
+            isOneToOne: false
+            referencedRelation: "otp_verification"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      request_abuses: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string | null
+          request_id: string | null
+          verification_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          request_id?: string | null
+          verification_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          request_id?: string | null
+          verification_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_abuses_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_abuses_verification_id_fkey"
+            columns: ["verification_id"]
+            isOneToOne: false
+            referencedRelation: "otp_verification"
+            referencedColumns: ["id"]
+          },
         ]
       }
       requests: {
         Row: {
+          attachment_url: string | null
           budget: number | null
           created_at: string
           deadline: string | null
@@ -136,9 +176,9 @@ export type Database = {
           is_verified: boolean | null
           title: string | null
           verification_id: string | null
-          attachment_url: string | null
         }
         Insert: {
+          attachment_url?: string | null
           budget?: number | null
           created_at?: string
           deadline?: string | null
@@ -147,9 +187,9 @@ export type Database = {
           is_verified?: boolean | null
           title?: string | null
           verification_id?: string | null
-          attachment_url?: string | null
         }
         Update: {
+          attachment_url?: string | null
           budget?: number | null
           created_at?: string
           deadline?: string | null
@@ -158,7 +198,6 @@ export type Database = {
           is_verified?: boolean | null
           title?: string | null
           verification_id?: string | null
-          attachment_url?: string | null
         }
         Relationships: [
           {
