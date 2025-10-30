@@ -167,7 +167,7 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
             </div>
 
             {/* Section 2: Buy Coffee */}
-            <div className="border rounded-lg p-6 hover:shadow-md transition-shadow bg-amber-50">
+            {/* <div className="border rounded-lg p-6 hover:shadow-md transition-shadow bg-amber-50">
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0">
                   <Coffee className="h-8 w-8 text-amber-600" />
@@ -186,7 +186,7 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
                   </Button>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Section 3: Business Opportunities */}
             <div className="border rounded-lg p-6 hover:shadow-md transition-shadow bg-green-50">
