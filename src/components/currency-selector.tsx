@@ -29,13 +29,13 @@ interface CurrencySelectorProps {
 export default function CurrencySelector({ value, onChange, label = "Valuta" }: CurrencySelectorProps) {
   return (
     <div>
-      <Label className="text-base font-semibold mb-2 block">{label}</Label>
+      <Label className="text-sm text-gray-700 mb-1.5 block">{label}</Label>
       <div className="flex items-center gap-3">
         {/* Input per valuta personalizzata */}
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="text-lg font-bold w-fit min-w-[80px]"
+          className="text-lg w-fit min-w-[80px]"
           placeholder="€"
         />
         

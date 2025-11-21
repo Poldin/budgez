@@ -10,16 +10,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Download, FileDown, FileJson, Copy, ArrowUp, ArrowDown, Check, Search } from 'lucide-react';
+import { Switch } from "@/components/ui/switch";
+import { Plus, Trash2, Download, FileDown, Copy, ArrowUp, ArrowDown, Check, Boxes, CheckSquare, ChevronDown, FileText, Share2 } from 'lucide-react';
 import { translations, type Language } from '@/lib/translations';
-import CurrencySelector from '@/components/currency-selector';
 import { budgetTemplates } from '@/lib/budget-templates';
 import Footer from '@/components/footer/footer';
 import GanttChart from '@/components/gantt-chart';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import PDFExportDialog from '@/components/pdf-export-dialog';
+import PDFExportConfig from '@/components/pdf-export-config';
 import AppHeader from '@/components/app-header';
+import SettingsSection from '@/components/budget/settings-section';
 
 // Componente per animare il subtitle parola per parola
 const AnimatedSubtitle = ({ text }: { text: string }) => {
@@ -148,7 +149,85 @@ export default function HomePage() {
   const [randomizedTemplates, setRandomizedTemplates] = useState<typeof budgetTemplates>([]);
   const [isClient, setIsClient] = useState(false);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [pdfConfig, setPdfConfig] = useState<{
+    companyLogo?: string;
+    companyName: string;
+    companyInfo: string;
+    headerText: string;
+    contractTerms: string;
+    signatureSection: {
+      companyName: string;
+      signerName: string;
+      signerRole: string;
+      date: string;
+      place: string;
+    };
+  }>({
+    companyName: '',
+    companyInfo: `[Nome Azienda]
+P. IVA [Partita IVA]
+[Indirizzo]
+[CAP] - [Città] ([Provincia])
+Tel. [Telefono]
+[www.sitoweb.it]
+[email@azienda.it]`,
+    headerText: `Spett.le
+[NOME AZIENDA/ENTE]
+[INDIRIZZO]
+[CAP] [CITTÀ] ([PROVINCIA])
+CF/P.IVA: [CODICE FISCALE]
+
+Alla cortese attenzione di [NOME REFERENTE]`,
+    contractTerms: `CONDIZIONI DI PAGAMENTO:
+• Acconto del 30% alla firma del contratto
+• Saldo alla consegna del progetto/servizio
+• Pagamenti tramite bonifico bancario entro [GIORNI] giorni dalla data fattura
+
+VALIDITÀ DELL'OFFERTA:
+• La presente offerta ha validità di [GIORNI] giorni dalla data di emissione
+
+TERMINI DI CONSEGNA:
+• Il completamento del progetto è previsto entro [TEMPO] dalla firma del contratto
+• Eventuali ritardi dovuti a causa di forza maggiore non sono imputabili al fornitore
+
+GARANZIA:
+• [MESI] mesi di garanzia su difetti di fabbricazione o malfunzionamenti
+
+
+________________________________________________________________________________________
+
+
+FIRMA PER ACCETTAZIONE
+
+
+Data ________________________
+
+
+Nome del firmatario _______________________________
+
+Firma _______________________________`,
+    signatureSection: {
+      companyName: '[NOME AZIENDA]',
+      signerName: '[NOME E COGNOME]',
+      signerRole: '[RUOLO]',
+      date: new Date().toLocaleDateString('it-IT'),
+      place: '[CITTÀ]',
+    },
+  });
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [expirationValue, setExpirationValue] = useState(2);
+  const [expirationUnit, setExpirationUnit] = useState<'days' | 'weeks' | 'months'>('weeks');
+  const [expirationEnabled, setExpirationEnabled] = useState(true);
+  const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const finalTotalRef = useRef<HTMLDivElement>(null);
+
+  const calculatedExpirationDate = React.useMemo(() => {
+    const date = new Date();
+    if (expirationUnit === 'days') date.setDate(date.getDate() + expirationValue);
+    if (expirationUnit === 'weeks') date.setDate(date.getDate() + (expirationValue * 7));
+    if (expirationUnit === 'months') date.setMonth(date.getMonth() + expirationValue);
+    return date;
+  }, [expirationValue, expirationUnit]);
 
   const t = translations[language];
 
@@ -262,6 +341,8 @@ export default function HomePage() {
       vat: defaultVat, // Usa l'IVA di default
     };
     setActivities([...activities, newActivity]);
+    // Apri automaticamente la nuova attività
+    setExpandedActivities(new Set([...expandedActivities, newActivity.id]));
   };
 
   const deleteActivity = (id: string) => {
@@ -540,12 +621,372 @@ export default function HomePage() {
     `;
   };
 
+  const generatePDFHTML = (): string => {
+    const total = calculateGrandTotal();
+    const subtotal = calculateGrandSubtotal();
+    const vatAmount = calculateGrandVat();
+    const totalBeforeGeneralDiscount = calculateGrandTotalBeforeGeneralDiscount();
+    const generalDiscountAmount = calculateGeneralDiscountAmount();
+    const ganttHTML = generateGanttHTML();
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Budgez - ${budgetName}</title>
+        <style>
+          @page {
+            margin: 0;
+          }
+          @media print {
+            body {
+              margin: 1.5cm;
+            }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+          }
+          body {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+            font-size: 12px;
+            line-height: 1.6;
+          }
+          .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            gap: 40px;
+          }
+          .company-section {
+            flex: 0 0 40%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+          }
+          .logo-section {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 15px;
+            background-color: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            min-height: 100px;
+          }
+          .logo-section img {
+            max-width: 100%;
+            max-height: 80px;
+            object-fit: contain;
+          }
+          .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a1a1a;
+            text-align: left;
+            padding: 10px;
+          }
+          .company-info {
+            font-size: 10px;
+            color: #555;
+            text-align: left;
+            white-space: pre-wrap;
+            line-height: 1.6;
+          }
+          .header-text {
+            flex: 0 0 50%;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 0.5px solid #cccccc;
+            white-space: pre-wrap;
+            font-size: 11px;
+            text-align: right;
+            align-self: flex-start;
+          }
+          h1 {
+            color: #1a1a1a;
+            padding-bottom: 8px;
+            margin-bottom: 20px;
+            font-size: 24px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+          }
+          th {
+            background-color: #1a1a1a;
+            color: white;
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 11px;
+            text-transform: uppercase;
+          }
+          td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #e5e5e5;
+          }
+          .activity-header {
+            background-color: #f5f5f5;
+            font-weight: bold;
+            font-size: 13px;
+          }
+          .activity-desc {
+            font-size: 11px;
+            color: #666;
+            font-style: italic;
+            padding: 4px 10px;
+          }
+          .resource-row td {
+            padding-left: 20px;
+          }
+          .activity-total-row {
+            background-color: #f9f9f9;
+            font-weight: bold;
+            border-top: 2px solid #ddd;
+          }
+          .activity-total-row td {
+            padding: 8px 10px;
+          }
+          .summary-section {
+            margin-top: 20px;
+            border: 2px solid #1a1a1a;
+          }
+          .summary-row {
+            background-color: #f5f5f5;
+          }
+          .summary-row td {
+            padding: 8px 10px;
+            font-weight: bold;
+          }
+          .discount-row {
+            background-color: #fef3c7;
+            color: #b45309;
+          }
+          .discount-row td {
+            padding: 8px 10px;
+            font-weight: bold;
+          }
+          .grand-total-row {
+            background-color: #1a1a1a;
+            color: white;
+          }
+          .grand-total-row td {
+            padding: 12px 10px;
+            font-size: 16px;
+            font-weight: bold;
+          }
+          .text-right {
+            text-align: right;
+          }
+          .text-center {
+            text-align: center;
+          }
+          .smaller {
+            font-size: 10px;
+          }
+          .discount-badge {
+            color: #b45309;
+            font-size: 10px;
+          }
+          .contract-terms {
+            margin-top: 40px;
+            page-break-before: always;
+            padding: 20px;
+          }
+          .contract-terms h2 {
+            color: #1a1a1a;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            font-size: 18px;
+          }
+          .contract-terms-content {
+            white-space: pre-wrap;
+            font-size: 11px;
+            line-height: 1.8;
+          }
+        </style>
+      </head>
+      <body>
+        ${pdfConfig.companyLogo || pdfConfig.companyName || pdfConfig.headerText ? `
+          <div class="header-container">
+            <div class="company-section">
+              ${pdfConfig.companyLogo ? `
+                <div class="logo-section">
+                  <img src="${pdfConfig.companyLogo}" alt="Company Logo" />
+                </div>
+              ` : ''}
+              ${pdfConfig.companyName ? `
+                <div class="company-name">${pdfConfig.companyName}</div>
+              ` : ''}
+              ${pdfConfig.companyInfo ? `
+                <div class="company-info">${pdfConfig.companyInfo}</div>
+              ` : ''}
+            </div>
+            
+            ${pdfConfig.headerText ? `
+              <div class="header-text">${pdfConfig.headerText}</div>
+            ` : ''}
+          </div>
+        ` : ''}
+        
+        <h1>${budgetName}</h1>
+        
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 30%;">${t.activityName}</th>
+              <th style="width: 25%;">${t.resourceName}</th>
+              <th style="width: 15%;" class="text-center">Dettagli</th>
+              <th style="width: 10%;" class="text-right">${t.subtotal}</th>
+              <th style="width: 10%;" class="text-right">IVA</th>
+              <th style="width: 10%;" class="text-right">${t.total}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${activities.map((activity) => {
+              const activitySubtotal = calculateActivityTotal(activity);
+              const activityDiscountAmount = calculateActivityDiscountAmount(activity);
+              const activityTotalWithVat = calculateActivityTotalWithVat(activity);
+              
+              let rows = '';
+              
+              activity.resources.forEach((assignment, resIndex) => {
+                const resource = resources.find(r => r.id === assignment.resourceId);
+                if (!resource) return;
+                
+                const cost = calculateResourceCost(assignment.resourceId, assignment.hours, assignment.fixedPrice);
+                const detailText = resource.costType === 'hourly' 
+                  ? `${assignment.hours}h × ${currency}${formatNumber(resource.pricePerHour)}/h`
+                  : resource.costType === 'quantity'
+                  ? `${assignment.hours} × ${currency}${formatNumber(resource.pricePerHour)}/u`
+                  : `${currency}${formatNumber(assignment.fixedPrice)}`;
+                
+                rows += `
+                  <tr class="resource-row">
+                    ${resIndex === 0 ? `
+                      <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" class="activity-header">
+                        ${activity.name} - ${currency}${formatNumber(activityTotalWithVat)}
+                      </td>
+                    ` : ''}
+                    <td>${resource.name}</td>
+                    <td class="text-center smaller">${detailText}</td>
+                    <td class="text-right">${currency}${formatNumber(cost)}</td>
+                    ${resIndex === 0 ? `
+                      <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" class="text-right" style="vertical-align: top;">
+                        ${currency}${formatNumber(activitySubtotal * activity.vat / 100)}<br/>
+                        <span class="smaller">(${activity.vat}%)</span>
+                      </td>
+                      <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" class="text-right" style="font-weight: bold; vertical-align: top;">
+                        ${currency}${formatNumber(activityTotalWithVat)}
+                        ${activity.discount?.enabled && activityDiscountAmount > 0 ? `<br/><span class="discount-badge">-${currency}${formatNumber(activityDiscountAmount)} ${t.discount}</span>` : ''}
+                      </td>
+                    ` : ''}
+                  </tr>
+                `;
+              });
+              
+              if (activity.description) {
+                rows += `
+                  <tr>
+                    <td colspan="2" class="activity-desc">${activity.description}</td>
+                  </tr>
+                `;
+              }
+              
+              rows += `
+                <tr class="activity-total-row">
+                  <td colspan="3" class="text-right">${t.total} ${activity.name}:</td>
+                  <td class="text-right">${currency}${formatNumber(activitySubtotal)}</td>
+                  <td class="text-right">${currency}${formatNumber(activitySubtotal * activity.vat / 100)}</td>
+                  <td class="text-right">${currency}${formatNumber(activityTotalWithVat)}</td>
+                </tr>
+              `;
+              
+              return rows;
+            }).join('')}
+          </tbody>
+        </table>
+        
+        <table class="summary-section">
+          <tbody>
+            <tr class="summary-row">
+              <td style="width: 70%;" class="text-right">${t.subtotal}:</td>
+              <td style="width: 30%;" class="text-right">${currency}${formatNumber(subtotal)}</td>
+            </tr>
+            <tr class="summary-row">
+              <td class="text-right">${t.vatAmount}:</td>
+              <td class="text-right">${currency}${formatNumber(vatAmount)}</td>
+            </tr>
+            ${calculateTotalActivityDiscounts() > 0 ? `
+              <tr class="discount-row">
+                <td class="text-right">${t.discount} ${t.activities}:</td>
+                <td class="text-right">-${currency}${formatNumber(calculateTotalActivityDiscounts())}</td>
+              </tr>
+            ` : ''}
+            ${generalDiscount.enabled && generalDiscountAmount > 0 ? `
+              <tr class="summary-row">
+                <td class="text-right">${t.beforeDiscount}:</td>
+                <td class="text-right">${currency}${formatNumber(totalBeforeGeneralDiscount)}</td>
+              </tr>
+              <tr class="discount-row">
+                <td class="text-right">${t.generalDiscount}:</td>
+                <td class="text-right">-${currency}${formatNumber(generalDiscountAmount)}</td>
+              </tr>
+            ` : ''}
+            <tr class="grand-total-row">
+              <td class="text-right">${t.finalTotal}:</td>
+              <td class="text-right">${currency}${formatNumber(total)}</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        ${ganttHTML}
+        
+        ${pdfConfig.contractTerms ? `
+          <div class="contract-terms">
+            <h2>Condizioni Contrattuali</h2>
+            <div class="contract-terms-content">${pdfConfig.contractTerms}</div>
+          </div>
+        ` : ''}
+      </body>
+      </html>
+    `;
+  };
+
+  const handleExport = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      const html = generatePDFHTML();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
   const exportToPDF = () => {
+    handleExport();
+  };
+
+  const exportToDOCX = async () => {
+    // Apri il dialog per esportare DOCX (per ora usa il dialog esistente)
     setPdfDialogOpen(true);
   };
 
+  const createInteractivePage = () => {
+    // TODO: Implementare la creazione della pagina interattiva
+    // Per ora mostra un alert
+    alert('Funzionalità pagina interattiva in arrivo!');
+  };
+
   const exportToJSON = () => {
-    const config = {
+    const config: any = {
       budgetName,
       currency,
       defaultVat,
@@ -554,6 +995,15 @@ export default function HomePage() {
       generalDiscount,
       exportDate: new Date().toISOString(),
     };
+    
+    // Aggiungi scadenza solo se abilitata
+    if (expirationEnabled) {
+      config.expiration = {
+        enabled: true,
+        value: expirationValue,
+        unit: expirationUnit,
+      };
+    }
     
     // Formatta la data: YYYYMMDD_HHMMSS
     const now = new Date();
@@ -577,7 +1027,7 @@ export default function HomePage() {
   };
 
   const copyToClipboard = async () => {
-    const config = {
+    const config: any = {
       budgetName,
       currency,
       defaultVat,
@@ -586,6 +1036,16 @@ export default function HomePage() {
       generalDiscount,
       exportDate: new Date().toISOString(),
     };
+    
+    // Aggiungi scadenza solo se abilitata
+    if (expirationEnabled) {
+      config.expiration = {
+        enabled: true,
+        value: expirationValue,
+        unit: expirationUnit,
+      };
+    }
+    
     try {
       await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
       setConfigCopied(true);
@@ -628,11 +1088,20 @@ export default function HomePage() {
               
               const cost = calculateResourceCost(assignment.resourceId, assignment.hours, assignment.fixedPrice);
               
+              // Formatta le date se presenti
+              let dateRange = '';
+              if (activity.startDate && activity.endDate) {
+                const startDate = new Date(activity.startDate);
+                const endDate = new Date(activity.endDate);
+                dateRange = `<div style="font-size: 10px; color: #666; font-weight: normal; margin-top: 2px;">${startDate.toLocaleDateString('it-IT')} - ${endDate.toLocaleDateString('it-IT')}</div>`;
+              }
+              
               rows += `
                 <tr>
                   ${resIndex === 0 ? `
                     <td rowspan="${activity.resources.length + (activity.description ? 1 : 0)}" style="background-color: #f5f5f5; font-weight: bold; padding: 6px 10px; border: 1px solid #ddd;">
-                      ${activity.name}
+                      <div>${activity.name}</div>
+                      ${dateRange}
                     </td>
                   ` : ''}
                   <td style="padding: 6px 10px 6px 20px; border: 1px solid #ddd;">${resource.name}</td>
@@ -740,6 +1209,11 @@ export default function HomePage() {
     resources?: unknown[];
     activities?: unknown[];
     generalDiscount?: unknown;
+    expiration?: {
+      enabled: boolean;
+      value: number;
+      unit: 'days' | 'weeks' | 'months';
+    };
   }) => {
     // Non caricare il budgetName dai template, solo dalle configurazioni personalizzate
     if (config.budgetName) setBudgetName(config.budgetName);
@@ -757,6 +1231,13 @@ export default function HomePage() {
         value: 0,
         applyOn: 'taxable'
       });
+    }
+    
+    // Carica scadenza se presente
+    if (config.expiration) {
+      setExpirationEnabled(config.expiration.enabled);
+      if (config.expiration.value) setExpirationValue(config.expiration.value);
+      if (config.expiration.unit) setExpirationUnit(config.expiration.unit);
     }
   };
 
@@ -798,176 +1279,51 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Settings Accordion */}
-          <Accordion type="single" collapsible defaultValue="settings" className="mb-8">
-            <AccordionItem value="settings">
-              <AccordionTrigger className="text-lg font-semibold px-4">
-                {t.settings}
-              </AccordionTrigger>
-              <AccordionContent>
-                <Card>
-                  <CardContent className="pt-6 space-y-4">
-                    {/* Budget Name */}
-                    <div className="border-b pb-4 mb-4">
-                      <Label htmlFor="budgetName" className="text-base font-semibold mb-2 block">
-                        {t.budgetName}
-                      </Label>
-                      <Input
-                        id="budgetName"
-                        value={budgetName}
-                        onChange={(e) => setBudgetName(e.target.value)}
-                        placeholder={getDefaultBudgetName()}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        {t.budgetNamePlaceholder}
-                      </p>
-                    </div>
-
-                    {/* Load Configuration Buttons */}
-                    <div className="border-b pb-4 mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <Label className="text-base font-semibold">
-                          {t.startHere}
-                        </Label>
-                        <Button 
-                          onClick={() => setJsonDialogOpen(true)} 
-                          variant="outline"
-                          className="w-fit"
-                          size="sm"
-                        >
-                          <FileJson className="h-4 w-4 mr-2" />
-                          {t.customConfiguration}
-                        </Button>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        {t.templateIntro}
-                      </p>
-
-                      {/* Template Search and Filter Section */}
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">
-                          {t.recommendedTemplates}
-                        </p>
-                        
-                        {/* Search Bar */}
-                        <div className="relative mb-3">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            type="text"
-                            placeholder={`Ricerca tra i ${budgetTemplates.length} template`}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                          />
-                        </div>
-
-                        {/* Horizontal Scrollable Tags */}
-                        <div className="mb-4 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400">
-                          <div className="flex gap-2 min-w-max">
-                            {randomizedTags.map(tag => (
-                              <Badge
-                                key={tag}
-                                variant={selectedTags.includes(tag) ? "default" : "outline"}
-                                className="cursor-pointer whitespace-nowrap text-xs px-3 py-1"
-                                onClick={() => toggleTag(tag)}
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Template Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {filteredTemplates.map((template) => (
-                            <Card 
-                              key={template.id}
-                              className="cursor-pointer hover:shadow-md hover:border-gray-400 transition-all duration-200"
-                              onClick={() => loadConfiguration(template.config)}
-                            >
-                              <CardHeader className="pb-2 pt-3 px-3">
-                                <CardTitle className="text-sm font-semibold leading-tight">
-                                  {template.name}
-                                </CardTitle>
-                              </CardHeader>
-                              <CardContent className="px-3 pb-3">
-                                <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                                  {template.description}
-                                </p>
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                  {template.tags.slice(0, 2).map((tag) => (
-                                    <span 
-                                      key={tag}
-                                      className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {template.tags.length > 2 && (
-                                    <span className="text-xs text-gray-400 px-1">
-                                      +{template.tags.length - 2}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {template.config.resources.length} {t.resourcesCount} · {template.config.activities.length} {t.activitiesCount}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                          {filteredTemplates.length === 0 && (
-                            <div className="col-span-2 text-center py-8 text-gray-500 text-sm">
-                              Nessun template trovato
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Currency and VAT on same row */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <CurrencySelector
-                        value={currency}
-                        onChange={setCurrency}
-                        label={t.currency}
-                      />
-                      
-                      <div>
-                        <Label htmlFor="defaultVat" className="text-base font-semibold mb-2 block">
-                          {t.defaultVat}
-                        </Label>
-                        <NumberInput
-                          id="defaultVat"
-                          value={defaultVat}
-                          onChange={setDefaultVat}
-                          placeholder="22"
-                          min={0}
-                          max={100}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          {t.defaultForNewActivities}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          {/* Settings Section */}
+          <div className="mb-8">
+            <SettingsSection
+              budgetName={budgetName}
+              setBudgetName={setBudgetName}
+              currency={currency}
+              setCurrency={setCurrency}
+              defaultVat={defaultVat}
+              setDefaultVat={setDefaultVat}
+              expirationEnabled={expirationEnabled}
+              setExpirationEnabled={setExpirationEnabled}
+              expirationValue={expirationValue}
+              setExpirationValue={setExpirationValue}
+              expirationUnit={expirationUnit}
+              setExpirationUnit={setExpirationUnit}
+              calculatedExpirationDate={calculatedExpirationDate}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              selectedTags={selectedTags}
+              toggleTag={toggleTag}
+              randomizedTags={randomizedTags}
+              filteredTemplates={filteredTemplates}
+              loadConfiguration={loadConfiguration}
+              budgetTemplatesLength={budgetTemplates.length}
+              onOpenJsonDialog={() => setJsonDialogOpen(true)}
+              translations={t}
+            />
+          </div>
 
           {/* Resources Section */}
           <Accordion type="multiple" defaultValue={["resources", "activities"]} className="mb-8">
             <AccordionItem value="resources">
               <div className="flex items-center justify-between gap-4 mb-4">
-                <AccordionTrigger className="text-3xl font-bold hover:no-underline flex-1">
-                  {t.resources}
+                <AccordionTrigger className="text-lg font-semibold hover:no-underline flex-1">
+                  <div className="flex items-center gap-2">
+                    <Boxes className="h-5 w-5 text-gray-500" />
+                    {t.resources}
+                  </div>
                 </AccordionTrigger>
                 <Button 
                   onClick={(e) => {
                     e.stopPropagation();
                     addResource();
                   }} 
-                  className="shrink-0"
+                  className="!w-fit shrink-0"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   {t.addResource}
@@ -982,7 +1338,7 @@ export default function HomePage() {
                     <div className="grid grid-cols-12 gap-3 items-end">
                       {/* Nome e Tipo sulla stessa riga */}
                       <div className="col-span-5">
-                        <Label>{t.resourceName}</Label>
+                        <Label className="text-gray-500">{t.resourceName}</Label>
                         <Input
                           value={resource.name}
                           onChange={(e) => updateResource(resource.id, 'name', e.target.value)}
@@ -992,7 +1348,7 @@ export default function HomePage() {
                       </div>
 
                       <div className="col-span-2">
-                        <Label>{t.costType}</Label>
+                        <Label className="text-gray-500">{t.costType}</Label>
                         <Select
                           value={resource.costType}
                           onValueChange={(value) => updateResource(resource.id, 'costType', value)}
@@ -1011,7 +1367,7 @@ export default function HomePage() {
                       {/* Prezzo */}
                       {resource.costType === 'hourly' ? (
                         <div className="col-span-3">
-                          <Label>{t.pricePerHour} ({currency})</Label>
+                          <Label className="text-gray-500">{t.pricePerHour} ({currency})</Label>
                           <NumberInput
                             value={resource.pricePerHour}
                             onChange={(value) => updateResource(resource.id, 'pricePerHour', value)}
@@ -1021,7 +1377,7 @@ export default function HomePage() {
                         </div>
                       ) : resource.costType === 'quantity' ? (
                         <div className="col-span-3">
-                          <Label>{t.pricePerUnit} ({currency})</Label>
+                          <Label className="text-gray-500">{t.pricePerUnit} ({currency})</Label>
                           <NumberInput
                             value={resource.pricePerHour}
                             onChange={(value) => updateResource(resource.id, 'pricePerHour', value)}
@@ -1089,8 +1445,11 @@ export default function HomePage() {
             {/* Activities Section */}
             <AccordionItem value="activities">
               <div className="flex items-center justify-between gap-4 mb-4">
-                <AccordionTrigger className="text-3xl font-bold hover:no-underline flex-1">
-                  {t.activities}
+                <AccordionTrigger className="text-lg font-semibold hover:no-underline flex-1">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-5 w-5 text-gray-500" />
+                    {t.activities}
+                  </div>
                 </AccordionTrigger>
                 <Button 
                   onClick={(e) => {
@@ -1107,18 +1466,44 @@ export default function HomePage() {
 
               <AccordionContent>
                 <div className="space-y-4">
-                  {activities.map((activity, activityIndex) => (
+                  {activities.map((activity, activityIndex) => {
+                    const isExpanded = expandedActivities.has(activity.id);
+                    return (
                 <Card key={activity.id} className="border-2">
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-xl">
-                        {activity.name || `${t.activityName} ${activityIndex + 1}`}
-                      </CardTitle>
+                      <div 
+                        className="flex items-center gap-2 flex-1 cursor-pointer"
+                        onClick={() => {
+                          const newExpanded = new Set(expandedActivities);
+                          if (isExpanded) {
+                            newExpanded.delete(activity.id);
+                          } else {
+                            newExpanded.add(activity.id);
+                          }
+                          setExpandedActivities(newExpanded);
+                        }}
+                      >
+                        <ChevronDown 
+                          className={`h-5 w-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                        <CardTitle className="text-xl">
+                          {activity.name || `${t.activityName} ${activityIndex + 1}`}
+                        </CardTitle>
+                        {!isExpanded && (
+                          <span className="text-lg font-bold ml-auto">
+                            {currency}{formatNumber(calculateActivityTotalWithVat(activity))}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => moveActivityUp(activityIndex)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveActivityUp(activityIndex);
+                          }}
                           disabled={activityIndex === 0}
                           className="px-2"
                           title="Sposta su"
@@ -1128,7 +1513,10 @@ export default function HomePage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => moveActivityDown(activityIndex)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveActivityDown(activityIndex);
+                          }}
                           disabled={activityIndex === activities.length - 1}
                           className="px-2"
                           title="Sposta giù"
@@ -1138,7 +1526,10 @@ export default function HomePage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => deleteActivity(activity.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteActivity(activity.id);
+                          }}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 px-2"
                           title="Elimina"
                         >
@@ -1147,10 +1538,11 @@ export default function HomePage() {
                       </div>
                     </div>
                   </CardHeader>
+                  {isExpanded && (
                   <CardContent className="space-y-4">
                     {/* Nome Attività */}
                     <div>
-                      <Label>{t.activityName}</Label>
+                      <Label className="text-gray-500">{t.activityName}</Label>
                       <Input
                         value={activity.name}
                         onChange={(e) => updateActivity(activity.id, 'name', e.target.value)}
@@ -1160,7 +1552,7 @@ export default function HomePage() {
 
                     {/* Descrizione */}
                     <div>
-                      <Label>{t.activityDescription}</Label>
+                      <Label className="text-gray-500">{t.activityDescription}</Label>
                       <Textarea
                         value={activity.description}
                         onChange={(e) => updateActivity(activity.id, 'description', e.target.value)}
@@ -1171,22 +1563,24 @@ export default function HomePage() {
 
                     {/* Date Attività */}
                     <div>
-                      <Label>Periodo Attività</Label>
-                      <DateRangePicker
-                        value={{
-                          from: activity.startDate ? new Date(activity.startDate) : undefined,
-                          to: activity.endDate ? new Date(activity.endDate) : undefined,
-                        }}
-                        onChange={(range) => {
-                          if (range.from) {
-                            updateActivity(activity.id, 'startDate', formatDateToLocal(range.from));
-                          }
-                          if (range.to) {
-                            updateActivity(activity.id, 'endDate', formatDateToLocal(range.to));
-                          }
-                        }}
-                        placeholder="Seleziona periodo attività"
-                      />
+                      <Label className="text-gray-500">Periodo Attività</Label>
+                      <div className="max-w-md">
+                        <DateRangePicker
+                          value={{
+                            from: activity.startDate ? new Date(activity.startDate) : undefined,
+                            to: activity.endDate ? new Date(activity.endDate) : undefined,
+                          }}
+                          onChange={(range) => {
+                            if (range.from) {
+                              updateActivity(activity.id, 'startDate', formatDateToLocal(range.from));
+                            }
+                            if (range.to) {
+                              updateActivity(activity.id, 'endDate', formatDateToLocal(range.to));
+                            }
+                          }}
+                          placeholder="Seleziona periodo attività"
+                        />
+                      </div>
                     </div>
 
                     {/* Risorse Assegnate */}
@@ -1198,7 +1592,7 @@ export default function HomePage() {
                           return (
                             <div key={index} className="grid grid-cols-12 gap-3 items-end p-3 bg-gray-50 rounded-lg">
                               <div className="col-span-5">
-                                <Label className="text-xs">{t.selectResource}</Label>
+                                <Label className="text-xs text-gray-500">{t.selectResource}</Label>
                                 <Select
                                   value={assignment.resourceId}
                                   onValueChange={(value) => updateActivityResource(activity.id, index, 'resourceId', value)}
@@ -1218,7 +1612,7 @@ export default function HomePage() {
 
                               {resource && resource.costType === 'hourly' ? (
                                 <div className="col-span-2">
-                                  <Label className="text-xs">{t.hours}</Label>
+                                  <Label className="text-xs text-gray-500">{t.hours}</Label>
                                   <NumberInput
                                     value={assignment.hours}
                                     onChange={(value) => updateActivityResource(activity.id, index, 'hours', value)}
@@ -1228,7 +1622,7 @@ export default function HomePage() {
                                 </div>
                               ) : resource && resource.costType === 'quantity' ? (
                                 <div className="col-span-2">
-                                  <Label className="text-xs">{t.quantity}</Label>
+                                  <Label className="text-xs text-gray-500">{t.quantity}</Label>
                                   <NumberInput
                                     value={assignment.hours}
                                     onChange={(value) => updateActivityResource(activity.id, index, 'hours', value)}
@@ -1238,7 +1632,7 @@ export default function HomePage() {
                                 </div>
                               ) : resource && resource.costType === 'fixed' ? (
                                 <div className="col-span-2">
-                                  <Label className="text-xs">{t.fixedPrice} ({currency})</Label>
+                                  <Label className="text-xs text-gray-500">{t.fixedPrice} ({currency})</Label>
                                   <NumberInput
                                     value={assignment.fixedPrice}
                                     onChange={(value) => updateActivityResource(activity.id, index, 'fixedPrice', value)}
@@ -1251,7 +1645,7 @@ export default function HomePage() {
                               )}
 
                               <div className="col-span-3 text-right">
-                                <Label className="text-xs">{t.subtotal}</Label>
+                                <Label className="text-xs text-gray-500">{t.subtotal}</Label>
                                 <div className="text-lg font-bold">
                                   {currency}{formatNumber(calculateResourceCost(assignment.resourceId, assignment.hours, assignment.fixedPrice))}
                                 </div>
@@ -1275,7 +1669,7 @@ export default function HomePage() {
                           onClick={() => addResourceToActivity(activity.id)}
                           variant="outline"
                           size="sm"
-                          className="w-full"
+                          className="w-fit"
                           disabled={resources.length === 0}
                         >
                           <Plus className="h-4 w-4 mr-2" />
@@ -1286,47 +1680,44 @@ export default function HomePage() {
 
                     {/* IVA Attività */}
                     <div className="pt-3 border-t">
-                      <Label>{t.vatRate}</Label>
-                      <NumberInput
-                        value={activity.vat}
-                        onChange={(value) => updateActivity(activity.id, 'vat', value)}
-                        placeholder="22"
-                        min={0}
-                        max={100}
-                      />
+                      <Label className="text-gray-500">{t.vatRate}</Label>
+                      <div className="max-w-24">
+                        <NumberInput
+                          value={activity.vat}
+                          onChange={(value) => updateActivity(activity.id, 'vat', value)}
+                          placeholder="22"
+                          min={0}
+                          max={100}
+                        />
+                      </div>
                     </div>
 
                     {/* Sconto Attività */}
                     <div className="pt-3 border-t">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Switch
+                          checked={activity.discount?.enabled || false}
+                          onCheckedChange={(checked) => {
+                            const newDiscount: ActivityDiscount = activity.discount || {
+                              enabled: false,
+                              type: 'percentage',
+                              value: 0,
+                              applyOn: 'taxable'
+                            };
+                            updateActivity(activity.id, 'discount', {
+                              ...newDiscount,
+                              enabled: checked
+                            });
+                          }}
+                        />
                         <Label className="text-base font-semibold">{t.activityDiscount}</Label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={activity.discount?.enabled || false}
-                            onChange={(e) => {
-                              const newDiscount: ActivityDiscount = activity.discount || {
-                                enabled: false,
-                                type: 'percentage',
-                                value: 0,
-                                applyOn: 'taxable'
-                              };
-                              updateActivity(activity.id, 'discount', {
-                                ...newDiscount,
-                                enabled: e.target.checked
-                              });
-                            }}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm text-gray-600">{t.discount}</span>
-                        </label>
                       </div>
                       
                       {activity.discount?.enabled && (
                         <div className="space-y-3 pl-4 border-l-2 border-gray-200">
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-3 gap-3">
                             <div>
-                              <Label className="text-xs">{t.discountType}</Label>
+                              <Label className="text-xs text-gray-500">{t.discountType}</Label>
                               <Select
                                 value={activity.discount?.type || 'percentage'}
                                 onValueChange={(value: 'percentage' | 'fixed') => {
@@ -1353,7 +1744,7 @@ export default function HomePage() {
                             </div>
                             
                             <div>
-                              <Label className="text-xs">
+                              <Label className="text-xs text-gray-500">
                                 {activity.discount?.type === 'percentage' ? t.percentage : `${t.fixedAmount} (${currency})`}
                               </Label>
                               <NumberInput
@@ -1374,33 +1765,33 @@ export default function HomePage() {
                                 min={0}
                               />
                             </div>
-                          </div>
 
-                          <div>
-                            <Label className="text-xs">{t.applyDiscountOn}</Label>
-                            <Select
-                              value={activity.discount?.applyOn || 'taxable'}
-                              onValueChange={(value: 'taxable' | 'withVat') => {
-                                const newDiscount = activity.discount || {
-                                  enabled: true,
-                                  type: 'percentage',
-                                  value: 0,
-                                  applyOn: 'taxable'
-                                };
-                                updateActivity(activity.id, 'discount', {
-                                  ...newDiscount,
-                                  applyOn: value
-                                });
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="taxable">{t.taxableAmount}</SelectItem>
-                                <SelectItem value="withVat">{t.totalWithVatAmount}</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <div>
+                              <Label className="text-xs text-gray-500">{t.applyDiscountOn}</Label>
+                              <Select
+                                value={activity.discount?.applyOn || 'taxable'}
+                                onValueChange={(value: 'taxable' | 'withVat') => {
+                                  const newDiscount = activity.discount || {
+                                    enabled: true,
+                                    type: 'percentage',
+                                    value: 0,
+                                    applyOn: 'taxable'
+                                  };
+                                  updateActivity(activity.id, 'discount', {
+                                    ...newDiscount,
+                                    applyOn: value
+                                  });
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="taxable">{t.taxableAmount}</SelectItem>
+                                  <SelectItem value="withVat">{t.totalWithVatAmount}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
 
                           {activity.discount.value > 0 && (
@@ -1414,27 +1805,27 @@ export default function HomePage() {
 
                     {/* Totale Attività */}
                     <div className="pt-3 border-t space-y-2">
-                      <div className="flex justify-between items-center text-sm">
+                      <div className="flex justify-end items-center gap-2 text-sm">
                         <span className="font-semibold">{t.subtotal}:</span>
                         <span className="font-bold">
                           {currency}{formatNumber(calculateActivityTotal(activity))}
                         </span>
                       </div>
                       {activity.discount?.enabled && activity.discount.value > 0 && (
-                        <div className="flex justify-between items-center text-sm text-amber-600">
+                        <div className="flex justify-end items-center gap-2 text-sm text-amber-600">
                           <span>{t.discount}:</span>
                           <span>
                             -{currency}{formatNumber(calculateActivityDiscountAmount(activity))}
                           </span>
                         </div>
                       )}
-                      <div className="flex justify-between items-center text-sm text-gray-600">
+                      <div className="flex justify-end items-center gap-2 text-sm text-gray-600">
                         <span>{t.vat} ({activity.vat}%):</span>
                         <span>
                           {currency}{formatNumber(calculateActivityTotal(activity) * activity.vat / 100)}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center pt-2 border-t">
+                      <div className="flex justify-end items-center gap-2 pt-2 border-t">
                         <span className="font-semibold text-lg">{t.total}:</span>
                         <span className="text-2xl font-bold">
                           {currency}{formatNumber(calculateActivityTotalWithVat(activity))}
@@ -1442,8 +1833,10 @@ export default function HomePage() {
                       </div>
                     </div>
                   </CardContent>
+                  )}
                 </Card>
-              ))}
+                );
+              })}
 
                   {activities.length === 0 && resources.length > 0 && (
                     <Card>
@@ -1461,20 +1854,15 @@ export default function HomePage() {
           {activities.length > 0 && (
             <Card className="mb-6 border-2 border-amber-200 bg-amber-50">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={generalDiscount.enabled}
+                    onCheckedChange={(checked) => setGeneralDiscount({
+                      ...generalDiscount,
+                      enabled: checked
+                    })}
+                  />
                   <CardTitle className="text-lg font-semibold">{t.generalDiscount}</CardTitle>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={generalDiscount.enabled}
-                      onChange={(e) => setGeneralDiscount({
-                        ...generalDiscount,
-                        enabled: e.target.checked
-                      })}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-gray-600">{t.discount}</span>
-                  </label>
                 </div>
               </CardHeader>
               
@@ -1483,7 +1871,7 @@ export default function HomePage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <Label>{t.discountType}</Label>
+                        <Label className="text-gray-500">{t.discountType}</Label>
                         <Select
                           value={generalDiscount.type}
                           onValueChange={(value: 'percentage' | 'fixed') => setGeneralDiscount({
@@ -1502,7 +1890,7 @@ export default function HomePage() {
                       </div>
                       
                       <div>
-                        <Label>
+                        <Label className="text-gray-500">
                           {generalDiscount.type === 'percentage' ? t.percentage : `${t.fixedAmount} (${currency})`}
                         </Label>
                         <NumberInput
@@ -1517,7 +1905,7 @@ export default function HomePage() {
                       </div>
 
                       <div>
-                        <Label>{t.applyDiscountOn}</Label>
+                        <Label className="text-gray-500">{t.applyDiscountOn}</Label>
                         <Select
                           value={generalDiscount.applyOn}
                           onValueChange={(value: 'taxable' | 'withVat') => setGeneralDiscount({
@@ -1563,6 +1951,57 @@ export default function HomePage() {
           {/* Total */}
           {activities.length > 0 && (
             <div ref={finalTotalRef}>
+              {/* Summary Table Preview */}
+              <Card className="bg-white border-2 border-gray-200 mb-8">
+                <CardHeader className="border-b bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-semibold">
+                      {t.summaryTable}
+                    </CardTitle>
+                    <Button 
+                      onClick={copyTableToClipboard} 
+                      variant={tableCopied ? "default" : "default"} 
+                      size="sm"
+                      className={`transition-all ${tableCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                      disabled={tableCopied}
+                    >
+                      {tableCopied ? (
+                        <Check className="h-4 w-4 text-white" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-6 overflow-x-auto">
+                  <div 
+                    className="text-xs"
+                    dangerouslySetInnerHTML={{ __html: generateTableHTML() }}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Timeline - Collapsible */}
+              {activities.length > 0 && (
+                <Card className="bg-white border-2 border-gray-200 mb-8">
+                  <Accordion type="single" collapsible defaultValue="" className="w-full">
+                    <AccordionItem value="gantt-chart" className="border-none">
+                      <AccordionTrigger className="px-6 py-4 hover:no-underline">
+                        <CardTitle className="text-lg font-semibold">
+                          Timeline
+                        </CardTitle>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-6 pb-6">
+                        <GanttChart 
+                          activities={activities}
+                          onUpdateActivity={updateActivity}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </Card>
+              )}
+
               <Card className="bg-gradient-to-r from-gray-900 to-gray-800 text-white mb-8">
                 <CardContent className="pt-8 pb-8">
                   <div className="text-center">
@@ -1593,72 +2032,67 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
+              {/* PDF Export Configuration */}
+              <PDFExportConfig
+                pdfConfig={pdfConfig}
+                setPdfConfig={setPdfConfig}
+                logoPreview={logoPreview}
+                setLogoPreview={setLogoPreview}
+              />
+
               {/* Action Buttons */}
-              <div className="flex flex-wrap gap-4 justify-center items-center mb-8">
-                <Button onClick={exportToPDF} size="lg" variant="default">
-                  <FileDown className="h-5 w-5 mr-2" />
-                  {t.exportPDF}
+              <div className="flex flex-wrap gap-3 justify-center items-center mb-8">
+                {/* Esporta con Select */}
+                <Select onValueChange={(value) => {
+                  if (value === 'pdf') {
+                    exportToPDF();
+                  } else if (value === 'docx') {
+                    exportToDOCX();
+                  }
+                }}>
+                  <SelectTrigger className="h-11 w-auto min-w-[140px] gap-2">
+                    <FileDown className="h-5 w-5" />
+                    <span>Esporta</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pdf">PDF</SelectItem>
+                    <SelectItem value="docx">DOCX</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Salva config */}
+                <Button onClick={exportToJSON} size="lg" variant="outline">
+                  <Download className="h-5 w-5 mr-2" />
+                  Salva config
                 </Button>
-                <div className="flex gap-2 items-center">
-                  <Button onClick={exportToJSON} size="lg" variant="outline">
-                    <Download className="h-5 w-5 mr-2" />
-                    {t.exportJSON}
-                  </Button>
-                  <Button 
-                    onClick={copyToClipboard} 
-                    size="lg" 
-                    variant={configCopied ? "default" : "outline"} 
-                    className={`px-4 transition-all ${configCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                    disabled={configCopied}
-                  >
-                    {configCopied ? (
-                      <Check className="h-5 w-5 text-white" />
-                    ) : (
-                      <Copy className="h-5 w-5" />
-                    )}
-                  </Button>
-                </div>
+
+                {/* Copia config */}
+                <Button 
+                  onClick={copyToClipboard} 
+                  size="lg" 
+                  variant={configCopied ? "default" : "outline"} 
+                  className={`px-4 transition-all ${configCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                  disabled={configCopied}
+                >
+                  {configCopied ? (
+                    <Check className="h-5 w-5 text-white" />
+                  ) : (
+                    <Copy className="h-5 w-5" />
+                  )}
+                  <span className="ml-2">Copia config</span>
+                </Button>
+
+                {/* CTA principale - Pagina interattiva */}
+                <Button 
+                  onClick={createInteractivePage} 
+                  size="lg" 
+                  variant="default"
+                  className="bg-gray-900 hover:bg-gray-800 text-white"
+                >
+                  <Share2 className="h-5 w-5 mr-2" />
+                  Crea pagina interattiva
+                </Button>
               </div>
-
-              {/* Summary Table Preview */}
-              <Card className="bg-white border-2 border-gray-200">
-                <CardHeader className="border-b bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-semibold">
-                      {t.summaryTable}
-                    </CardTitle>
-                    <Button 
-                      onClick={copyTableToClipboard} 
-                      variant={tableCopied ? "default" : "default"} 
-                      size="sm"
-                      className={`transition-all ${tableCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                      disabled={tableCopied}
-                    >
-                      {tableCopied ? (
-                        <Check className="h-4 w-4 text-white" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-6 overflow-x-auto">
-                  <div 
-                    className="text-xs"
-                    dangerouslySetInnerHTML={{ __html: generateTableHTML() }}
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Gantt Chart Timeline */}
-              {activities.length > 0 && (
-                <div className="mt-6">
-                  <GanttChart 
-                    activities={activities}
-                    onUpdateActivity={updateActivity}
-                  />
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -1711,7 +2145,7 @@ export default function HomePage() {
               )}
             </div>
             <div className="flex gap-2 flex-shrink-0">
-              <Button onClick={handleLoadJson} className="flex-1">
+              <Button onClick={handleLoadJson} className="w-fit">
                 {t.load}
               </Button>
               <Button 

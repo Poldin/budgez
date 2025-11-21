@@ -14,7 +14,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Budgez",
+  title: "Demo Formazione",
   description: "quotes at the speed of light.",
 };
 
