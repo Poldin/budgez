@@ -73,32 +73,78 @@ export default function SettingsSection({
 
   const copyAiPrompt = async () => {
     const prompt = `Agisci come un generatore di JSON per l'app di preventivi Budgez.
-Genera un oggetto JSON valido con questa struttura:
+Genera un oggetto JSON valido con questa struttura completa:
+
 {
   "budgetName": "Nome del preventivo",
   "currency": "€",
   "defaultVat": 22,
   "resources": [
-    { "id": "1", "name": "Nome Risorsa", "costType": "hourly", "pricePerHour": 50 }
+    {
+      "id": "1",
+      "name": "Nome Risorsa",
+      "costType": "hourly",
+      "pricePerHour": 50
+    }
   ],
   "activities": [
     {
       "id": "1",
       "name": "Nome Attività",
-      "description": "Descrizione",
+      "description": "Descrizione dettagliata",
       "vat": 22,
+      "startDate": "2024-01-15",
+      "endDate": "2024-01-30",
       "resources": [
-        { "resourceId": "1", "hours": 10, "fixedPrice": 0 }
-      ]
+        {
+          "resourceId": "1",
+          "hours": 10,
+          "fixedPrice": 0
+        }
+      ],
+      "discount": {
+        "enabled": false,
+        "type": "percentage",
+        "value": 0,
+        "applyOn": "taxable"
+      }
     }
   ],
+  "generalDiscount": {
+    "enabled": false,
+    "type": "percentage",
+    "value": 0,
+    "applyOn": "taxable"
+  },
   "expiration": {
     "enabled": true,
     "value": 2,
     "unit": "weeks"
+  },
+  "pdfConfig": {
+    "companyName": "La tua Azienda S.r.l.",
+    "companyInfo": "P. IVA 12345678901\\nVia Esempio 123\\n00100 Roma (RM)\\nTel. 06-1234567\\nwww.tuodominio.it\\ninfo@tuodominio.it",
+    "headerText": "Spett.le\\n[NOME CLIENTE]\\n[INDIRIZZO]\\n[CAP] [CITTÀ]\\nCF/P.IVA: [CODICE FISCALE]\\n\\nAlla cortese attenzione di [REFERENTE]",
+    "contractTerms": "CONDIZIONI DI PAGAMENTO:\\n• Acconto del 30% alla firma\\n• Saldo alla consegna\\n• Bonifico bancario entro 30 giorni\\n\\nVALIDITÀ OFFERTA: 30 giorni\\n\\nTERMINI DI CONSEGNA:\\n• Completamento previsto entro [TEMPO] dalla firma",
+    "signatureSection": {
+      "companyName": "[NOME AZIENDA]",
+      "signerName": "[NOME COGNOME]",
+      "signerRole": "[RUOLO]",
+      "date": "2024-01-15",
+      "place": "[CITTÀ]"
+    }
   }
 }
-Nota: "expiration" è opzionale. Se presente, "unit" può essere "days", "weeks" o "months".
+
+Note importanti:
+- "costType" può essere: "hourly" (orario), "quantity" (quantità), "fixed" (fisso)
+- Per risorse "fixed", il prezzo va specificato in "fixedPrice" nell'activity
+- "discount" e "generalDiscount" sono opzionali - metti "enabled": false se non servono
+- "startDate" ed "endDate" sono opzionali per le attività (formato ISO: YYYY-MM-DD)
+- "applyOn" può essere "taxable" (imponibile) o "withVat" (totale con IVA)
+- "expiration.unit" può essere "days", "weeks" o "months"
+- "pdfConfig" include i dati di mittente (companyName, companyInfo), destinatario (headerText) e condizioni contrattuali (contractTerms)
+
 L'utente vuole un preventivo per: [INSERISCI QUI LA TUA RICHIESTA]`;
 
     try {

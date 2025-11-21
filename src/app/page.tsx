@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Download, FileDown, Copy, ArrowUp, ArrowDown, Check, Boxes, CheckSquare, ChevronDown, FileText, Share2 } from 'lucide-react';
+import { Plus, Trash2, Download, FileDown, Copy, ArrowUp, ArrowDown, Check, Boxes, CheckSquare, ChevronDown, FileText, Sparkles } from 'lucide-react';
 import { translations, type Language } from '@/lib/translations';
 import { budgetTemplates } from '@/lib/budget-templates';
 import Footer from '@/components/footer/footer';
@@ -994,6 +994,14 @@ Firma _______________________________`,
       activities,
       generalDiscount,
       exportDate: new Date().toISOString(),
+      // Includi i dati del mittente, destinatario e condizioni contrattuali (escluso il logo)
+      pdfConfig: {
+        companyName: pdfConfig.companyName,
+        companyInfo: pdfConfig.companyInfo,
+        headerText: pdfConfig.headerText,
+        contractTerms: pdfConfig.contractTerms,
+        signatureSection: pdfConfig.signatureSection,
+      },
     };
     
     // Aggiungi scadenza solo se abilitata
@@ -1035,6 +1043,14 @@ Firma _______________________________`,
       activities,
       generalDiscount,
       exportDate: new Date().toISOString(),
+      // Includi i dati del mittente, destinatario e condizioni contrattuali (escluso il logo)
+      pdfConfig: {
+        companyName: pdfConfig.companyName,
+        companyInfo: pdfConfig.companyInfo,
+        headerText: pdfConfig.headerText,
+        contractTerms: pdfConfig.contractTerms,
+        signatureSection: pdfConfig.signatureSection,
+      },
     };
     
     // Aggiungi scadenza solo se abilitata
@@ -1214,6 +1230,19 @@ Firma _______________________________`,
       value: number;
       unit: 'days' | 'weeks' | 'months';
     };
+    pdfConfig?: {
+      companyName?: string;
+      companyInfo?: string;
+      headerText?: string;
+      contractTerms?: string;
+      signatureSection?: {
+        companyName: string;
+        signerName: string;
+        signerRole: string;
+        date: string;
+        place: string;
+      };
+    };
   }) => {
     // Non caricare il budgetName dai template, solo dalle configurazioni personalizzate
     if (config.budgetName) setBudgetName(config.budgetName);
@@ -1238,6 +1267,18 @@ Firma _______________________________`,
       setExpirationEnabled(config.expiration.enabled);
       if (config.expiration.value) setExpirationValue(config.expiration.value);
       if (config.expiration.unit) setExpirationUnit(config.expiration.unit);
+    }
+    
+    // Carica i dati del PDF config se presenti (mittente, destinatario, condizioni contrattuali)
+    if (config.pdfConfig) {
+      setPdfConfig(prevConfig => ({
+        ...prevConfig,
+        companyName: config.pdfConfig?.companyName ?? prevConfig.companyName,
+        companyInfo: config.pdfConfig?.companyInfo ?? prevConfig.companyInfo,
+        headerText: config.pdfConfig?.headerText ?? prevConfig.headerText,
+        contractTerms: config.pdfConfig?.contractTerms ?? prevConfig.contractTerms,
+        signatureSection: config.pdfConfig?.signatureSection ?? prevConfig.signatureSection,
+      }));
     }
   };
 
@@ -2050,9 +2091,11 @@ Firma _______________________________`,
                     exportToDOCX();
                   }
                 }}>
-                  <SelectTrigger className="h-11 w-auto min-w-[140px] gap-2">
-                    <FileDown className="h-5 w-5" />
-                    <span>Esporta</span>
+                  <SelectTrigger className="group h-11 overflow-hidden transition-all duration-300 w-11 hover:w-[140px] hover:gap-2 justify-center hover:justify-start bg-white border border-input hover:bg-accent hover:text-accent-foreground">
+                    <FileDown className="h-5 w-5 flex-shrink-0" />
+                    <span className="whitespace-nowrap opacity-0 w-0 group-hover:opacity-100 group-hover:w-auto transition-all duration-300">
+                      Esporta
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pdf">PDF</SelectItem>
@@ -2061,25 +2104,40 @@ Firma _______________________________`,
                 </Select>
 
                 {/* Salva config */}
-                <Button onClick={exportToJSON} size="lg" variant="outline">
-                  <Download className="h-5 w-5 mr-2" />
-                  Salva config
+                <Button 
+                  onClick={exportToJSON} 
+                  variant="outline"
+                  className="group h-11 overflow-hidden transition-all duration-300 w-11 hover:w-[160px] hover:gap-2 justify-center hover:justify-start"
+                >
+                  <Download className="h-5 w-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap opacity-0 w-0 group-hover:opacity-100 group-hover:w-auto transition-all duration-300">
+                    Salva config
+                  </span>
                 </Button>
 
                 {/* Copia config */}
                 <Button 
                   onClick={copyToClipboard} 
-                  size="lg" 
                   variant={configCopied ? "default" : "outline"} 
-                  className={`px-4 transition-all ${configCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                  className={`group h-11 overflow-hidden transition-all duration-300 hover: gap-2 justify-center hover:justify-start ${
+                    configCopied 
+                      ? 'bg-green-600 hover:bg-green-700 w-11' 
+                      : 'w-11 hover:w-[160px]'
+                  }`}
                   disabled={configCopied}
                 >
                   {configCopied ? (
-                    <Check className="h-5 w-5 text-white" />
+                    <Check className="h-5 w-5 text-white flex-shrink-0" />
                   ) : (
-                    <Copy className="h-5 w-5" />
+                    <Copy className="h-5 w-5 flex-shrink-0" />
                   )}
-                  <span className="ml-2">Copia config</span>
+                  <span className={`whitespace-nowrap transition-all duration-300 ${
+                    configCopied 
+                      ? 'opacity-0 w-0' 
+                      : 'opacity-0 w-0 group-hover:opacity-100 group-hover:w-auto'
+                  }`}>
+                    Copia config
+                  </span>
                 </Button>
 
                 {/* CTA principale - Pagina interattiva */}
@@ -2089,8 +2147,8 @@ Firma _______________________________`,
                   variant="default"
                   className="bg-gray-900 hover:bg-gray-800 text-white"
                 >
-                  <Share2 className="h-5 w-5 mr-2" />
-                  Crea pagina interattiva
+                  <Sparkles className="h-5 w-5 mr-2" />
+                  Crea preventivo interattivo
                 </Button>
               </div>
             </div>

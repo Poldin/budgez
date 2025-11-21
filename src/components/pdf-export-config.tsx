@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, X, FileText, FileCheck } from 'lucide-react';
+import { Upload, X, FileText, FileCheck, ExternalLink } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { headerTemplates } from '@/lib/header-templates';
 import { contractTemplates } from '@/lib/contract-templates';
@@ -248,6 +248,18 @@ export default function PDFExportConfig({
                 Condizioni Contrattuali
               </div>
             </AccordionTrigger>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open('https://www.lexdo.it/prodotti/', '_blank', 'noopener,noreferrer');
+              }}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Consulenza Legale
+            </Button>
           </div>
 
           <AccordionContent>
@@ -285,9 +297,7 @@ export default function PDFExportConfig({
                   value={pdfConfig.contractTerms}
                   onChange={(e) => setPdfConfig({ ...pdfConfig, contractTerms: e.target.value })}
                   placeholder="Scegli un template o scrivi le tue condizioni personalizzate..."
-                  className="flex-1 font-mono text-xs resize-none"
-                  style={{ height: 'auto', minHeight: '200px' }}
-                  rows={pdfConfig.contractTerms.split('\n').length + 1}
+                  className="flex-1 font-mono text-xs resize-y min-h-[400px] max-h-[600px]"
                 />
               </div>
             </div>
