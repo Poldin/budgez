@@ -4,7 +4,13 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
-import { HelpCircle, Languages } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { HelpCircle, Languages, User, LogOut } from 'lucide-react';
 import type { Language } from '@/lib/translations';
 
 interface AppHeaderProps {
@@ -14,12 +20,16 @@ interface AppHeaderProps {
     howItWorks: string;
     requestQuote?: string;
     createBudget?: string;
+    login?: string;
+    profile?: string;
+    logout?: string;
   };
-  ctaText: string;
-  ctaHref: string;
+  user?: any;
+  onLoginClick?: () => void;
+  onLogout?: () => void;
 }
 
-const AppHeader = ({ language, onLanguageChange, translations, ctaText, ctaHref }: AppHeaderProps) => {
+const AppHeader = ({ language, onLanguageChange, translations, user, onLoginClick, onLogout }: AppHeaderProps) => {
   const router = useRouter();
 
   return (
@@ -68,13 +78,43 @@ const AppHeader = ({ language, onLanguageChange, translations, ctaText, ctaHref 
               <HelpCircle className="h-5 w-5" />
             </Button>
 
-            {/* CTA button */}
-            <Button 
-              onClick={() => router.push(ctaHref)}
-              className="bg-gray-900 hover:bg-gray-800 text-white h-9"
-            >
-              {ctaText}
-            </Button>
+            {/* Login/Profile button */}
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    className="h-9 text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    {translations.profile || 'Profilo'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={async () => {
+                      if (onLogout) {
+                        await onLogout();
+                      }
+                    }} 
+                    className="cursor-pointer"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    {translations.logout || 'Esci'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              onLoginClick && (
+                <Button 
+                  variant="ghost"
+                  onClick={onLoginClick}
+                  className="h-9 text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                >
+                  {translations.login || 'Accedi'}
+                </Button>
+              )
+            )}
           </div>
         </div>
       </div>

@@ -209,6 +209,44 @@ export type Database = {
           },
         ]
       }
+      quotes: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string | null
+          metadata: Json | null
+          name: string | null
+          is_template: boolean | null
+          deadline: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          metadata?: Json | null
+          name?: string | null
+          is_template?: boolean | null
+          deadline?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          metadata?: Json | null
+          name?: string | null
+          is_template?: boolean | null
+          deadline?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

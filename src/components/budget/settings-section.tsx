@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, FileJson, Bot, Copy, Check, LayoutTemplate, Settings2, Calendar } from 'lucide-react';
+import { Search, FileJson, Bot, Copy, Check, LayoutTemplate, Settings2, Calendar, X, Plus } from 'lucide-react';
 import { NumberInput } from "@/components/ui/number-input";
 import CurrencySelector from '@/components/currency-selector';
 import { format } from 'date-fns';
@@ -16,6 +17,10 @@ import { Switch } from "@/components/ui/switch";
 interface SettingsSectionProps {
   budgetName: string;
   setBudgetName: (name: string) => void;
+  budgetDescription: string;
+  setBudgetDescription: (description: string) => void;
+  budgetTags: string[];
+  setBudgetTags: (tags: string[]) => void;
   currency: string;
   setCurrency: (currency: string) => void;
   defaultVat: number;
@@ -35,8 +40,9 @@ interface SettingsSectionProps {
   toggleTag: (tag: string) => void;
   randomizedTags: string[];
   filteredTemplates: any[];
-  loadConfiguration: (config: any) => void;
+  loadConfiguration: (config: any, templateName?: string, templateDescription?: string, templateTags?: string[]) => void;
   budgetTemplatesLength: number;
+  totalTemplatesInDb?: number;
   
   // Actions
   onOpenJsonDialog: () => void;
@@ -47,6 +53,10 @@ interface SettingsSectionProps {
 export default function SettingsSection({
   budgetName,
   setBudgetName,
+  budgetDescription,
+  setBudgetDescription,
+  budgetTags,
+  setBudgetTags,
   currency,
   setCurrency,
   defaultVat,
@@ -66,10 +76,18 @@ export default function SettingsSection({
   filteredTemplates,
   loadConfiguration,
   budgetTemplatesLength,
+  totalTemplatesInDb,
   onOpenJsonDialog,
   translations: t
 }: SettingsSectionProps) {
   const [promptCopied, setPromptCopied] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [templatesToShow, setTemplatesToShow] = useState(12); // Mostra 12 template inizialmente
+
+  // Reset templatesToShow quando cambiano i filtri
+  React.useEffect(() => {
+    setTemplatesToShow(12);
+  }, [searchQuery, selectedTags]);
 
   const copyAiPrompt = async () => {
     const prompt = `Agisci come un generatore di JSON per l'app di preventivi Budgez.
@@ -160,6 +178,25 @@ L'utente vuole un preventivo per: [INSERISCI QUI LA TUA RICHIESTA]`;
     return format(date, 'dd MMMM yyyy', { locale: it });
   };
 
+  const handleAddTag = () => {
+    const trimmedTag = newTagInput.trim();
+    if (trimmedTag && !budgetTags.includes(trimmedTag)) {
+      setBudgetTags([...budgetTags, trimmedTag]);
+      setNewTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setBudgetTags(budgetTags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Selection Section */}
@@ -222,24 +259,47 @@ L'utente vuole un preventivo per: [INSERISCI QUI LA TUA RICHIESTA]`;
             </div>
 
             {/* Template Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-1">
-              {filteredTemplates.map((template) => (
-                <div 
-                  key={template.id}
-                  className="bg-white p-3 rounded-lg border hover:shadow-md cursor-pointer transition-all group"
-                  onClick={() => loadConfiguration(template.config)}
-                >
-                  <div className="font-semibold text-sm mb-1 group-hover:text-primary">{template.name}</div>
-                  <p className="text-xs text-gray-500 line-clamp-2 mb-2">{template.description}</p>
-                  <div className="flex gap-1">
-                    {template.tags.slice(0, 2).map((tag: string) => (
-                      <span key={tag} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
-                        {tag}
-                      </span>
-                    ))}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filteredTemplates.slice(0, templatesToShow).map((template) => (
+                  <div 
+                    key={template.id}
+                    className="bg-white p-3 rounded-lg border hover:shadow-md cursor-pointer transition-all group"
+                    onClick={() => loadConfiguration(template.config, template.name, template.description, template.tags)}
+                  >
+                    <div className="font-semibold text-sm mb-1 group-hover:text-primary">{template.name}</div>
+                    <p className="text-xs text-gray-500 line-clamp-2 mb-2">{template.description}</p>
+                    <div className="flex gap-1">
+                      {template.tags.slice(0, 2).map((tag: string) => (
+                        <span key={tag} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
+                ))}
+              </div>
+              
+              {/* Mostra di più button */}
+              {filteredTemplates.length > templatesToShow && (
+                <div className="flex justify-center pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTemplatesToShow(prev => prev + 12)}
+                    className="w-full sm:w-auto"
+                  >
+                    Mostra altri template ({filteredTemplates.length - templatesToShow} rimanenti)
+                  </Button>
                 </div>
-              ))}
+              )}
+              
+              {/* Mostra se ci sono più template nel DB rispetto a quelli filtrati */}
+              {totalTemplatesInDb !== undefined && totalTemplatesInDb > filteredTemplates.length && (
+                <div className="text-center text-sm text-gray-500 pt-2">
+                  Mostrando {filteredTemplates.length} di {totalTemplatesInDb} template disponibili
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -265,6 +325,73 @@ L'utente vuole un preventivo per: [INSERISCI QUI LA TUA RICHIESTA]`;
               placeholder="Preventivo..."
               className="max-w-xl"
             />
+          </div>
+
+          {/* Budget Description */}
+          <div className="col-span-2">
+            <Label htmlFor="budgetDescription" className="text-sm font-medium text-gray-700 mb-1.5 block">
+              Descrizione Generale
+            </Label>
+            <Textarea
+              id="budgetDescription"
+              value={budgetDescription}
+              onChange={(e) => setBudgetDescription(e.target.value)}
+              placeholder="Inserisci una descrizione generale del preventivo..."
+              className="max-w-xl min-h-[80px]"
+              rows={3}
+            />
+          </div>
+
+          {/* Budget Tags */}
+          <div className="col-span-2">
+            <Label htmlFor="budgetTags" className="text-sm font-medium text-gray-700 mb-1.5 block">
+              Tag
+            </Label>
+            <div className="space-y-2 max-w-xl">
+              {/* Input per aggiungere nuovi tag */}
+              <div className="flex gap-2">
+                <Input
+                  id="budgetTags"
+                  value={newTagInput}
+                  onChange={(e) => setNewTagInput(e.target.value)}
+                  onKeyDown={handleTagInputKeyDown}
+                  placeholder="Inserisci un tag e premi Invio..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddTag}
+                  disabled={!newTagInput.trim() || budgetTags.includes(newTagInput.trim())}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Lista dei tag esistenti */}
+              {budgetTags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {budgetTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="secondary"
+                      className="text-sm px-3 py-1 flex items-center gap-1.5 font-light"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="ml-1 hover:bg-gray-300 rounded-full p-0.5 transition-colors"
+                        aria-label={`Rimuovi tag ${tag}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Currency & VAT */}

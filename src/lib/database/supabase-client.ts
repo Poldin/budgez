@@ -18,8 +18,14 @@ export function createServerSupabaseClient() {
   })
 }
 
-// Client per operazioni client-side
+// Singleton client per operazioni client-side (riutilizzabile)
+let clientSupabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
+
 export function createClientSupabaseClient() {
+  if (clientSupabaseInstance) {
+    return clientSupabaseInstance;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -27,6 +33,7 @@ export function createClientSupabaseClient() {
     throw new Error('Missing Supabase environment variables')
   }
 
-  return createClient<Database>(supabaseUrl, supabaseAnonKey)
+  clientSupabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey)
+  return clientSupabaseInstance
 }
 

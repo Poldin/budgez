@@ -190,8 +190,6 @@ function RequestsPageContent() {
         language={language}
         onLanguageChange={setLanguage}
         translations={t}
-        ctaText={t.createBudget}
-        ctaHref="/"
       />
 
       {/* Main Content */}
