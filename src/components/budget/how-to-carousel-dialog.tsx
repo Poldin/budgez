@@ -16,6 +16,7 @@ interface HowToCarouselDialogProps {
 // Demo UI Components
 function AICreationDemo({ isActive }: { isActive: boolean }) {
   const [prompt, setPrompt] = useState('');
+  const [promptParts, setPromptParts] = useState<{ text: string; badge?: string }>({ text: '' });
   const [isProcessing, setIsProcessing] = useState(false);
   const [generatedContent, setGeneratedContent] = useState({
     name: '',
@@ -26,6 +27,7 @@ function AICreationDemo({ isActive }: { isActive: boolean }) {
   useEffect(() => {
     if (!isActive) {
       setPrompt('');
+      setPromptParts({ text: '' });
       setIsProcessing(false);
       setGeneratedContent({ name: '', resources: [], activities: [] });
       return;
@@ -34,13 +36,19 @@ function AICreationDemo({ isActive }: { isActive: boolean }) {
     const timers = [
       // Mostra il prompt che viene digitato
       setTimeout(() => {
-        setPrompt('Sito web e-commerce con');
+        setPrompt('il cliente vuole un sito web in Wordpress moderno');
+        setPromptParts({ text: 'il cliente vuole un sito web in Wordpress moderno' });
       }, 500),
       setTimeout(() => {
-        setPrompt('Sito web e-commerce con catalogo prodotti');
+        setPrompt('il cliente vuole un sito web in Wordpress moderno: fai un preventivo');
+        setPromptParts({ text: 'il cliente vuole un sito web in Wordpress moderno: fai un preventivo' });
       }, 1000),
       setTimeout(() => {
-        setPrompt('Sito web e-commerce con catalogo prodotti, carrello e pagamento');
+        setPrompt('il cliente vuole un sito web in Wordpress moderno: fai un preventivo prendendo a modello il preventivo @landing page WP old');
+        setPromptParts({ 
+          text: 'il cliente vuole un sito web in Wordpress moderno: fai un preventivo prendendo a modello il preventivo ',
+          badge: 'landing page WP standard'
+        });
       }, 1500),
       // Mostra che l'AI sta processando
       setTimeout(() => {
@@ -49,22 +57,22 @@ function AICreationDemo({ isActive }: { isActive: boolean }) {
       // Genera il contenuto progressivamente
       setTimeout(() => {
         setIsProcessing(false);
-        setGeneratedContent(prev => ({ ...prev, name: 'Preventivo E-commerce' }));
+        setGeneratedContent(prev => ({ ...prev, name: 'Preventivo Sito WordPress' }));
       }, 3000),
       setTimeout(() => {
-        setGeneratedContent(prev => ({ ...prev, resources: ['Sviluppatore Full-Stack'] }));
+        setGeneratedContent(prev => ({ ...prev, resources: ['Sviluppatore WordPress'] }));
       }, 3600),
       setTimeout(() => {
-        setGeneratedContent(prev => ({ ...prev, resources: ['Sviluppatore Full-Stack', 'Designer UX/UI'] }));
+        setGeneratedContent(prev => ({ ...prev, resources: ['Sviluppatore WordPress', 'Designer UX/UI'] }));
       }, 4200),
       setTimeout(() => {
-        setGeneratedContent(prev => ({ ...prev, activities: ['Sviluppo Frontend'] }));
+        setGeneratedContent(prev => ({ ...prev, activities: ['Sviluppo Template'] }));
       }, 4800),
       setTimeout(() => {
-        setGeneratedContent(prev => ({ ...prev, activities: ['Sviluppo Frontend', 'Sviluppo Backend'] }));
+        setGeneratedContent(prev => ({ ...prev, activities: ['Sviluppo Template', 'Configurazione Plugin'] }));
       }, 5400),
       setTimeout(() => {
-        setGeneratedContent(prev => ({ ...prev, activities: ['Sviluppo Frontend', 'Sviluppo Backend', 'Integrazione Pagamenti'] }));
+        setGeneratedContent(prev => ({ ...prev, activities: ['Sviluppo Template', 'Configurazione Plugin', 'Ottimizzazione SEO'] }));
       }, 6000),
     ];
 
@@ -84,8 +92,13 @@ function AICreationDemo({ isActive }: { isActive: boolean }) {
             prompt ? 'border-purple-400 bg-purple-50' : 'border-gray-200'
           }`}>
             {prompt && (
-              <div className="h-full flex items-start p-3 text-sm text-gray-700 animate-in fade-in slide-in-from-left-2">
-                {prompt}
+              <div className="h-full flex items-start p-3 text-sm text-gray-700 animate-in fade-in slide-in-from-left-2 flex-wrap gap-1">
+                {promptParts.text}
+                {promptParts.badge && (
+                  <Badge className="inline-flex items-center h-5 text-xs bg-blue-500 text-white border-blue-600 hover:bg-blue-600">
+                    @{promptParts.badge}
+                  </Badge>
+                )}
                 {!isProcessing && prompt && <span className="animate-pulse">|</span>}
               </div>
             )}
