@@ -21,7 +21,7 @@ export const translations = {
     other: "Altro",
     howItWorksTitle: "Come funziona Budgez?",
     howItWorksSubtitle: "Creare preventivi professionali non è mai stato così semplice",
-    howItWorksMainSubtitle: "La piattaforma completa per creare preventivi e richiedere offerte da professionisti verificati",
+    howItWorksMainSubtitle: "La piattaforma per creare preventivi dettagliati alla velocità della luce",
     tabCreateBudget: "Crea preventivo",
     tabRequestQuote: "Richiedi preventivo",
     requestStep1Title: "1. Pubblica la tua richiesta",
