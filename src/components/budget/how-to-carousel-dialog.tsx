@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Download, Copy, Globe, Check, Bot, Sparkles, Code, FileText, Link2, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Copy, Globe, Check, Bot, Sparkles, Code, FileText, Link2, ExternalLink, Mail, Pen } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -548,6 +548,138 @@ function ShareExportDemo({ isActive }: { isActive: boolean }) {
   );
 }
 
+function OTPSignatureDemo({ isActive }: { isActive: boolean }) {
+  const [step, setStep] = useState<'button' | 'dialog' | 'email' | 'otp' | 'signed'>('button');
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+
+  useEffect(() => {
+    if (!isActive) {
+      setStep('button');
+      setEmail('');
+      setOtp('');
+      return;
+    }
+
+    const timers = [
+      setTimeout(() => setStep('button'), 500),
+      setTimeout(() => setStep('dialog'), 1500),
+      setTimeout(() => setStep('email'), 2500),
+      setTimeout(() => {
+        setEmail('cliente@example.com');
+        setStep('otp');
+      }, 3500),
+      setTimeout(() => {
+        setOtp('123456');
+      }, 4500),
+      setTimeout(() => setStep('signed'), 5500),
+    ];
+
+    return () => timers.forEach(t => clearTimeout(t));
+  }, [isActive]);
+
+  return (
+    <div className="w-full max-w-lg mx-auto space-y-4">
+      {/* Header con pulsante */}
+      <div className="bg-white border-b border-gray-200 p-3 rounded-t-lg">
+        <div className="flex items-center justify-between">
+          <div className="h-2 bg-gray-300 rounded w-32"></div>
+          {step === 'button' && (
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 text-xs bg-gray-900 hover:bg-gray-800 text-white animate-in fade-in slide-in-from-right-2"
+            >
+              Firma con OTP
+            </Button>
+          )}
+          {step === 'signed' && (
+            <div className="text-xs text-gray-600 font-medium animate-in fade-in slide-in-from-right-2">
+              Firmato con OTP da cliente@example.com il 15/12/2024 alle 14:30
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Dialog */}
+      {(step === 'dialog' || step === 'email' || step === 'otp') && (
+        <Card className="p-6 bg-white border-2 border-gray-200 shadow-xl animate-in fade-in slide-in-from-bottom-4">
+          <div className="space-y-4">
+            {/* Titolo */}
+            <div className="space-y-2">
+              <div className="h-6 bg-gray-300 rounded w-40"></div>
+              <div className="h-3 bg-gray-200 rounded w-64"></div>
+            </div>
+
+            {/* Email input */}
+            {(step === 'email' || step === 'otp') && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-left-2">
+                <div className="h-2 bg-gray-200 rounded w-16"></div>
+                <div className="flex gap-2">
+                  <div className={`h-9 flex-1 bg-gray-100 rounded border-2 transition-all duration-300 ${
+                    email ? 'border-blue-400 bg-blue-50' : 'border-gray-200'
+                  }`}>
+                    {email && (
+                      <div className="h-full flex items-center px-3 text-sm text-gray-700">
+                        {email}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className={`transition-all duration-300 ${
+                      email ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300'
+                    }`}
+                  >
+                    <Mail className="h-4 w-4 mr-1.5" />
+                    Richiedi OTP
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* OTP input */}
+            {step === 'otp' && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-left-2">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                  Abbiamo inviato un codice di verifica a {email}
+                </div>
+                <div className="space-y-2">
+                  <div className="h-2 bg-gray-200 rounded w-24"></div>
+                  <div className={`h-12 bg-gray-100 rounded border-2 transition-all duration-300 ${
+                    otp ? 'border-green-400 bg-green-50' : 'border-gray-200'
+                  }`}>
+                    {otp && (
+                      <div className="h-full flex items-center justify-center text-2xl tracking-widest font-mono text-gray-700">
+                        {otp}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1">
+                    Invia nuovo codice
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className={`flex-1 transition-all duration-300 ${
+                      otp ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300'
+                    }`}
+                  >
+                    Verifica e Firma
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 const slides = [
   {
     title: '0. Lascia fare tutto all\'AI',
@@ -573,6 +705,11 @@ const slides = [
     title: '4. Crea Pagina Interattiva e Condividi',
     description: 'Una volta completato il preventivo, puoi esportarlo in PDF, copiare la configurazione in JSON per riutilizzarla, o creare una pagina interattiva da condividere con il cliente. La pagina interattiva permette al cliente di visualizzare tutti i dettagli in modo dinamico.',
     demo: ShareExportDemo,
+  },
+  {
+    title: '5. Firma con OTP',
+    description: 'Il cliente può firmare il preventivo utilizzando la verifica OTP via email. Basta cliccare sul pulsante "Firma con OTP", inserire la propria email, ricevere il codice di verifica e inserirlo per confermare la firma. Una volta firmato, il preventivo mostrerà la data e l\'ora della firma.',
+    demo: OTPSignatureDemo,
   },
 ];
 

@@ -16,16 +16,12 @@ export default function QuoteTimeline({ activities }: QuoteTimelineProps) {
   }
 
   return (
-    <div className="mt-8">
-      <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 border-b-2 border-gray-900 pb-2 mb-4">
-          Timeline Progetto
-        </h2>
-        <GanttChart 
-          activities={activities}
-          onUpdateActivity={() => {}} // Non modificabile nella visualizzazione
-        />
-      </div>
+    <div className="mt-8 mb-8">
+      <GanttChart 
+        activities={activities}
+        onUpdateActivity={() => {}} // Non modificabile nella visualizzazione
+        hideConfig={true}
+      />
     </div>
   );
 }

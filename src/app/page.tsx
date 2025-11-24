@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Compass, Plus } from "lucide-react";
 import { translations, type Language } from '@/lib/translations';
-import { getTemplates } from '@/app/actions/quote-actions';
+import { getTemplates, getMonthlyStats } from '@/app/actions/quote-actions';
 import type { BudgetTemplate } from '@/components/templates-sidebar';
 import Footer from '@/components/footer/footer';
 import GanttChart from '@/components/gantt-chart';
@@ -27,7 +27,7 @@ import ActionButtons from '@/components/budget/action-buttons';
 import FloatingTotal from '@/components/budget/floating-total';
 import JsonConfigDialog from '@/components/budget/json-config-dialog';
 import HowToCarouselDialog from '@/components/budget/how-to-carousel-dialog';
-import AIConfigDialog, { getAIConfig } from '@/components/budget/ai-config-dialog';
+import AIConfigDialog from '@/components/budget/ai-config-dialog';
 import HistorySection from '@/components/history-section';
 import ProfileSection from '@/components/profile-section';
 import { generateTableHTML } from '@/components/budget/table-html-generator';
@@ -136,29 +136,48 @@ Firma _______________________________`,
   const [expirationValue, setExpirationValue] = useState(2);
   const [expirationUnit, setExpirationUnit] = useState<'days' | 'weeks' | 'months'>('weeks');
   const [expirationEnabled, setExpirationEnabled] = useState(true);
+  const [expirationHour, setExpirationHour] = useState(12); // Default 12:00
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const finalTotalRef = useRef<HTMLDivElement>(null);
   const actionButtonsRef = useRef<HTMLDivElement>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
-  const [authDialogFromShare, setAuthDialogFromShare] = useState(false);
-  const [authDialogFromAI, setAuthDialogFromAI] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('create');
   const [howToDialogOpen, setHowToDialogOpen] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
   const [currentQuoteId, setCurrentQuoteId] = useState<string | null>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
+  const [monthlyStats, setMonthlyStats] = useState<{
+    twoMonthsAgo: { created: number; signed: number; conversionRate: number }
+    lastMonth: { created: number; signed: number; conversionRate: number }
+    currentMonth: { created: number; signed: number; conversionRate: number }
+  } | null>(null);
   
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Funzione per aggiornare la tab e l'URL
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    const newUrl = new URL(window.location.href);
+    if (newTab === 'create') {
+      // Rimuovi il parametro tab se è 'create' (default)
+      newUrl.searchParams.delete('tab');
+    } else {
+      newUrl.searchParams.set('tab', newTab);
+    }
+    router.push(newUrl.pathname + newUrl.search);
+  };
 
   const calculatedExpirationDate = React.useMemo(() => {
     const date = new Date();
     if (expirationUnit === 'days') date.setDate(date.getDate() + expirationValue);
     if (expirationUnit === 'weeks') date.setDate(date.getDate() + (expirationValue * 7));
     if (expirationUnit === 'months') date.setMonth(date.getMonth() + expirationValue);
+    // Imposta l'orario
+    date.setHours(expirationHour, 0, 0, 0);
     return date;
-  }, [expirationValue, expirationUnit]);
+  }, [expirationValue, expirationUnit, expirationHour]);
 
   const t = translations[language];
 
@@ -212,6 +231,22 @@ Firma _______________________________`,
     return () => subscription.unsubscribe();
   }, []);
 
+  // Carica statistiche mensili quando siamo nella tab history
+  React.useEffect(() => {
+    const loadMonthlyStats = async () => {
+      if (user && activeTab === 'history' && user.id) {
+        const result = await getMonthlyStats(user.id);
+        if (result.success && result.data) {
+          setMonthlyStats(result.data);
+        }
+      } else {
+        setMonthlyStats(null);
+      }
+    };
+
+    loadMonthlyStats();
+  }, [user, activeTab]);
+
   // Carica preventivo se c'è qid nell'URL
   React.useEffect(() => {
     const qid = searchParams.get('qid');
@@ -222,6 +257,14 @@ Firma _______________________________`,
       setCurrentQuoteId(null);
     }
   }, [searchParams]);
+
+  // Leggi il parametro tab dall'URL all'inizializzazione
+  React.useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['create', 'history', 'profile'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, []); // Solo all'inizializzazione
 
   const resetToNewQuote = () => {
     // Rimuovi qid dall'URL
@@ -247,6 +290,7 @@ Firma _______________________________`,
     setExpirationEnabled(true);
     setExpirationValue(2);
     setExpirationUnit('weeks');
+    setExpirationHour(12);
     setPdfConfig({
       companyName: '',
       companyInfo: `[Nome Azienda]
@@ -343,6 +387,9 @@ Firma _______________________________`,
           const diffTime = deadlineDate.getTime() - now.getTime();
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           
+          // Estrai l'orario dal deadline
+          setExpirationHour(deadlineDate.getHours());
+          
           if (diffDays > 0) {
             setExpirationEnabled(true);
             if (diffDays <= 30) {
@@ -361,6 +408,8 @@ Firma _______________________________`,
           setExpirationEnabled(metadata.expiration.enabled);
           if (metadata.expiration.value) setExpirationValue(metadata.expiration.value);
           if (metadata.expiration.unit) setExpirationUnit(metadata.expiration.unit);
+          if (metadata.expiration.hour !== undefined) setExpirationHour(metadata.expiration.hour);
+          else setExpirationHour(12); // Default se non presente
         }
         
         // Carica pdfConfig
@@ -598,32 +647,10 @@ Firma _______________________________`,
     setPdfDialogOpen(true);
   };
 
-  const handleAIGenerationStart = () => {
-    // Controllo 1: Verifica se la configurazione AI esiste
-    const aiConfig = getAIConfig();
-    if (!aiConfig || !aiConfig.apiKey) {
-      // Mostra il dialog di configurazione AI
-      setAiConfigDialogOpen(true);
-      return;
-    }
-
-    // Controllo 2: Se l'utente non è loggato, mostra il dialog di accesso con messaggio AI
-    if (!user) {
-      setAuthDialogFromAI(true);
-      setAuthDialogOpen(true);
-      return;
-    }
-
-    // Se tutto è ok, procedi con l'elaborazione AI
-    // TODO: Implementare l'elaborazione AI qui
-    console.log('Avvio elaborazione AI con prompt:', searchQuery);
-  };
-
   const createInteractivePage = async () => {
     // 0. Verifica se l'utente è loggato
     if (!user) {
-      // Mostra il dialog di login con spiegazione per la condivisione
-      setAuthDialogFromShare(true);
+      // Mostra il dialog di login
       setAuthDialogOpen(true);
       return;
     }
@@ -652,6 +679,7 @@ Firma _______________________________`,
         enabled: true,
         value: expirationValue,
         unit: expirationUnit,
+        hour: expirationHour,
       };
     }
 
@@ -754,6 +782,7 @@ Firma _______________________________`,
         enabled: true,
         value: expirationValue,
         unit: expirationUnit,
+        hour: expirationHour,
       };
     }
     
@@ -803,6 +832,7 @@ Firma _______________________________`,
         enabled: true,
         value: expirationValue,
         unit: expirationUnit,
+        hour: expirationHour,
       };
     }
     
@@ -854,6 +884,7 @@ Firma _______________________________`,
       enabled: boolean;
       value: number;
       unit: 'days' | 'weeks' | 'months';
+      hour?: number;
     };
     pdfConfig?: {
       companyName?: string;
@@ -907,6 +938,8 @@ Firma _______________________________`,
       setExpirationEnabled(config.expiration.enabled);
       if (config.expiration.value) setExpirationValue(config.expiration.value);
       if (config.expiration.unit) setExpirationUnit(config.expiration.unit);
+      if (config.expiration.hour !== undefined) setExpirationHour(config.expiration.hour);
+      else setExpirationHour(12); // Default se non presente
     }
     
     // Carica i dati del PDF config se presenti (mittente, destinatario, condizioni contrattuali)
@@ -947,10 +980,7 @@ Firma _______________________________`,
         onLanguageChange={setLanguage}
         translations={t}
         user={user}
-        onLoginClick={() => {
-          setAuthDialogFromShare(false);
-          setAuthDialogOpen(true);
-        }}
+        onLoginClick={() => setAuthDialogOpen(true)}
         onLogout={async () => {
           try {
             const supabase = createClientSupabaseClient();
@@ -972,17 +1002,9 @@ Firma _______________________________`,
       {/* Auth Dialog */}
       <AuthDialog
         open={authDialogOpen}
-        onOpenChange={(open) => {
-          setAuthDialogOpen(open);
-          if (!open) {
-            setAuthDialogFromShare(false);
-            setAuthDialogFromAI(false);
-          }
-        }}
+        onOpenChange={setAuthDialogOpen}
         language={language}
         translations={t}
-        showShareExplanation={authDialogFromShare}
-        showAIExplanation={authDialogFromAI}
       />
 
       {/* Main Content */}
@@ -991,7 +1013,7 @@ Firma _______________________________`,
           {/* Tabs - Only show when user is logged in */}
           {user && (
             <div className="mb-6">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsList className="w-fit grid grid-cols-3">
                   <TabsTrigger value="create">{(t as any).tabCreate || 'Crea'}</TabsTrigger>
                   <TabsTrigger value="history">{(t as any).tabHistory || 'Storico'}</TabsTrigger>
@@ -1003,55 +1025,137 @@ Firma _______________________________`,
 
           {/* Page Title */}
           <div className="mb-8">
-            <div className="flex items-center gap-3 mb-3">
-              <h1 className="text-3xl font-bold text-gray-900">
-                {user && activeTab === 'history' 
-                  ? (t as any).historyTitle || 'Storico Preventivi'
-                  : user && activeTab === 'profile'
-                  ? (t as any).profileTitle || 'Profilo'
-                  : t.createBudget}
-              </h1>
-              {(!user || activeTab === 'create') && (
-                <div className="flex items-center gap-2">
-                  {currentQuoteId && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={resetToNewQuote}
-                      className="h-8 text-sm"
-                    >
-                      <Plus className="h-4 w-4 mr-1.5" />
-                      Crea nuovo preventivo
-                    </Button>
+            <div className="flex items-start justify-between gap-6 mb-3 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-3">
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {user && activeTab === 'history' 
+                      ? (t as any).historyTitle || 'Storico Preventivi'
+                      : user && activeTab === 'profile'
+                      ? (t as any).profileTitle || 'Profilo'
+                      : t.createBudget}
+                  </h1>
+                  {(!user || activeTab === 'create') && (
+                    <div className="flex items-center gap-2">
+                      {currentQuoteId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={resetToNewQuote}
+                          className="h-8 text-sm"
+                        >
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          Crea nuovo preventivo
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setHowToDialogOpen(true)}
+                        className="h-8 text-sm"
+                      >
+                        <Compass className="h-4 w-4 mr-1.5" />
+                        Scopri come
+                      </Button>
+                    </div>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setHowToDialogOpen(true)}
-                    className="h-8 text-sm"
-                  >
-                    <Compass className="h-4 w-4 mr-1.5" />
-                    Scopri come
-                  </Button>
+                </div>
+                <p className="text-base text-gray-600 max-w-3xl">
+                  <AnimatedSubtitle 
+                    text={
+                      user && activeTab === 'history'
+                        ? (t as any).historySubtitle || 'Visualizza e gestisci i tuoi preventivi salvati'
+                        : user && activeTab === 'profile'
+                        ? (t as any).profileSubtitle || 'Gestisci le impostazioni del tuo account'
+                        : t.subtitle
+                    } 
+                  />
+                </p>
+              </div>
+              
+              {/* Tabella statistiche mensili - solo per tab history */}
+              {user && activeTab === 'history' && monthlyStats && (
+                <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* 2 mesi fa */}
+                    <div>
+                      <div className="text-xs text-gray-500 mb-2 font-medium text-center">
+                        {(() => {
+                          const date = new Date();
+                          date.setMonth(date.getMonth() - 2);
+                          return date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+                        })()}
+                      </div>
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {monthlyStats.twoMonthsAgo.signed}
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="text-sm text-gray-500">
+                            {monthlyStats.twoMonthsAgo.created}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {monthlyStats.twoMonthsAgo.conversionRate}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Mese scorso */}
+                    <div className="border-l border-r border-gray-200 px-4">
+                      <div className="text-xs text-gray-500 mb-2 font-medium text-center">
+                        {(() => {
+                          const date = new Date();
+                          date.setMonth(date.getMonth() - 1);
+                          return date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+                        })()}
+                      </div>
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {monthlyStats.lastMonth.signed}
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="text-sm text-gray-500">
+                            {monthlyStats.lastMonth.created}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {monthlyStats.lastMonth.conversionRate}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Mese attuale */}
+                    <div>
+                      <div className="text-xs text-gray-500 mb-2 font-medium text-center">
+                        {(() => {
+                          const date = new Date();
+                          return date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+                        })()}
+                      </div>
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {monthlyStats.currentMonth.signed}
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="text-sm text-gray-500">
+                            {monthlyStats.currentMonth.created}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {monthlyStats.currentMonth.conversionRate}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-            <p className="text-base text-gray-600 max-w-3xl">
-              <AnimatedSubtitle 
-                text={
-                  user && activeTab === 'history'
-                    ? (t as any).historySubtitle || 'Visualizza e gestisci i tuoi preventivi salvati'
-                    : user && activeTab === 'profile'
-                    ? (t as any).profileSubtitle || 'Gestisci le impostazioni del tuo account'
-                    : t.subtitle
-                } 
-              />
-            </p>
           </div>
 
           {/* Tab Content */}
           {user ? (
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <Tabs value={activeTab} onValueChange={handleTabChange}>
               {/* Create Tab */}
               <TabsContent value="create" className="mt-0">
                 {/* Settings Section */}
@@ -1073,6 +1177,8 @@ Firma _______________________________`,
                     setExpirationValue={setExpirationValue}
                     expirationUnit={expirationUnit}
                     setExpirationUnit={setExpirationUnit}
+                    expirationHour={expirationHour}
+                    setExpirationHour={setExpirationHour}
                     calculatedExpirationDate={calculatedExpirationDate}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
@@ -1085,8 +1191,6 @@ Firma _______________________________`,
                     totalTemplatesInDb={totalTemplatesInDb}
                     onOpenJsonDialog={() => setJsonDialogOpen(true)}
                     onOpenAIConfigDialog={() => setAiConfigDialogOpen(true)}
-                    onStartAIGeneration={handleAIGenerationStart}
-                    user={user}
                     translations={t}
                   />
                 </div>
@@ -1156,25 +1260,14 @@ Firma _______________________________`,
                       translations={t}
                     />
 
-                    {/* Timeline - Collapsible */}
+                    {/* Timeline */}
                     {activities.length > 0 && (
-                      <Card className="bg-white border-2 border-gray-200 mb-8">
-                        <Accordion type="single" collapsible defaultValue="" className="w-full">
-                          <AccordionItem value="gantt-chart" className="border-none">
-                            <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                              <CardTitle className="text-lg font-semibold">
-                                Timeline
-                              </CardTitle>
-                            </AccordionTrigger>
-                            <AccordionContent className="px-6 pb-6">
-                              <GanttChart 
-                                activities={activities}
-                                onUpdateActivity={updateActivity}
-                              />
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
-                      </Card>
+                      <div className="mb-8">
+                        <GanttChart 
+                          activities={activities}
+                          onUpdateActivity={updateActivity}
+                        />
+                      </div>
                     )}
 
                     <FinalTotalCard
@@ -1231,7 +1324,7 @@ Firma _______________________________`,
                     const supabase = createClientSupabaseClient();
                     await supabase.auth.signOut();
                     setUser(null);
-                    setActiveTab('create');
+                    handleTabChange('create');
                   }}
                 />
               </TabsContent>
@@ -1257,6 +1350,8 @@ Firma _______________________________`,
                   setExpirationValue={setExpirationValue}
                   expirationUnit={expirationUnit}
                   setExpirationUnit={setExpirationUnit}
+                  expirationHour={expirationHour}
+                  setExpirationHour={setExpirationHour}
                   calculatedExpirationDate={calculatedExpirationDate}
                   searchQuery={searchQuery}
                   setSearchQuery={setSearchQuery}
@@ -1265,12 +1360,9 @@ Firma _______________________________`,
                   randomizedTags={randomizedTags}
                   filteredTemplates={filteredTemplates}
                   loadConfiguration={loadConfiguration}
-                    budgetTemplatesLength={budgetTemplates.length}
-                    onOpenJsonDialog={() => setJsonDialogOpen(true)}
-                    onOpenAIConfigDialog={() => setAiConfigDialogOpen(true)}
-                    onStartAIGeneration={handleAIGenerationStart}
-                    user={user}
-                    translations={t}
+                  budgetTemplatesLength={budgetTemplates.length}
+                  onOpenJsonDialog={() => setJsonDialogOpen(true)}
+                  translations={t}
                 />
               </div>
 
@@ -1339,25 +1431,14 @@ Firma _______________________________`,
                     translations={t}
                   />
 
-                  {/* Timeline - Collapsible */}
+                  {/* Timeline */}
                   {activities.length > 0 && (
-                    <Card className="bg-white border-2 border-gray-200 mb-8">
-                      <Accordion type="single" collapsible defaultValue="" className="w-full">
-                        <AccordionItem value="gantt-chart" className="border-none">
-                          <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                            <CardTitle className="text-lg font-semibold">
-                              Timeline
-                            </CardTitle>
-                          </AccordionTrigger>
-                          <AccordionContent className="px-6 pb-6">
-                            <GanttChart 
-                              activities={activities}
-                              onUpdateActivity={updateActivity}
-                            />
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
-                    </Card>
+                    <div className="mb-8">
+                      <GanttChart 
+                        activities={activities}
+                        onUpdateActivity={updateActivity}
+                      />
+                    </div>
                   )}
 
                   <FinalTotalCard
@@ -1428,13 +1509,6 @@ Firma _______________________________`,
       <AIConfigDialog
         open={aiConfigDialogOpen}
         onOpenChange={setAiConfigDialogOpen}
-        onConfigSaved={() => {
-          // Se l'utente non è loggato, dopo aver salvato la configurazione AI, mostra il dialog di accesso
-          if (!user) {
-            setAuthDialogFromAI(true);
-            setAuthDialogOpen(true);
-          }
-        }}
       />
 
       {/* Footer */}

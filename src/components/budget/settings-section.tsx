@@ -31,6 +31,8 @@ interface SettingsSectionProps {
   setExpirationValue: (value: number) => void;
   expirationUnit: 'days' | 'weeks' | 'months';
   setExpirationUnit: (unit: 'days' | 'weeks' | 'months') => void;
+  expirationHour: number;
+  setExpirationHour: (hour: number) => void;
   calculatedExpirationDate: Date;
   
   // Template selection
@@ -70,6 +72,8 @@ export default function SettingsSection({
   setExpirationValue,
   expirationUnit,
   setExpirationUnit,
+  expirationHour,
+  setExpirationHour,
   calculatedExpirationDate,
   searchQuery,
   setSearchQuery,
@@ -128,8 +132,8 @@ export default function SettingsSection({
     const phrases = [
       isAiSearchMode 
         ? "Descrivi il tipo di preventivo che stai cercando (ricerca AI)..."
-        : `Cerca tra ${budgetTemplatesLength} template (fino a 6 parole chiave)...`,
-      "Scrivi qui che tipo di preventivo vuoi creare e lascia all'AI il lavoro"
+        : `Cerca tra i template disponibili (usa una parola chiave di ricerca)...`,
+      "Scrivi qui il contenuto del preventivo che vuoi creare e lascia all'AI il lavoro. Ad esempio: incolla qui la tua conversazione con il cliente e tagga un vecchio preventivo come esempio @vecchio_preventivo"
     ];
 
     let timeoutId: NodeJS.Timeout;
@@ -510,9 +514,23 @@ export default function SettingsSection({
                     <SelectItem value="months">{t.expirationMonths}</SelectItem>
                   </SelectContent>
                 </Select>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Calendar className="h-4 w-4" />
-                  <span>{formatDate(calculatedExpirationDate)}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Calendar className="h-4 w-4" />
+                    <span>{formatDate(calculatedExpirationDate)}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-sm text-gray-500">
+                    <span>alle</span>
+                    <NumberInput
+                      value={expirationHour}
+                      onChange={(val) => setExpirationHour(Math.max(0, Math.min(23, val || 0)))}
+                      min={0}
+                      max={23}
+                      disabled={!expirationEnabled}
+                      className="w-16"
+                    />
+                    <span>:00</span>
+                  </div>
                 </div>
               </div>
             </div>

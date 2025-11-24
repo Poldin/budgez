@@ -49,8 +49,8 @@ export default function SummaryTable({
       <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px;">
         <thead>
           <tr>
-            <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: left; font-weight: bold; border: 1px solid #ddd;">${t.activityName}</th>
-            <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: left; font-weight: bold; border: 1px solid #ddd;">${t.resourceName}</th>
+            <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: left; font-weight: bold; border: 1px solid #ddd;">Voce</th>
+            <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: left; font-weight: bold; border: 1px solid #ddd;">Dettaglio</th>
             <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: right; font-weight: bold; border: 1px solid #ddd;">${t.subtotal}</th>
             <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: right; font-weight: bold; border: 1px solid #ddd;">IVA</th>
             <th style="background-color: #1a1a1a; color: white; padding: 8px 10px; text-align: right; font-weight: bold; border: 1px solid #ddd;">${t.total}</th>
@@ -167,15 +167,15 @@ export default function SummaryTable({
           </CardTitle>
           <Button 
             onClick={onCopy} 
-            variant={tableCopied ? "default" : "default"} 
+            variant={tableCopied ? "default" : "ghost"} 
             size="sm"
-            className={`transition-all ${tableCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+            className={`transition-all h-7 w-7 p-0 ${tableCopied ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
             disabled={tableCopied}
           >
             {tableCopied ? (
-              <Check className="h-4 w-4 text-white" />
+              <Check className="h-3 w-3" />
             ) : (
-              <Copy className="h-4 w-4" />
+              <Copy className="h-3 w-3" />
             )}
           </Button>
         </div>

@@ -1,14 +1,13 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { getUserQuotes, deleteQuote } from '@/app/actions/quote-actions'
+import { getUserQuotes, deleteQuote, getQuoteCounts, getMonthlyStats } from '@/app/actions/quote-actions'
 import { formatDateToLocal, formatNumber } from '@/lib/budget-utils'
-import { Eye, Edit, Trash2 } from 'lucide-react'
+import { Eye, Edit, Trash2, Share2 } from 'lucide-react'
 import type { Language } from '@/lib/translations'
 import {
   calculateGrandTotal,
@@ -30,7 +29,14 @@ interface Quote {
   metadata: any
   is_template: boolean | null
   deadline: string | null
+  verification_id: string | null
+  otp_verification?: {
+    email: string
+    verified_at: string
+  } | null
 }
+
+type FilterType = 'all' | 'expired' | 'notExpired' | 'signed'
 
 export default function HistorySection({ userId, language, translations: t }: HistorySectionProps) {
   const [quotes, setQuotes] = useState<Quote[]>([])
@@ -40,16 +46,57 @@ export default function HistorySection({ userId, language, translations: t }: Hi
   const [confirmText, setConfirmText] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [filter, setFilter] = useState<FilterType>('all')
+  const [counts, setCounts] = useState<{ all: number; expired: number; notExpired: number; signed: number }>({
+    all: 0,
+    expired: 0,
+    notExpired: 0,
+    signed: 0
+  })
+  const [monthlyStats, setMonthlyStats] = useState<{
+    twoMonthsAgo: { created: number; signed: number; conversionRate: number }
+    lastMonth: { created: number; signed: number; conversionRate: number }
+    currentMonth: { created: number; signed: number; conversionRate: number }
+  } | null>(null)
 
   const requiredText = 'elimina permanentemente'
   const canDelete = confirmText === requiredText
 
+  // Carica i contatori e le statistiche mensili all'inizio e quando cambia userId
+  useEffect(() => {
+    const loadData = async () => {
+      if (userId) {
+        const [countsResult, statsResult] = await Promise.all([
+          getQuoteCounts(userId),
+          getMonthlyStats(userId)
+        ])
+        
+        if (countsResult.success && countsResult.data) {
+          setCounts(countsResult.data)
+        }
+        
+        if (statsResult.success && statsResult.data) {
+          setMonthlyStats(statsResult.data)
+        }
+      }
+    }
+
+    loadData()
+  }, [userId])
+
   useEffect(() => {
     const loadQuotes = async () => {
       setLoading(true)
-      const result = await getUserQuotes(userId)
+      const result = await getUserQuotes(userId, filter)
       if (result.success && result.data) {
-        setQuotes(result.data as Quote[])
+        // Gestisci il caso in cui otp_verification possa essere un array o null
+        const quotes: Quote[] = (result.data as any[]).map((data: any) => ({
+          ...data,
+          otp_verification: Array.isArray(data.otp_verification) 
+            ? (data.otp_verification.length > 0 ? data.otp_verification[0] : null)
+            : data.otp_verification || null
+        }))
+        setQuotes(quotes)
       }
       setLoading(false)
     }
@@ -57,7 +104,8 @@ export default function HistorySection({ userId, language, translations: t }: Hi
     if (userId) {
       loadQuotes()
     }
-  }, [userId])
+  }, [userId, filter])
+
 
   const handleDeleteClick = (quote: Quote) => {
     setQuoteToDelete(quote)
@@ -84,6 +132,20 @@ export default function HistorySection({ userId, language, translations: t }: Hi
       setDeleteDialogOpen(false)
       setQuoteToDelete(null)
       setConfirmText('')
+      
+      // Ricarica i contatori e le statistiche mensili
+      const [countsResult, statsResult] = await Promise.all([
+        getQuoteCounts(userId),
+        getMonthlyStats(userId)
+      ])
+      
+      if (countsResult.success && countsResult.data) {
+        setCounts(countsResult.data)
+      }
+      
+      if (statsResult.success && statsResult.data) {
+        setMonthlyStats(statsResult.data)
+      }
     } catch (err: any) {
       setDeleteError(err.message || 'Errore nell\'eliminazione')
     } finally {
@@ -98,6 +160,34 @@ export default function HistorySection({ userId, language, translations: t }: Hi
     setDeleteError(null)
   }
 
+  const handleShare = async (quote: Quote) => {
+    const shareUrl = `${window.location.origin}/v/${quote.id}`
+    const quoteName = quote.name || t.unnamedQuote || 'Preventivo senza nome'
+    const shareText = `Preventivo: ${quoteName}\n\nVisualizza il preventivo completo qui: ${shareUrl}`
+    
+    // Usa Web Share API se disponibile
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Preventivo: ${quoteName}`,
+          text: shareText,
+          url: shareUrl,
+        })
+      } catch (err) {
+        // Utente ha annullato o errore
+        console.log('Errore nella condivisione:', err)
+      }
+    } else {
+      // Fallback: copia negli appunti
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        // Potresti mostrare un toast qui se necessario
+      } catch (err) {
+        console.error('Errore nella copia:', err)
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -108,26 +198,74 @@ export default function HistorySection({ userId, language, translations: t }: Hi
 
   if (quotes.length === 0) {
     return (
-      <Card className="bg-white border-2 border-gray-200">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">{t.historyTitle}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <p className="text-gray-600 text-lg mb-2">{t.historyEmpty}</p>
-            <p className="text-gray-500 text-sm">{t.historyEmptyDesc}</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center py-8">
+        <p className="text-gray-600 text-lg mb-2">{t.historyEmpty}</p>
+        <p className="text-gray-500 text-sm">{t.historyEmptyDesc}</p>
+      </div>
     )
   }
 
   return (
-    <Card className="bg-white border-2 border-gray-200">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">{t.historyTitle}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <>
+      {/* Filtri */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <Button
+          variant={filter === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('all')}
+          className={filter === 'all' ? 'bg-gray-900 hover:bg-gray-800 text-white' : ''}
+        >
+          Tutti
+          <span className="ml-2 px-1.5 py-0.5 bg-white/20 rounded text-xs font-medium">
+            {counts.all}
+          </span>
+        </Button>
+        <Button
+          variant={filter === 'expired' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('expired')}
+          className={filter === 'expired' ? 'bg-gray-900 hover:bg-gray-800 text-white' : ''}
+        >
+          Scaduti
+          <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${
+            filter === 'expired' ? 'bg-white/20' : 'bg-gray-100 text-gray-700'
+          }`}>
+            {counts.expired}
+          </span>
+        </Button>
+        <Button
+          variant={filter === 'notExpired' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('notExpired')}
+          className={filter === 'notExpired' ? 'bg-gray-900 hover:bg-gray-800 text-white' : ''}
+        >
+          Non scaduti
+          <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${
+            filter === 'notExpired' ? 'bg-white/20' : 'bg-gray-100 text-gray-700'
+          }`}>
+            {counts.notExpired}
+          </span>
+        </Button>
+        <Button
+          variant={filter === 'signed' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('signed')}
+          className={filter === 'signed' ? 'bg-gray-900 hover:bg-gray-800 text-white' : ''}
+        >
+          Firmati
+          <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${
+            filter === 'signed' ? 'bg-white/20' : 'bg-gray-100 text-gray-700'
+          }`}>
+            {counts.signed}
+          </span>
+        </Button>
+      </div>
+
+      {quotes.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-600 text-lg mb-2">Nessun preventivo trovato con questo filtro</p>
+        </div>
+      ) : (
         <div className="space-y-3">
           {quotes.map((quote) => {
             const deadlineDate = quote.deadline ? new Date(quote.deadline) : null;
@@ -172,7 +310,7 @@ export default function HistorySection({ userId, language, translations: t }: Hi
                     </h3>
                     <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
                       <span>{formatDateToLocal(new Date(quote.created_at))}</span>
-                      {deadlineDate && (
+                      {deadlineDate && !(quote.verification_id && quote.otp_verification) && (
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           isExpired 
                             ? 'bg-red-100 text-red-800' 
@@ -185,6 +323,21 @@ export default function HistorySection({ userId, language, translations: t }: Hi
                       {quote.is_template && (
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
                           {t.historyTemplate}
+                        </span>
+                      )}
+                      {quote.verification_id && quote.otp_verification && (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                          Firmato da {quote.otp_verification.email} il {(() => {
+                            const date = new Date(quote.otp_verification.verified_at);
+                            const dateStr = date.toLocaleDateString('it-IT', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            });
+                            const hourStr = date.getHours().toString().padStart(2, '0');
+                            const minuteStr = date.getMinutes().toString().padStart(2, '0');
+                            return `${dateStr} alle ${hourStr}:${minuteStr}`;
+                          })()}
                         </span>
                       )}
                     </div>
@@ -208,6 +361,15 @@ export default function HistorySection({ userId, language, translations: t }: Hi
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleShare(quote)}
+                      className="h-9 w-9 bg-white hover:bg-gray-50"
+                      title={t.shareQuote || 'Condividi preventivo'}
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="outline"
                       size="icon"
@@ -241,7 +403,7 @@ export default function HistorySection({ userId, language, translations: t }: Hi
             );
           })}
         </div>
-      </CardContent>
+      )}
 
       {/* Dialog di conferma eliminazione */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -286,7 +448,7 @@ export default function HistorySection({ userId, language, translations: t }: Hi
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   )
 }
 

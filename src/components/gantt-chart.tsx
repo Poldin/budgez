@@ -18,6 +18,7 @@ interface Activity {
 interface GanttChartProps {
   activities: Activity[];
   onUpdateActivity?: (id: string, field: 'startDate' | 'endDate', value: string) => void;
+  hideConfig?: boolean; // Nasconde il pulsante e il pannello di configurazione
 }
 
 // Converte una Date in formato YYYY-MM-DD preservando la data locale (senza shift UTC)
@@ -28,7 +29,7 @@ const formatDateToLocal = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-export default function GanttChart({ activities, onUpdateActivity }: GanttChartProps) {
+export default function GanttChart({ activities, onUpdateActivity, hideConfig = false }: GanttChartProps) {
   const [showQuickConfig, setShowQuickConfig] = useState(true); // Aperto di default
   const [globalShiftDays, setGlobalShiftDays] = useState<number>(0);
   const [individualShifts, setIndividualShifts] = useState<Record<string, number>>({});
@@ -429,25 +430,27 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
           <div>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              Timeline Progetto
+              Timeline
             </CardTitle>
             <p className="text-xs text-gray-500 mt-1">
               Visualizzazione: {getViewTypeLabel()} • Durata: {totalDays} giorni
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowQuickConfig(!showQuickConfig)}
-          >
-            {showQuickConfig ? 'Nascondi configurazione' : 'Mostra configurazione'}
-          </Button>
+          {!hideConfig && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowQuickConfig(!showQuickConfig)}
+            >
+              {showQuickConfig ? 'Nascondi configurazione' : 'Mostra configurazione'}
+            </Button>
+          )}
         </div>
       </CardHeader>
       
       <CardContent className="pt-6">
         {/* Quick Configuration Panel */}
-        {showQuickConfig && onUpdateActivity && (
+        {showQuickConfig && onUpdateActivity && !hideConfig && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">Configurazione Rapida Date</h3>
@@ -610,7 +613,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                          {formatDate(activity.startDate!)} - {formatDate(activity.endDate!)}
                        </p>
                      </div>
-                    <div className="flex-1 relative h-12">
+                    <div className="flex-1 relative h-8">
                       {/* Griglia verticale timeline */}
                       <div className="absolute inset-0 flex">
                         {timeColumns.map((column, mIdx) => {
@@ -632,7 +635,7 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
                        {/* Barra del Gantt */}
                        {position.isVisible && (
                          <div 
-                           className="absolute top-1/2 -translate-y-1/2 h-8 rounded transition-all group-hover:shadow-md"
+                           className="absolute top-1/2 -translate-y-1/2 h-2 rounded transition-all group-hover:shadow-md"
                            style={{
                              left: position.left,
                              width: position.width,
@@ -647,12 +650,6 @@ export default function GanttChart({ activities, onUpdateActivity }: GanttChartP
               })}
             </div>
 
-            {/* Legenda */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500">
-                Periodo: {minDate.toLocaleDateString('it-IT')} - {maxDate.toLocaleDateString('it-IT')} • {timeColumns.length} {getViewTypeLabel().toLowerCase()}
-              </p>
-            </div>
           </div>
         </div>
       </CardContent>
