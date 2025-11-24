@@ -7,9 +7,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getUserQuotes, deleteQuote } from '@/app/actions/quote-actions'
-import { formatDateToLocal } from '@/lib/budget-utils'
+import { formatDateToLocal, formatNumber } from '@/lib/budget-utils'
 import { Eye, Edit, Trash2 } from 'lucide-react'
 import type { Language } from '@/lib/translations'
+import {
+  calculateGrandTotal,
+  calculateGeneralDiscountAmount,
+  calculateGrandVat
+} from '@/lib/budget-calculations'
+import type { Resource, Activity, GeneralDiscount } from '@/types/budget'
 
 interface HistorySectionProps {
   userId: string
@@ -127,6 +133,33 @@ export default function HistorySection({ userId, language, translations: t }: Hi
             const deadlineDate = quote.deadline ? new Date(quote.deadline) : null;
             const isExpired = deadlineDate && deadlineDate < new Date();
             
+            // Calcola i valori finanziari se i dati sono disponibili
+            const metadata = quote.metadata || {};
+            const resources = metadata.resources as Resource[] || [];
+            const activities = metadata.activities as Activity[] || [];
+            const generalDiscount = metadata.generalDiscount as GeneralDiscount || {
+              enabled: false,
+              type: 'percentage',
+              value: 0,
+              applyOn: 'taxable'
+            };
+            const currency = metadata.currency || '€';
+            const defaultVat = metadata.defaultVat || 22; // IVA di default
+            
+            let grandTotal = 0;
+            let generalDiscountAmount = 0;
+            let grandVat = 0;
+            
+            if (resources.length > 0 && activities.length > 0) {
+              try {
+                grandTotal = calculateGrandTotal(resources, activities, generalDiscount);
+                generalDiscountAmount = calculateGeneralDiscountAmount(resources, activities, generalDiscount);
+                grandVat = calculateGrandVat(resources, activities);
+              } catch (error) {
+                console.error('Error calculating totals for quote:', quote.id, error);
+              }
+            }
+            
             return (
               <div
                 key={quote.id}
@@ -155,6 +188,24 @@ export default function HistorySection({ userId, language, translations: t }: Hi
                         </span>
                       )}
                     </div>
+                    {/* Informazioni finanziarie */}
+                    {grandTotal > 0 && (
+                      <div className="mt-2 flex items-center gap-4 text-sm flex-wrap">
+                        <span className="font-semibold text-gray-900">
+                          Prezzo finale: {currency}{formatNumber(grandTotal)}
+                        </span>
+                        {grandVat > 0 && (
+                          <span className="text-gray-600">
+                            IVA ({defaultVat}%): {currency}{formatNumber(grandVat)}
+                          </span>
+                        )}
+                        {generalDiscountAmount > 0 && (
+                          <span className="text-amber-600 font-medium">
+                            Sconto: -{currency}{formatNumber(generalDiscountAmount)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button

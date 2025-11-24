@@ -27,6 +27,7 @@ import ActionButtons from '@/components/budget/action-buttons';
 import FloatingTotal from '@/components/budget/floating-total';
 import JsonConfigDialog from '@/components/budget/json-config-dialog';
 import HowToCarouselDialog from '@/components/budget/how-to-carousel-dialog';
+import AIConfigDialog, { getAIConfig } from '@/components/budget/ai-config-dialog';
 import HistorySection from '@/components/history-section';
 import ProfileSection from '@/components/profile-section';
 import { generateTableHTML } from '@/components/budget/table-html-generator';
@@ -67,6 +68,7 @@ function HomePageContent() {
   const [jsonDialogOpen, setJsonDialogOpen] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
+  const [aiConfigDialogOpen, setAiConfigDialogOpen] = useState(false);
   const [tableCopied, setTableCopied] = useState(false);
   const [configCopied, setConfigCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -136,7 +138,10 @@ Firma _______________________________`,
   const [expirationEnabled, setExpirationEnabled] = useState(true);
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const finalTotalRef = useRef<HTMLDivElement>(null);
+  const actionButtonsRef = useRef<HTMLDivElement>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authDialogFromShare, setAuthDialogFromShare] = useState(false);
+  const [authDialogFromAI, setAuthDialogFromAI] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('create');
   const [howToDialogOpen, setHowToDialogOpen] = useState(false);
@@ -593,10 +598,32 @@ Firma _______________________________`,
     setPdfDialogOpen(true);
   };
 
+  const handleAIGenerationStart = () => {
+    // Controllo 1: Verifica se la configurazione AI esiste
+    const aiConfig = getAIConfig();
+    if (!aiConfig || !aiConfig.apiKey) {
+      // Mostra il dialog di configurazione AI
+      setAiConfigDialogOpen(true);
+      return;
+    }
+
+    // Controllo 2: Se l'utente non è loggato, mostra il dialog di accesso con messaggio AI
+    if (!user) {
+      setAuthDialogFromAI(true);
+      setAuthDialogOpen(true);
+      return;
+    }
+
+    // Se tutto è ok, procedi con l'elaborazione AI
+    // TODO: Implementare l'elaborazione AI qui
+    console.log('Avvio elaborazione AI con prompt:', searchQuery);
+  };
+
   const createInteractivePage = async () => {
     // 0. Verifica se l'utente è loggato
     if (!user) {
-      // Mostra il dialog di login
+      // Mostra il dialog di login con spiegazione per la condivisione
+      setAuthDialogFromShare(true);
       setAuthDialogOpen(true);
       return;
     }
@@ -920,7 +947,10 @@ Firma _______________________________`,
         onLanguageChange={setLanguage}
         translations={t}
         user={user}
-        onLoginClick={() => setAuthDialogOpen(true)}
+        onLoginClick={() => {
+          setAuthDialogFromShare(false);
+          setAuthDialogOpen(true);
+        }}
         onLogout={async () => {
           try {
             const supabase = createClientSupabaseClient();
@@ -942,9 +972,17 @@ Firma _______________________________`,
       {/* Auth Dialog */}
       <AuthDialog
         open={authDialogOpen}
-        onOpenChange={setAuthDialogOpen}
+        onOpenChange={(open) => {
+          setAuthDialogOpen(open);
+          if (!open) {
+            setAuthDialogFromShare(false);
+            setAuthDialogFromAI(false);
+          }
+        }}
         language={language}
         translations={t}
+        showShareExplanation={authDialogFromShare}
+        showAIExplanation={authDialogFromAI}
       />
 
       {/* Main Content */}
@@ -1046,6 +1084,9 @@ Firma _______________________________`,
                     budgetTemplatesLength={budgetTemplates.length}
                     totalTemplatesInDb={totalTemplatesInDb}
                     onOpenJsonDialog={() => setJsonDialogOpen(true)}
+                    onOpenAIConfigDialog={() => setAiConfigDialogOpen(true)}
+                    onStartAIGeneration={handleAIGenerationStart}
+                    user={user}
                     translations={t}
                   />
                 </div>
@@ -1153,17 +1194,19 @@ Firma _______________________________`,
                     />
 
                     {/* Action Buttons */}
-                    <ActionButtons
-                      configCopied={configCopied}
-                      onExportPDF={exportToPDF}
-                      onExportDOCX={exportToDOCX}
-                      onExportJSON={exportToJSON}
-                      onCopyConfig={copyToClipboard}
-                      onCreateInteractive={createInteractivePage}
-                      savingQuote={savingQuote}
-                      isEditing={!!currentQuoteId}
-                      onCreateNew={resetToNewQuote}
-                    />
+                    <div ref={actionButtonsRef}>
+                      <ActionButtons
+                        configCopied={configCopied}
+                        onExportPDF={exportToPDF}
+                        onExportDOCX={exportToDOCX}
+                        onExportJSON={exportToJSON}
+                        onCopyConfig={copyToClipboard}
+                        onCreateInteractive={createInteractivePage}
+                        savingQuote={savingQuote}
+                        isEditing={!!currentQuoteId}
+                        onCreateNew={resetToNewQuote}
+                      />
+                    </div>
                   </div>
                 )}
               </TabsContent>
@@ -1222,9 +1265,12 @@ Firma _______________________________`,
                   randomizedTags={randomizedTags}
                   filteredTemplates={filteredTemplates}
                   loadConfiguration={loadConfiguration}
-                  budgetTemplatesLength={budgetTemplates.length}
-                  onOpenJsonDialog={() => setJsonDialogOpen(true)}
-                  translations={t}
+                    budgetTemplatesLength={budgetTemplates.length}
+                    onOpenJsonDialog={() => setJsonDialogOpen(true)}
+                    onOpenAIConfigDialog={() => setAiConfigDialogOpen(true)}
+                    onStartAIGeneration={handleAIGenerationStart}
+                    user={user}
+                    translations={t}
                 />
               </div>
 
@@ -1331,17 +1377,19 @@ Firma _______________________________`,
                   />
 
                   {/* Action Buttons */}
-                  <ActionButtons
-                    configCopied={configCopied}
-                    onExportPDF={exportToPDF}
-                    onExportDOCX={exportToDOCX}
-                    onExportJSON={exportToJSON}
-                    onCopyConfig={copyToClipboard}
-                    onCreateInteractive={createInteractivePage}
-                    savingQuote={savingQuote}
-                    isEditing={!!currentQuoteId}
-                    onCreateNew={resetToNewQuote}
-                  />
+                  <div ref={actionButtonsRef}>
+                    <ActionButtons
+                      configCopied={configCopied}
+                      onExportPDF={exportToPDF}
+                      onExportDOCX={exportToDOCX}
+                      onExportJSON={exportToJSON}
+                      onCopyConfig={copyToClipboard}
+                      onCreateInteractive={createInteractivePage}
+                      savingQuote={savingQuote}
+                      isEditing={!!currentQuoteId}
+                      onCreateNew={resetToNewQuote}
+                    />
+                  </div>
                 </div>
               )}
             </>
@@ -1350,13 +1398,16 @@ Firma _______________________________`,
       </main>
 
       {/* Floating Total - visible only when there are activities and final total is not in view */}
+      {/* Also only visible in "create" tab when user is logged in */}
       <FloatingTotal
         resources={resources}
         activities={activities}
         generalDiscount={generalDiscount}
         currency={currency}
-        show={activities.length > 0 && showFloatingTotal}
-        onExportPDF={exportToPDF}
+        show={activities.length > 0 && showFloatingTotal && (!user || activeTab === 'create')}
+        onScrollToActions={() => {
+          actionButtonsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
       />
 
       {/* JSON Configuration Dialog */}
@@ -1371,6 +1422,19 @@ Firma _______________________________`,
       <HowToCarouselDialog
         open={howToDialogOpen}
         onOpenChange={setHowToDialogOpen}
+      />
+
+      {/* AI Config Dialog */}
+      <AIConfigDialog
+        open={aiConfigDialogOpen}
+        onOpenChange={setAiConfigDialogOpen}
+        onConfigSaved={() => {
+          // Se l'utente non è loggato, dopo aver salvato la configurazione AI, mostra il dialog di accesso
+          if (!user) {
+            setAuthDialogFromAI(true);
+            setAuthDialogOpen(true);
+          }
+        }}
       />
 
       {/* Footer */}

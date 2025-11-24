@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FileDown, FileText, Upload, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { headerTemplates} from '@/lib/header-templates';
 import { contractTemplates} from '@/lib/contract-templates';
 import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, HeadingLevel, ImageRun } from 'docx';
 import { saveAs } from 'file-saver';
@@ -1132,25 +1131,6 @@ Firma _______________________________`,
                 <div className="space-y-4">
                   <Label className="text-base font-semibold">Destinatario</Label>
                   
-                  {/* Template Destinatario */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Template</Label>
-                    <div className="flex flex-wrap gap-1">
-                      {headerTemplates.map((template) => (
-                        <Button
-                          key={template.id}
-                          variant="outline"
-                          size="sm"
-                          className="h-auto py-1 px-2 text-xs"
-                          onClick={() => setPdfConfig({ ...pdfConfig, headerText: template.content })}
-                          title={template.description}
-                        >
-                          {template.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Textarea Destinatario */}
                   <div className="space-y-2">
                     <Label htmlFor="headerText" className="text-sm font-medium">Testo</Label>

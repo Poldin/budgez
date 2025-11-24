@@ -111,8 +111,8 @@ export default function ActionButtons({
           {savingQuote 
             ? 'Salvataggio...' 
             : isEditing 
-              ? 'Modifica preventivo interattivo' 
-              : 'Crea preventivo interattivo'}
+              ? 'Modifica' 
+              : 'Crea e condividi'}
         </Button>
       </div>
     </div>

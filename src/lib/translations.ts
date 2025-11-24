@@ -170,7 +170,7 @@ export const translations = {
     useAi: "Usa l'IA",
     templateSelectionTitle: "Come vuoi iniziare?",
     templateSelectionDesc: "Scegli un punto di partenza per il tuo preventivo",
-    manualSetup: "Configurazione Manuale",
+    manualSetup: "Template manuale",
     aiSetup: "Genera con IA",
     footerResources: "Risorse",
     footerServices: "Servizi",

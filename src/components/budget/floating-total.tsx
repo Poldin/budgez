@@ -14,7 +14,7 @@ interface FloatingTotalProps {
   generalDiscount: GeneralDiscount;
   currency: string;
   show: boolean;
-  onExportPDF: () => void;
+  onScrollToActions: () => void;
 }
 
 export default function FloatingTotal({
@@ -23,7 +23,7 @@ export default function FloatingTotal({
   generalDiscount,
   currency,
   show,
-  onExportPDF
+  onScrollToActions
 }: FloatingTotalProps) {
   if (!show) return null;
 
@@ -38,11 +38,11 @@ export default function FloatingTotal({
               {currency}{formatNumber(total)}
             </p>
             <Button 
-              onClick={onExportPDF} 
+              onClick={onScrollToActions} 
               size="sm" 
               variant="ghost"
               className="text-white hover:bg-gray-700 hover:text-white p-2"
-              title="Esporta PDF"
+              title="Vai ai tasti finali"
             >
               <FileDown className="h-5 w-5" />
             </Button>

@@ -42,6 +42,8 @@ interface AuthDialogProps {
     otpPlaceholder: string;
     verifying: string;
   };
+  showShareExplanation?: boolean;
+  showAIExplanation?: boolean;
 }
 
 interface PasswordRequirements {
@@ -52,7 +54,7 @@ interface PasswordRequirements {
   special: boolean;
 }
 
-export default function AuthDialog({ open, onOpenChange, language, translations: t }: AuthDialogProps) {
+export default function AuthDialog({ open, onOpenChange, language, translations: t, showShareExplanation = false, showAIExplanation = false }: AuthDialogProps) {
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [signupStep, setSignupStep] = useState<'credentials' | 'otp'>('credentials');
   const [email, setEmail] = useState('');
@@ -318,6 +320,20 @@ export default function AuthDialog({ open, onOpenChange, language, translations:
           </form>
         ) : mode === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-4">
+            {showShareExplanation && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                <p className="text-sm text-blue-800">
+                  Per generare una versione digitale e condivisibile del preventivo bisogna prima accedere o registrarsi.
+                </p>
+              </div>
+            )}
+            {showAIExplanation && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                <p className="text-sm text-blue-800">
+                  Accedi per usare l'AI e salvare ogni progresso nella generazione del preventivo.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="login-email">{t.email}</Label>
               <Input
@@ -335,7 +351,7 @@ export default function AuthDialog({ open, onOpenChange, language, translations:
                 <button
                   type="button"
                   onClick={() => handleModeChange('forgot')}
-                  className="text-sm text-blue-600 hover:text-blue-800"
+                  className="text-sm text-gray-600 hover:text-gray-800"
                 >
                   {t.forgotPassword}
                 </button>
@@ -366,7 +382,7 @@ export default function AuthDialog({ open, onOpenChange, language, translations:
               <button
                 type="button"
                 onClick={() => handleModeChange('signup')}
-                className="text-blue-600 hover:text-blue-800 font-medium"
+                className="text-gray-600 hover:text-gray-800 font-medium"
               >
                 {t.signUp}
               </button>
@@ -462,7 +478,7 @@ export default function AuthDialog({ open, onOpenChange, language, translations:
               <button
                 type="button"
                 onClick={() => handleModeChange('login')}
-                className="text-blue-600 hover:text-blue-800 font-medium"
+                className="text-gray-600 hover:text-gray-800 font-medium"
               >
                 {t.login}
               </button>
@@ -507,7 +523,7 @@ export default function AuthDialog({ open, onOpenChange, language, translations:
                   setError('');
                   setSuccess('');
                 }}
-                className="text-blue-600 hover:text-blue-800 font-medium"
+                className="text-gray-600 hover:text-gray-800 font-medium"
               >
                 ← Modifica email o password
               </button>
