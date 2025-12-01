@@ -4,7 +4,7 @@ import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileDown } from 'lucide-react';
-import type { Resource, Activity, GeneralDiscount } from '@/types/budget';
+import type { Resource, Activity, GeneralDiscount, GeneralMargin } from '@/types/budget';
 import { formatNumber } from '@/lib/budget-utils';
 import { calculateGrandTotal } from '@/lib/budget-calculations';
 
@@ -12,6 +12,7 @@ interface FloatingTotalProps {
   resources: Resource[];
   activities: Activity[];
   generalDiscount: GeneralDiscount;
+  generalMargin?: GeneralMargin;
   currency: string;
   show: boolean;
   onScrollToActions: () => void;
@@ -21,13 +22,14 @@ export default function FloatingTotal({
   resources,
   activities,
   generalDiscount,
+  generalMargin,
   currency,
   show,
   onScrollToActions
 }: FloatingTotalProps) {
   if (!show) return null;
 
-  const total = calculateGrandTotal(resources, activities, generalDiscount);
+  const total = calculateGrandTotal(resources, activities, generalDiscount, generalMargin);
 
   return (
     <div className="fixed bottom-6 right-6 z-40 animate-in slide-in-from-bottom-4 duration-300">

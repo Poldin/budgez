@@ -3,6 +3,7 @@ export interface Resource {
   name: string;
   costType: 'hourly' | 'quantity' | 'fixed';
   pricePerHour: number;
+  margin?: number; // Margine commerciale in percentuale (default 0)
 }
 
 export interface ResourceAssignment {
@@ -25,6 +26,7 @@ export interface Activity {
   resources: ResourceAssignment[];
   vat: number; // Percentuale IVA specifica per questa attività
   discount?: ActivityDiscount; // Sconto opzionale per l'attività
+  margin?: number; // Margine commerciale in percentuale (default 0)
   startDate?: string; // Data inizio attività (ISO format)
   endDate?: string; // Data fine attività (ISO format)
 }
@@ -34,5 +36,10 @@ export interface GeneralDiscount {
   type: 'percentage' | 'fixed';
   value: number;
   applyOn: 'taxable' | 'withVat'; // imponibile o totale ivato
+}
+
+export interface GeneralMargin {
+  enabled: boolean;
+  value: number; // Margine commerciale in percentuale (default 0)
 }
 

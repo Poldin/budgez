@@ -9,21 +9,38 @@ export const calculateResourceCost = (
   const resource = resources.find(r => r.id === resourceId);
   if (!resource) return 0;
   
+  let baseCost: number;
   if (resource.costType === 'hourly' || resource.costType === 'quantity') {
-    return hours * resource.pricePerHour;
+    baseCost = hours * resource.pricePerHour;
   } else {
-    return fixedPrice;
+    baseCost = fixedPrice;
   }
+  
+  // Applica il margine della risorsa se presente
+  const margin = resource.margin || 0;
+  if (margin > 0) {
+    return baseCost * (1 + margin / 100);
+  }
+  
+  return baseCost;
 };
 
-// Calcola il subtotale dell'attività (senza IVA e senza sconto)
+// Calcola il subtotale dell'attività (senza IVA e senza sconto, ma con margine risorse)
 export const calculateActivityTotal = (
   resources: Resource[],
   activity: Activity
 ): number => {
-  return activity.resources.reduce((total, assignment) => {
+  const subtotalWithResourceMargins = activity.resources.reduce((total, assignment) => {
     return total + calculateResourceCost(resources, assignment.resourceId, assignment.hours, assignment.fixedPrice);
   }, 0);
+  
+  // Applica il margine dell'attività se presente
+  const activityMargin = activity.margin || 0;
+  if (activityMargin > 0) {
+    return subtotalWithResourceMargins * (1 + activityMargin / 100);
+  }
+  
+  return subtotalWithResourceMargins;
 };
 
 // Calcola l'importo dello sconto dell'attività
@@ -129,19 +146,41 @@ export const calculateGrandTotalBeforeGeneralDiscount = (
   return calculateGrandSubtotal(resources, activities) + calculateGrandVat(resources, activities);
 };
 
-// Calcola l'importo dello sconto generale
+// Calcola l'importo del margine generale
+export const calculateGeneralMarginAmount = (
+  resources: Resource[],
+  activities: Activity[],
+  generalMargin?: { enabled: boolean; value: number }
+): number => {
+  if (!generalMargin?.enabled || generalMargin.value === 0) {
+    return 0;
+  }
+
+  const totalBeforeDiscount = calculateGrandTotalBeforeGeneralDiscount(resources, activities);
+  return totalBeforeDiscount * (generalMargin.value / 100);
+};
+
+// Calcola l'importo dello sconto generale (considerando il margine se presente)
 export const calculateGeneralDiscountAmount = (
   resources: Resource[],
   activities: Activity[],
-  generalDiscount: GeneralDiscount
+  generalDiscount: GeneralDiscount,
+  generalMargin?: { enabled: boolean; value: number }
 ): number => {
   if (!generalDiscount.enabled || generalDiscount.value === 0) {
     return 0;
   }
 
   const subtotal = calculateGrandSubtotal(resources, activities);
-  const totalWithVat = calculateGrandTotalBeforeGeneralDiscount(resources, activities);
-  const baseAmount = generalDiscount.applyOn === 'taxable' ? subtotal : totalWithVat;
+  const totalBeforeDiscount = calculateGrandTotalBeforeGeneralDiscount(resources, activities);
+  
+  // Calcola il totale dopo il margine (se presente)
+  let totalAfterMargin = totalBeforeDiscount;
+  if (generalMargin?.enabled && generalMargin.value > 0) {
+    totalAfterMargin = totalBeforeDiscount * (1 + generalMargin.value / 100);
+  }
+  
+  const baseAmount = generalDiscount.applyOn === 'taxable' ? subtotal : totalAfterMargin;
 
   if (generalDiscount.type === 'percentage') {
     return baseAmount * generalDiscount.value / 100;
@@ -150,15 +189,37 @@ export const calculateGeneralDiscountAmount = (
   }
 };
 
-// Calcola il gran totale finale (con sconto generale se applicabile)
+// Calcola il gran totale finale (prima margine, poi sconto generale)
 export const calculateGrandTotal = (
   resources: Resource[],
   activities: Activity[],
-  generalDiscount: GeneralDiscount
+  generalDiscount: GeneralDiscount,
+  generalMargin?: { enabled: boolean; value: number }
 ): number => {
   const totalBeforeDiscount = calculateGrandTotalBeforeGeneralDiscount(resources, activities);
-  const generalDiscountAmount = calculateGeneralDiscountAmount(resources, activities, generalDiscount);
-  return totalBeforeDiscount - generalDiscountAmount;
+  
+  // Applica prima il margine generale se presente e abilitato
+  let totalAfterMargin = totalBeforeDiscount;
+  if (generalMargin?.enabled && generalMargin.value > 0) {
+    totalAfterMargin = totalBeforeDiscount * (1 + generalMargin.value / 100);
+  }
+  
+  // Poi applica lo sconto generale sul totale con margine
+  let discountAmount = 0;
+  if (generalDiscount.enabled && generalDiscount.value > 0) {
+    const subtotal = calculateGrandSubtotal(resources, activities);
+    const baseAmount = generalDiscount.applyOn === 'taxable' 
+      ? subtotal  // Se applicato sull'imponibile, usa il subtotale
+      : totalAfterMargin; // Se applicato sul totale IVAto, usa il totale con margine
+    
+    if (generalDiscount.type === 'percentage') {
+      discountAmount = baseAmount * generalDiscount.value / 100;
+    } else {
+      discountAmount = generalDiscount.value;
+    }
+  }
+  
+  return totalAfterMargin - discountAmount;
 };
 
 // Calcola il totale degli sconti applicati sulle attività
@@ -169,5 +230,80 @@ export const calculateTotalActivityDiscounts = (
   return activities.reduce((total, activity) => {
     return total + calculateActivityDiscountAmount(resources, activity);
   }, 0);
+};
+
+// Calcola il costo base di una risorsa senza margine
+const calculateResourceBaseCost = (
+  resources: Resource[],
+  resourceId: string,
+  hours: number,
+  fixedPrice: number
+): number => {
+  const resource = resources.find(r => r.id === resourceId);
+  if (!resource) return 0;
+  
+  if (resource.costType === 'hourly' || resource.costType === 'quantity') {
+    return hours * resource.pricePerHour;
+  } else {
+    return fixedPrice;
+  }
+};
+
+// Calcola il subtotale dell'attività senza margini (né risorse né attività)
+const calculateActivityTotalWithoutMargins = (
+  resources: Resource[],
+  activity: Activity
+): number => {
+  return activity.resources.reduce((total, assignment) => {
+    return total + calculateResourceBaseCost(resources, assignment.resourceId, assignment.hours, assignment.fixedPrice);
+  }, 0);
+};
+
+// Calcola il totale assoluto di tutti i margini applicati (risorse + attività + generale)
+export const calculateTotalMarginAmount = (
+  resources: Resource[],
+  activities: Activity[],
+  generalMargin?: { enabled: boolean; value: number }
+): number => {
+  let totalMargin = 0;
+  
+  // Margine delle risorse
+  activities.forEach(activity => {
+    activity.resources.forEach(assignment => {
+      const baseCost = calculateResourceBaseCost(resources, assignment.resourceId, assignment.hours, assignment.fixedPrice);
+      const costWithMargin = calculateResourceCost(resources, assignment.resourceId, assignment.hours, assignment.fixedPrice);
+      totalMargin += (costWithMargin - baseCost);
+    });
+  });
+  
+  // Margine delle attività
+  activities.forEach(activity => {
+    const subtotalWithResourceMargins = activity.resources.reduce((total, assignment) => {
+      return total + calculateResourceCost(resources, assignment.resourceId, assignment.hours, assignment.fixedPrice);
+    }, 0);
+    const activityMargin = activity.margin || 0;
+    if (activityMargin > 0) {
+      const marginAmount = subtotalWithResourceMargins * (activityMargin / 100);
+      totalMargin += marginAmount;
+    }
+  });
+  
+  // Margine generale
+  totalMargin += calculateGeneralMarginAmount(resources, activities, generalMargin);
+  
+  return totalMargin;
+};
+
+// Calcola la percentuale finale complessiva di margine
+export const calculateTotalMarginPercentage = (
+  resources: Resource[],
+  activities: Activity[],
+  generalMargin?: { enabled: boolean; value: number }
+): number => {
+  const totalBase = calculateGrandTotalBeforeGeneralDiscount(resources, activities);
+  if (totalBase === 0) return 0;
+  
+  const totalMarginAmount = calculateTotalMarginAmount(resources, activities, generalMargin);
+  return (totalMarginAmount / totalBase) * 100;
 };
 

@@ -32,6 +32,7 @@ interface ResourcesSectionProps {
     priceEnteredInActivity: string;
     priceWillBeSpecified: string;
     createResourcesFirst: string;
+    resourceMargin: string;
   };
 }
 
@@ -102,7 +103,7 @@ export default function ResourcesSection({
 
                   {/* Prezzo */}
                   {resource.costType === 'hourly' ? (
-                    <div className="col-span-3">
+                    <div className="col-span-2">
                       <Label className="text-gray-500">{t.pricePerHour} ({currency})</Label>
                       <NumberInput
                         value={resource.pricePerHour}
@@ -112,7 +113,7 @@ export default function ResourcesSection({
                       />
                     </div>
                   ) : resource.costType === 'quantity' ? (
-                    <div className="col-span-3">
+                    <div className="col-span-2">
                       <Label className="text-gray-500">{t.pricePerUnit} ({currency})</Label>
                       <NumberInput
                         value={resource.pricePerHour}
@@ -122,16 +123,27 @@ export default function ResourcesSection({
                       />
                     </div>
                   ) : (
-                    <div className="col-span-3">
-                      <Label className="text-gray-500 italic">{t.priceEnteredInActivity}</Label>
-                      <div className="h-9 flex items-center text-sm text-gray-500 italic">
-                        {t.priceWillBeSpecified}
-                      </div>
+                    <div className="col-span-2">
+
                     </div>
                   )}
 
+                  {/* Margine */}
+                  <div className="col-span-2">
+                    <Label className="text-gray-500">{t.resourceMargin}</Label>
+                    <div className="max-w-20">
+                      <NumberInput
+                        value={resource.margin || 0}
+                        onChange={(value) => onUpdate(resource.id, 'margin', value || 0)}
+                        placeholder="0"
+                        min={0}
+                        max={100}
+                      />
+                    </div>
+                  </div>
+
                   {/* Action Buttons */}
-                  <div className="col-span-2 flex justify-end gap-1">
+                  <div className="col-span-1 flex justify-end gap-1">
                     <Button
                       variant="ghost"
                       size="sm"

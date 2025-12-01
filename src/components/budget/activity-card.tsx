@@ -184,11 +184,19 @@ export default function ActivityCard({
                           <SelectValue placeholder={t.selectResource} />
                         </SelectTrigger>
                         <SelectContent>
-                          {resources.map(r => (
-                            <SelectItem key={r.id} value={r.id}>
-                              {r.name} ({r.costType === 'hourly' ? `${currency}${r.pricePerHour}/h` : r.costType === 'quantity' ? `${currency}${r.pricePerHour}/u` : t.fixed})
-                            </SelectItem>
-                          ))}
+                          {resources.map(r => {
+                            const priceText = r.costType === 'hourly' 
+                              ? `${currency}${r.pricePerHour}/h` 
+                              : r.costType === 'quantity' 
+                              ? `${currency}${r.pricePerHour}/u` 
+                              : t.fixed;
+                            const marginText = r.margin && r.margin > 0 ? ` • ${r.margin}%` : '';
+                            return (
+                              <SelectItem key={r.id} value={r.id}>
+                                {r.name} ({priceText}{marginText})
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>
@@ -269,6 +277,20 @@ export default function ActivityCard({
                 value={activity.vat}
                 onChange={(value) => onUpdate(activity.id, 'vat', value)}
                 placeholder="22"
+                min={0}
+                max={100}
+              />
+            </div>
+          </div>
+
+          {/* Margine Attività */}
+          <div className="pt-3 border-t">
+            <Label className="text-gray-500">{t.activityMargin}</Label>
+            <div className="max-w-20">
+              <NumberInput
+                value={activity.margin || 0}
+                onChange={(value) => onUpdate(activity.id, 'margin', value || 0)}
+                placeholder="0"
                 min={0}
                 max={100}
               />

@@ -6,16 +6,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NumberInput } from "@/components/ui/number-input";
 import { Switch } from "@/components/ui/switch";
-import type { GeneralDiscount, Resource, Activity } from '@/types/budget';
+import type { GeneralDiscount, GeneralMargin, Resource, Activity } from '@/types/budget';
 import { formatNumber } from '@/lib/budget-utils';
 import {
   calculateGrandTotalBeforeGeneralDiscount,
   calculateGeneralDiscountAmount,
-  calculateGrandTotal
+  calculateGrandTotal,
+  calculateGrandSubtotal
 } from '@/lib/budget-calculations';
 
 interface GeneralDiscountSectionProps {
   generalDiscount: GeneralDiscount;
+  generalMargin?: GeneralMargin;
   resources: Resource[];
   activities: Activity[];
   currency: string;
@@ -25,6 +27,7 @@ interface GeneralDiscountSectionProps {
 
 export default function GeneralDiscountSection({
   generalDiscount,
+  generalMargin,
   resources,
   activities,
   currency,
@@ -32,8 +35,29 @@ export default function GeneralDiscountSection({
   translations: t
 }: GeneralDiscountSectionProps) {
   const totalBeforeDiscount = calculateGrandTotalBeforeGeneralDiscount(resources, activities);
-  const discountAmount = calculateGeneralDiscountAmount(resources, activities, generalDiscount);
-  const totalAfterDiscount = calculateGrandTotal(resources, activities, generalDiscount);
+  
+  // Calcola il totale dopo il margine (se presente)
+  let totalAfterMargin = totalBeforeDiscount;
+  if (generalMargin?.enabled && generalMargin.value > 0) {
+    totalAfterMargin = totalBeforeDiscount * (1 + generalMargin.value / 100);
+  }
+  
+  // Calcola lo sconto sul totale con margine
+  let discountAmount = 0;
+  if (generalDiscount.enabled && generalDiscount.value > 0) {
+    const subtotal = calculateGrandSubtotal(resources, activities);
+    const baseAmount = generalDiscount.applyOn === 'taxable' 
+      ? subtotal
+      : totalAfterMargin;
+    
+    if (generalDiscount.type === 'percentage') {
+      discountAmount = baseAmount * generalDiscount.value / 100;
+    } else {
+      discountAmount = generalDiscount.value;
+    }
+  }
+  
+  const totalAfterDiscount = calculateGrandTotal(resources, activities, generalDiscount, generalMargin);
 
   return (
     <Card className="mb-6 border-2 border-amber-200 bg-amber-50">
@@ -112,8 +136,10 @@ export default function GeneralDiscountSection({
               <div className="bg-white p-4 rounded-lg border-2 border-amber-300">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">{t.beforeDiscount}:</span>
-                    <span className="font-semibold">{currency}{formatNumber(totalBeforeDiscount)}</span>
+                    <span className="text-gray-600">
+                      {generalMargin?.enabled && generalMargin.value > 0 ? t.afterMargin || 'Dopo Margine' : t.beforeDiscount}:
+                    </span>
+                    <span className="font-semibold">{currency}{formatNumber(totalAfterMargin)}</span>
                   </div>
                   <div className="flex justify-between text-amber-700">
                     <span>{t.discountAmount}:</span>

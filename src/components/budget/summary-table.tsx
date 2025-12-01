@@ -4,7 +4,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from 'lucide-react';
-import type { Resource, Activity, GeneralDiscount } from '@/types/budget';
+import type { Resource, Activity, GeneralDiscount, GeneralMargin } from '@/types/budget';
 import { formatNumber } from '@/lib/budget-utils';
 import {
   calculateResourceCost,
@@ -23,6 +23,7 @@ interface SummaryTableProps {
   activities: Activity[];
   resources: Resource[];
   generalDiscount: GeneralDiscount;
+  generalMargin?: GeneralMargin;
   currency: string;
   tableCopied: boolean;
   onCopy: () => void;
@@ -33,6 +34,7 @@ export default function SummaryTable({
   activities,
   resources,
   generalDiscount,
+  generalMargin,
   currency,
   tableCopied,
   onCopy,
@@ -42,8 +44,8 @@ export default function SummaryTable({
     const subtotal = calculateGrandSubtotal(resources, activities);
     const vatAmount = calculateGrandVat(resources, activities);
     const totalBeforeGeneralDiscount = calculateGrandTotalBeforeGeneralDiscount(resources, activities);
-    const generalDiscountAmount = calculateGeneralDiscountAmount(resources, activities, generalDiscount);
-    const total = calculateGrandTotal(resources, activities, generalDiscount);
+    const generalDiscountAmount = calculateGeneralDiscountAmount(resources, activities, generalDiscount, generalMargin);
+    const total = calculateGrandTotal(resources, activities, generalDiscount, generalMargin);
     
     return `
       <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px;">

@@ -21,6 +21,7 @@ import AnimatedSubtitle from '@/components/budget/animated-subtitle';
 import ResourcesSection from '@/components/budget/resources-section';
 import ActivitiesSection from '@/components/budget/activities-section';
 import GeneralDiscountSection from '@/components/budget/general-discount-section';
+import GeneralMarginSection from '@/components/budget/general-margin-section';
 import SummaryTable from '@/components/budget/summary-table';
 import FinalTotalCard from '@/components/budget/final-total-card';
 import ActionButtons from '@/components/budget/action-buttons';
@@ -34,7 +35,7 @@ import MonthlyStatsTable from '@/components/monthly-stats-table';
 import { generateTableHTML } from '@/components/budget/table-html-generator';
 import { generatePDFHTML, generateGanttHTML, type PDFConfig } from '@/components/budget/pdf-html-generator';
 import { createClientSupabaseClient } from '@/lib/database/supabase-client';
-import type { Resource, Activity, GeneralDiscount, ActivityDiscount, ResourceAssignment } from '@/types/budget';
+import type { Resource, Activity, GeneralDiscount, GeneralMargin, ActivityDiscount, ResourceAssignment } from '@/types/budget';
 import { getDefaultBudgetName, formatNumber, formatDateToLocal, getDayOfYear } from '@/lib/budget-utils';
 import {
   calculateResourceCost,
@@ -64,6 +65,10 @@ function HomePageContent() {
     type: 'percentage',
     value: 0,
     applyOn: 'taxable'
+  });
+  const [generalMargin, setGeneralMargin] = useState<GeneralMargin>({
+    enabled: false,
+    value: 0
   });
   const [showFloatingTotal, setShowFloatingTotal] = useState(true);
   const [jsonDialogOpen, setJsonDialogOpen] = useState(false);
@@ -311,6 +316,10 @@ Firma _______________________________`,
       value: 0,
       applyOn: 'taxable'
     });
+    setGeneralMargin({
+      enabled: false,
+      value: 0
+    });
     setExpirationEnabled(true);
     setExpirationValue(2);
     setExpirationUnit('weeks');
@@ -401,6 +410,15 @@ Firma _______________________________`,
         if (metadata.activities) setActivities(metadata.activities as Activity[]);
         if (metadata.generalDiscount) {
           setGeneralDiscount(metadata.generalDiscount as GeneralDiscount);
+        }
+        if (metadata.generalMargin) {
+          setGeneralMargin(metadata.generalMargin as GeneralMargin);
+        } else {
+          // Reset general margin if not in metadata
+          setGeneralMargin({
+            enabled: false,
+            value: 0
+          });
         }
         
         // Carica scadenza dal campo deadline del database o dai metadata
@@ -504,6 +522,7 @@ Firma _______________________________`,
       name: '',
       costType: 'hourly',
       pricePerHour: 0,
+      margin: 0,
     };
     setResources([...resources, newResource]);
   };
@@ -545,6 +564,7 @@ Firma _______________________________`,
       description: '',
       resources: [],
       vat: defaultVat, // Usa l'IVA di default
+      margin: 0,
     };
     setActivities([...activities, newActivity]);
     // Apri automaticamente la nuova attività
@@ -644,7 +664,7 @@ Firma _______________________________`,
   };
 
   const calculateGrandTotalLocal = (): number => {
-    return calculateGrandTotal(resources, activities, generalDiscount);
+    return calculateGrandTotal(resources, activities, generalDiscount, generalMargin);
   };
 
   const calculateTotalActivityDiscountsLocal = (): number => {
@@ -687,6 +707,7 @@ Firma _______________________________`,
       resources,
       activities,
       generalDiscount,
+      generalMargin,
       exportDate: new Date().toISOString(),
       pdfConfig: {
         companyName: pdfConfig.companyName,
@@ -904,6 +925,7 @@ Firma _______________________________`,
     resources?: unknown[];
     activities?: unknown[];
     generalDiscount?: unknown;
+    generalMargin?: unknown;
     expiration?: {
       enabled: boolean;
       value: number;
@@ -954,6 +976,15 @@ Firma _______________________________`,
         type: 'percentage',
         value: 0,
         applyOn: 'taxable'
+      });
+    }
+    if ((config as any).generalMargin) {
+      setGeneralMargin((config as any).generalMargin as unknown as GeneralMargin);
+    } else {
+      // Reset general margin if not in config
+      setGeneralMargin({
+        enabled: false,
+        value: 0
       });
     }
     
@@ -1185,10 +1216,24 @@ Firma _______________________________`,
                   />
                 </Accordion>
 
+                {/* General Margin Section */}
+                {activities.length > 0 && (
+                  <GeneralMarginSection
+                    generalMargin={generalMargin}
+                    generalDiscount={generalDiscount}
+                    resources={resources}
+                    activities={activities}
+                    currency={currency}
+                    onUpdate={setGeneralMargin}
+                    translations={t}
+                  />
+                )}
+
                 {/* General Discount Section */}
                 {activities.length > 0 && (
                   <GeneralDiscountSection
                     generalDiscount={generalDiscount}
+                    generalMargin={generalMargin}
                     resources={resources}
                     activities={activities}
                     currency={currency}
@@ -1205,6 +1250,7 @@ Firma _______________________________`,
                       activities={activities}
                       resources={resources}
                       generalDiscount={generalDiscount}
+                      generalMargin={generalMargin}
                       currency={currency}
                       tableCopied={tableCopied}
                       onCopy={copyTableToClipboard}
@@ -1225,6 +1271,7 @@ Firma _______________________________`,
                       resources={resources}
                       activities={activities}
                       generalDiscount={generalDiscount}
+                      generalMargin={generalMargin}
                       currency={currency}
                       translations={t}
                     />
@@ -1356,6 +1403,19 @@ Firma _______________________________`,
                 />
               </Accordion>
 
+              {/* General Margin Section */}
+              {activities.length > 0 && (
+                <GeneralMarginSection
+                  generalMargin={generalMargin}
+                  generalDiscount={generalDiscount}
+                  resources={resources}
+                  activities={activities}
+                  currency={currency}
+                  onUpdate={setGeneralMargin}
+                  translations={t}
+                />
+              )}
+
               {/* General Discount Section */}
               {activities.length > 0 && (
                 <GeneralDiscountSection
@@ -1435,6 +1495,7 @@ Firma _______________________________`,
         resources={resources}
         activities={activities}
         generalDiscount={generalDiscount}
+        generalMargin={generalMargin}
         currency={currency}
         show={activities.length > 0 && showFloatingTotal && (!user || activeTab === 'create')}
         onScrollToActions={() => {
@@ -1501,7 +1562,7 @@ Firma _______________________________`,
           calculateGeneralDiscountAmount(resources, activities, generalDiscount)
         }
         calculateGrandTotal={() => 
-          calculateGrandTotal(resources, activities, generalDiscount)
+          calculateGrandTotal(resources, activities, generalDiscount, generalMargin)
         }
         calculateTotalActivityDiscounts={() => 
           calculateTotalActivityDiscounts(resources, activities)
