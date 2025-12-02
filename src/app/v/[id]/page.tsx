@@ -15,7 +15,7 @@ import { generateTableHTML } from '@/components/budget/table-html-generator';
 import { translations, type Language } from '@/lib/translations';
 import { signQuoteWithOTP } from '@/app/actions/quote-actions';
 import { Button } from '@/components/ui/button';
-import { Share2 } from 'lucide-react';
+import { Share2, Lock } from 'lucide-react';
 
 interface QuoteData {
   id: string;
@@ -312,6 +312,7 @@ export default function QuoteViewPage() {
                   size="sm"
                   className="h-7 text-xs bg-gray-900 hover:bg-gray-800 text-white"
                 >
+                  <Lock className="h-3 w-3 mr-1.5" />
                   Firma con OTP
                 </Button>
               )}
@@ -360,6 +361,14 @@ export default function QuoteViewPage() {
         open={signDialogOpen}
         onOpenChange={setSignDialogOpen}
         onSigned={handleSignWithOTP}
+        quoteId={quoteId}
+        quoteName={budgetName}
+        resources={resources}
+        activities={activities}
+        generalDiscount={generalDiscount}
+        currency={currency}
+        companyName={pdfConfig?.companyName}
+        companyInfo={pdfConfig?.companyInfo}
       />
     </div>
   );

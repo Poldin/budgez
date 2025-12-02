@@ -325,6 +325,17 @@ export async function signQuoteWithOTP(quoteId: string, verificationId: string) 
         if (ownerEmail) {
           const quoteName = quoteData.name || (quoteData.metadata as any)?.budgetName || 'Preventivo'
           const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+          const metadata = quoteData.metadata as any || {}
+          
+          // Prepara i dati per il certificato
+          const certificateData = {
+            resources: metadata.resources || [],
+            activities: metadata.activities || [],
+            generalDiscount: metadata.generalDiscount || { enabled: false, type: 'percentage', value: 0, applyOn: 'taxable' },
+            currency: metadata.currency || '€',
+            companyName: metadata.pdfConfig?.companyName,
+            companyInfo: metadata.pdfConfig?.companyInfo,
+          }
           
           // Chiama l'API per inviare l'email (non blocchiamo se fallisce)
           try {
@@ -339,6 +350,7 @@ export async function signQuoteWithOTP(quoteId: string, verificationId: string) 
                 quoteId,
                 signerEmail: otpData.email,
                 signedAt: otpData.verified_at,
+                certificateData,
               }),
             })
           } catch (emailError) {

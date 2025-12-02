@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Download, Copy, Globe, Check, Bot, Sparkles, Code, FileText, Link2, ExternalLink, Mail } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Copy, Globe, Check, Bot, Sparkles, Code, FileText, Link2, ExternalLink, Mail, Users, Share2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -554,6 +554,146 @@ function ShareExportDemo({ isActive }: { isActive: boolean }) {
   );
 }
 
+function CollaborativeCompilationDemo({ isActive }: { isActive: boolean }) {
+  const [step, setStep] = useState<'button' | 'saving' | 'shared' | 'collaborator'>('button');
+  const [resources, setResources] = useState<string[]>([]);
+  const [showToast, setShowToast] = useState(false);
+
+  useEffect(() => {
+    if (!isActive) {
+      setStep('button');
+      setResources([]);
+      setShowToast(false);
+      return;
+    }
+
+    const timers = [
+      setTimeout(() => setStep('button'), 500),
+      setTimeout(() => setStep('saving'), 1500),
+      setTimeout(() => setStep('shared'), 2500),
+      setTimeout(() => {
+        setStep('collaborator');
+        setResources(['Fornitore Esterno']);
+      }, 3500),
+      setTimeout(() => {
+        setResources(['Fornitore Esterno', 'Consulente IT']);
+      }, 4500),
+      setTimeout(() => {
+        setShowToast(true);
+      }, 5500),
+      setTimeout(() => setShowToast(false), 7000),
+    ];
+
+    return () => timers.forEach(t => clearTimeout(t));
+  }, [isActive]);
+
+  return (
+    <div className="w-full max-w-lg mx-auto space-y-4">
+      {/* Header con pulsante */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 bg-gray-400 rounded"></div>
+            <div className="h-2 bg-gray-300 rounded w-20"></div>
+          </div>
+          {step === 'button' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs animate-in fade-in slide-in-from-right-2"
+            >
+              <Users className="h-3.5 w-3.5 mr-1.5" />
+              Compilazione collaborativa
+            </Button>
+          )}
+          {step === 'saving' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              disabled
+            >
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1.5"></div>
+              Salvataggio...
+            </Button>
+          )}
+          {(step === 'shared' || step === 'collaborator') && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs animate-in fade-in"
+              >
+                <Share2 className="h-3.5 w-3.5 mr-1.5" />
+                Condividi
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Resources section */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="h-2 bg-gray-300 rounded w-16"></div>
+          </div>
+          <div className="space-y-2">
+            {/* Existing resources */}
+            <div className="h-10 bg-gray-50 border border-gray-200 rounded flex items-center px-3">
+              <div className="flex items-center gap-2 flex-1">
+                <div className="h-2 bg-gray-300 rounded w-24"></div>
+                <Badge variant="secondary" className="text-[9px]">€50/h</Badge>
+              </div>
+            </div>
+            
+            {/* Collaborator added resources */}
+            {resources.map((resource, idx) => (
+              <div 
+                key={idx}
+                className="h-10 bg-blue-50 border-2 border-blue-300 rounded flex items-center px-3 animate-in fade-in slide-in-from-left-2"
+                style={{ animationDelay: `${idx * 200}ms` }}
+              >
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="text-sm text-blue-700 font-medium">{resource}</span>
+                  <Badge variant="secondary" className="text-[9px] bg-blue-100 text-blue-700">
+                    {idx === 0 ? '€80/h' : '€120/h'}
+                  </Badge>
+                </div>
+                <Badge variant="outline" className="text-[8px] border-blue-300 text-blue-600">
+                  collaboratore
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Shared link preview */}
+      {(step === 'shared' || step === 'collaborator') && (
+        <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-green-500 rounded-lg p-2">
+              <Link2 className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="font-medium text-gray-900 text-sm mb-1">Link di collaborazione attivo</div>
+              <div className="text-xs text-gray-600">I collaboratori non vedono i margini</div>
+            </div>
+            <Check className="h-5 w-5 text-green-600" />
+          </div>
+        </Card>
+      )}
+
+      {/* Success toast */}
+      {showToast && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 text-sm">
+          <Check className="h-4 w-4" />
+          Modifiche salvate dal collaboratore!
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OTPSignatureDemo({ isActive }: { isActive: boolean }) {
   const [step, setStep] = useState<'button' | 'dialog' | 'email' | 'otp' | 'signed'>('button');
   const [email, setEmail] = useState('');
@@ -713,7 +853,12 @@ export const slides = [
     demo: ShareExportDemo,
   },
   {
-    title: '5. Firma con OTP',
+    title: '5. Compilazione Collaborativa',
+    description: 'Hai bisogno di aiuto per definire i costi? Usa la funzione "Compilazione collaborativa" per invitare colleghi, partner o fornitori a contribuire. Condividi un link dedicato dove i collaboratori possono aggiungere risorse e attività senza vedere i tuoi margini. Le modifiche vengono salvate in tempo reale.',
+    demo: CollaborativeCompilationDemo,
+  },
+  {
+    title: '6. Firma con OTP',
     description: 'Il cliente può firmare il preventivo utilizzando la verifica OTP via email. Basta cliccare sul pulsante "Firma con OTP", inserire la propria email, ricevere il codice di verifica e inserirlo per confermare la firma. Una volta firmato, il preventivo mostrerà la data e l\'ora della firma.',
     demo: OTPSignatureDemo,
   },
