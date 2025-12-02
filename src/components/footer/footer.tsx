@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
-import { Instagram, Twitter, Linkedin, Facebook, Youtube, Mail, Briefcase, Share2, Check } from 'lucide-react';
+import React from 'react';
+import { Instagram, Twitter, Linkedin, Facebook, Youtube } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { translations, type Language } from '@/lib/translations';
 
 interface FooterProps {
@@ -11,17 +9,10 @@ interface FooterProps {
 }
 
 const Footer = ({ language, onLanguageChange }: FooterProps) => {
-  const [supportDialogOpen, setSupportDialogOpen] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
-  
   const t = translations[language];
 
-  const copyLink = () => {
-    const url = window.location.origin;
-    navigator.clipboard.writeText(url).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
+  const openBuyMeACoffee = () => {
+    window.open('https://buymeacoffee.com/poldo', '_blank');
   };
 
   return (
@@ -88,8 +79,7 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
               </li>
               <li>
                 <button 
-                  data-support-dialog
-                  onClick={() => setSupportDialogOpen(true)}
+                  onClick={openBuyMeACoffee}
                   className="text-gray-600 hover:text-gray-900 text-sm underline-offset-4 hover:underline"
                 >
                   {t.footerSupport}
@@ -136,113 +126,6 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
         </div>
       </div>
 
-      {/* Support Dialog */}
-      <Dialog open={supportDialogOpen} onOpenChange={setSupportDialogOpen}>
-        <DialogContent className="min-w-[60vw] h-[95vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">{t.supportDialogTitle}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-6 py-4">
-            {/* Section 1: Report Bugs */}
-            <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
-                  <Mail className="h-8 w-8 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">{t.supportBugTitle}</h3>
-                  <p className="text-gray-600 mb-4">
-                    {t.supportBugDesc}
-                  </p>
-                  <Button 
-                    onClick={() => window.open('mailto:scrivici@techero.xyz?subject=Bug/Miglioramento Budgez', '_blank')}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    {t.supportEmailButton}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2: Buy Coffee */}
-            {/* <div className="border rounded-lg p-6 hover:shadow-md transition-shadow bg-amber-50">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
-                  <Coffee className="h-8 w-8 text-amber-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">{t.supportCoffeeTitle}</h3>
-                  <p className="text-gray-600 mb-4">
-                    {t.supportCoffeeDesc}
-                  </p>
-                  <Button 
-                    onClick={() => window.open('https://www.paypal.com/pool/9jx1uzoDgg?sr=wccr', '_blank')}
-                    className="bg-amber-600 hover:bg-amber-700"
-                  >
-                    <Coffee className="h-4 w-4 mr-2" />
-                    {t.supportCoffeeButton}
-                  </Button>
-                </div>
-              </div>
-            </div> */}
-
-            {/* Section 3: Business Opportunities */}
-            <div className="border rounded-lg p-6 hover:shadow-md transition-shadow bg-green-50">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
-                  <Briefcase className="h-8 w-8 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">{t.supportBusinessTitle}</h3>
-                  <p className="text-gray-600 mb-4">
-                    {t.supportBusinessDesc}
-                  </p>
-                  <Button 
-                    onClick={() => window.open('mailto:scrivici@techero.xyz?subject=Opportunità Business', '_blank')}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    <Briefcase className="h-4 w-4 mr-2" />
-                    {t.supportEmailButton}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 4: Share Project */}
-            <div className="border rounded-lg p-6 hover:shadow-md transition-shadow bg-purple-50">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
-                  <Share2 className="h-8 w-8 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">{t.supportShareTitle}</h3>
-                  <p className="text-gray-600 mb-4">
-                    {t.supportShareDesc}
-                  </p>
-                  <Button 
-                    onClick={copyLink}
-                    className={linkCopied ? "bg-purple-600 hover:bg-purple-700" : "bg-purple-600 hover:bg-purple-700"}
-                  >
-                    {linkCopied ? (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        {t.supportShareCopied}
-                      </>
-                    ) : (
-                      <>
-                        <Share2 className="h-4 w-4 mr-2" />
-                        {t.supportShareButton}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </footer>
   );
 };

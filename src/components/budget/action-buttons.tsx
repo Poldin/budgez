@@ -15,6 +15,7 @@ interface ActionButtonsProps {
   savingQuote?: boolean;
   isEditing?: boolean;
   onCreateNew?: () => void;
+  isSignedQuote?: boolean;
 }
 
 export default function ActionButtons({
@@ -26,7 +27,8 @@ export default function ActionButtons({
   onCreateInteractive,
   savingQuote = false,
   isEditing = false,
-  onCreateNew
+  onCreateNew,
+  isSignedQuote = false
 }: ActionButtonsProps) {
   return (
     <div className="flex flex-wrap gap-3 justify-center items-center mb-8">
@@ -110,9 +112,11 @@ export default function ActionButtons({
           <Sparkles className="h-5 w-5 mr-2" />
           {savingQuote 
             ? 'Salvataggio...' 
-            : isEditing 
-              ? 'Modifica e vedi' 
-              : 'Crea e condividi'}
+            : isSignedQuote
+              ? 'Vedi preventivo firmato'
+              : isEditing 
+                ? 'Modifica e vedi' 
+                : 'Crea e condividi'}
         </Button>
       </div>
     </div>

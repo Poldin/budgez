@@ -157,6 +157,7 @@ Firma _______________________________`,
   const [savingOnly, setSavingOnly] = useState(false);
   const [saveOnlySuccess, setSaveOnlySuccess] = useState(false);
   const initialQuoteDataRef = useRef<string | null>(null);
+  const [signatureData, setSignatureData] = useState<{ email: string; signedAt: string } | null>(null);
   const [monthlyStats, setMonthlyStats] = useState<{
     twoMonthsAgo: { created: number; signed: number; conversionRate: number }
     lastMonth: { created: number; signed: number; conversionRate: number }
@@ -307,6 +308,7 @@ Firma _______________________________`,
     
     // Resetta lo stato
     setCurrentQuoteId(null);
+    setSignatureData(null);
     
     // Resetta i campi ai valori di default
     setBudgetName(getDefaultBudgetName());
@@ -388,7 +390,7 @@ Firma _______________________________`,
       const supabase = createClientSupabaseClient();
       const { data, error } = await supabase
         .from('quotes')
-        .select('*')
+        .select('*, otp_verification(email, verified_at)')
         .eq('id', quoteId)
         .single();
 
@@ -401,6 +403,20 @@ Firma _______________________________`,
       if (data) {
         setCurrentQuoteId(quoteId);
         const metadata = (data.metadata || {}) as any;
+        
+        // Check if quote is signed
+        const otpData = data.otp_verification as any;
+        if (data.verification_id && otpData) {
+          const verification = Array.isArray(otpData) ? otpData[0] : otpData;
+          if (verification?.email && verification?.verified_at) {
+            setSignatureData({
+              email: verification.email,
+              signedAt: verification.verified_at
+            });
+          }
+        } else {
+          setSignatureData(null);
+        }
         
         // Popola tutti i campi con i dati del preventivo
         if (metadata.budgetName) setBudgetName(metadata.budgetName);
@@ -1499,6 +1515,7 @@ Firma _______________________________`,
                         savingQuote={savingQuote}
                         isEditing={!!currentQuoteId}
                         onCreateNew={resetToNewQuote}
+                        isSignedQuote={!!signatureData}
                       />
                     </div>
                   </div>
@@ -1685,6 +1702,7 @@ Firma _______________________________`,
                       savingQuote={savingQuote}
                       isEditing={!!currentQuoteId}
                       onCreateNew={resetToNewQuote}
+                      isSignedQuote={!!signatureData}
                     />
                   </div>
                 </div>
@@ -1694,8 +1712,8 @@ Firma _______________________________`,
         </div>
       </main>
 
-      {/* Floating Save Button - appare quando ci sono modifiche non salvate */}
-      {hasUnsavedChanges && currentQuoteId && (!user || activeTab === 'create') && (
+      {/* Floating Save Button - appare quando ci sono modifiche non salvate (ma non per preventivi firmati) */}
+      {hasUnsavedChanges && currentQuoteId && !signatureData && (!user || activeTab === 'create') && (
         <div className="fixed bottom-24 right-6 z-50">
           <Button
             onClick={saveOnly}
@@ -1730,18 +1748,18 @@ Firma _______________________________`,
         </div>
       )}
 
-      {/* Floating Total - visible only when there are activities and final total is not in view */}
-      {/* Also only visible in "create" tab when user is logged in */}
+      {/* Floating Total - always visible in create tab when there are activities */}
       <FloatingTotal
         resources={resources}
         activities={activities}
         generalDiscount={generalDiscount}
         generalMargin={generalMargin}
         currency={currency}
-        show={activities.length > 0 && showFloatingTotal && (!user || activeTab === 'create')}
+        show={activities.length > 0 && (!user || activeTab === 'create')}
         onScrollToActions={() => {
           actionButtonsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }}
+        signatureData={signatureData}
       />
 
       {/* JSON Configuration Dialog */}
