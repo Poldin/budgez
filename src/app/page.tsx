@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useState, useRef, Suspense } from 'react';
+import React, { useState, useRef, Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Compass, Plus } from "lucide-react";
+import { Compass, Plus, Save, Check } from "lucide-react";
 import { translations, type Language } from '@/lib/translations';
 import { getTemplates, getMonthlyStats } from '@/app/actions/quote-actions';
 import type { BudgetTemplate } from '@/components/templates-sidebar';
@@ -153,6 +153,10 @@ Firma _______________________________`,
   const [savingQuote, setSavingQuote] = useState(false);
   const [currentQuoteId, setCurrentQuoteId] = useState<string | null>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [savingOnly, setSavingOnly] = useState(false);
+  const [saveOnlySuccess, setSaveOnlySuccess] = useState(false);
+  const initialQuoteDataRef = useRef<string | null>(null);
   const [monthlyStats, setMonthlyStats] = useState<{
     twoMonthsAgo: { created: number; signed: number; conversionRate: number }
     lastMonth: { created: number; signed: number; conversionRate: number }
@@ -458,11 +462,120 @@ Firma _______________________________`,
         if (metadata.pdfConfig) {
           setPdfConfig(metadata.pdfConfig as PDFConfig);
         }
+        
+        // Salva i dati iniziali per tracciare le modifiche
+        initialQuoteDataRef.current = JSON.stringify({
+          budgetName: metadata.budgetName || data.name,
+          budgetDescription: metadata.budgetDescription || '',
+          budgetTags: metadata.budgetTags || [],
+          currency: metadata.currency || '€',
+          defaultVat: metadata.defaultVat ?? 22,
+          resources: metadata.resources || [],
+          activities: metadata.activities || [],
+          generalDiscount: metadata.generalDiscount || { enabled: false, type: 'percentage', value: 0, applyOn: 'taxable' },
+          generalMargin: metadata.generalMargin || { enabled: false, value: 0 },
+        });
+        setHasUnsavedChanges(false);
       }
     } catch (error) {
       console.error('Error loading quote:', error);
     } finally {
       setLoadingQuote(false);
+    }
+  };
+
+  // Traccia le modifiche quando c'è un preventivo caricato
+  useEffect(() => {
+    if (!currentQuoteId || !initialQuoteDataRef.current || loadingQuote) {
+      setHasUnsavedChanges(false);
+      return;
+    }
+    
+    const currentData = JSON.stringify({
+      budgetName,
+      budgetDescription,
+      budgetTags,
+      currency,
+      defaultVat,
+      resources,
+      activities,
+      generalDiscount,
+      generalMargin,
+    });
+    
+    setHasUnsavedChanges(currentData !== initialQuoteDataRef.current);
+  }, [currentQuoteId, budgetName, budgetDescription, budgetTags, currency, defaultVat, resources, activities, generalDiscount, generalMargin, loadingQuote]);
+
+  // Funzione per salvare solo (senza redirect)
+  const saveOnly = async () => {
+    if (!user || !currentQuoteId) return;
+    
+    setSavingOnly(true);
+    setSaveOnlySuccess(false);
+    
+    try {
+      const metadata: any = {
+        budgetName,
+        budgetDescription,
+        budgetTags,
+        currency,
+        defaultVat,
+        resources,
+        activities,
+        generalDiscount,
+        generalMargin,
+        exportDate: new Date().toISOString(),
+        pdfConfig: {
+          companyName: pdfConfig.companyName,
+          companyInfo: pdfConfig.companyInfo,
+          headerText: pdfConfig.headerText,
+          contractTerms: pdfConfig.contractTerms,
+          signatureSection: pdfConfig.signatureSection,
+        },
+      };
+
+      if (expirationEnabled) {
+        metadata.expiration = {
+          enabled: true,
+          value: expirationValue,
+          unit: expirationUnit,
+          hour: expirationHour,
+        };
+      }
+
+      const supabase = createClientSupabaseClient();
+      const { error } = await supabase
+        .from('quotes')
+        .update({
+          name: budgetName,
+          metadata: metadata,
+          deadline: expirationEnabled ? calculatedExpirationDate.toISOString() : null,
+        })
+        .eq('id', currentQuoteId);
+
+      if (error) throw error;
+      
+      // Aggiorna i dati iniziali
+      initialQuoteDataRef.current = JSON.stringify({
+        budgetName,
+        budgetDescription,
+        budgetTags,
+        currency,
+        defaultVat,
+        resources,
+        activities,
+        generalDiscount,
+        generalMargin,
+      });
+      
+      setHasUnsavedChanges(false);
+      setSaveOnlySuccess(true);
+      setTimeout(() => setSaveOnlySuccess(false), 2000);
+    } catch (error: any) {
+      console.error('Errore durante il salvataggio:', error);
+      alert('Errore durante il salvataggio: ' + (error.message || 'Errore sconosciuto'));
+    } finally {
+      setSavingOnly(false);
     }
   };
 
@@ -799,6 +912,94 @@ Firma _______________________________`,
       alert('Errore durante il salvataggio del preventivo: ' + (error.message || 'Errore sconosciuto'));
     } finally {
       setSavingQuote(false);
+    }
+  };
+
+  const handleExternalCompilation = async () => {
+    // 0. Verifica se l'utente è loggato
+    if (!user) {
+      // Mostra il dialog di login
+      setAuthDialogOpen(true);
+      return;
+    }
+
+    // 1. Se non c'è un preventivo salvato, salvalo prima
+    if (!currentQuoteId) {
+      // Prepara i metadata del preventivo
+      const metadata: any = {
+        budgetName,
+        budgetDescription,
+        currency,
+        defaultVat,
+        resources,
+        activities,
+        generalDiscount,
+        generalMargin,
+        exportDate: new Date().toISOString(),
+        pdfConfig: {
+          companyName: pdfConfig.companyName,
+          companyInfo: pdfConfig.companyInfo,
+          headerText: pdfConfig.headerText,
+          contractTerms: pdfConfig.contractTerms,
+          signatureSection: pdfConfig.signatureSection,
+        },
+      };
+
+      if (expirationEnabled) {
+        metadata.expiration = {
+          enabled: true,
+          value: expirationValue,
+          unit: expirationUnit,
+          hour: expirationHour,
+        };
+      }
+
+      if (budgetTags && budgetTags.length > 0) {
+        metadata.budgetTags = budgetTags;
+      }
+
+      const quoteData: any = {
+        user_id: user.id,
+        name: budgetName,
+        metadata: metadata,
+        is_template: false,
+        deadline: expirationEnabled ? calculatedExpirationDate.toISOString() : null,
+      };
+
+      setSavingQuote(true);
+
+      try {
+        const supabase = createClientSupabaseClient();
+        const { data, error } = await supabase
+          .from('quotes')
+          .insert(quoteData)
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        if (data?.id) {
+          setCurrentQuoteId(data.id);
+          
+          // Aggiorna l'URL corrente con qid
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.set('qid', data.id);
+          router.push(newUrl.pathname + newUrl.search);
+          
+          // Apri la pagina together in una nuova tab
+          window.open(`/together/${data.id}`, '_blank');
+        }
+      } catch (error: any) {
+        console.error('Errore durante il salvataggio del preventivo:', error);
+        alert('Errore durante il salvataggio del preventivo: ' + (error.message || 'Errore sconosciuto'));
+      } finally {
+        setSavingQuote(false);
+      }
+    } else {
+      // 2. Se c'è già un preventivo salvato, apri direttamente la pagina together
+      window.open(`/together/${currentQuoteId}`, '_blank');
     }
   };
 
@@ -1187,6 +1388,7 @@ Firma _______________________________`,
                     onDelete={deleteResource}
                     onMoveUp={moveResourceUp}
                     onMoveDown={moveResourceDown}
+                    onExternalCompilation={handleExternalCompilation}
                     translations={t}
                   />
                   <ActivitiesSection
@@ -1212,6 +1414,7 @@ Firma _______________________________`,
                     onAddResource={addResourceToActivity}
                     onUpdateResource={updateActivityResource}
                     onRemoveResource={removeResourceFromActivity}
+                    onExternalCompilation={handleExternalCompilation}
                     translations={t}
                   />
                 </Accordion>
@@ -1374,6 +1577,7 @@ Firma _______________________________`,
                   onDelete={deleteResource}
                   onMoveUp={moveResourceUp}
                   onMoveDown={moveResourceDown}
+                  onExternalCompilation={handleExternalCompilation}
                   translations={t}
                 />
                 <ActivitiesSection
@@ -1399,6 +1603,7 @@ Firma _______________________________`,
                   onAddResource={addResourceToActivity}
                   onUpdateResource={updateActivityResource}
                   onRemoveResource={removeResourceFromActivity}
+                  onExternalCompilation={handleExternalCompilation}
                   translations={t}
                 />
               </Accordion>
@@ -1488,6 +1693,42 @@ Firma _______________________________`,
           )}
         </div>
       </main>
+
+      {/* Floating Save Button - appare quando ci sono modifiche non salvate */}
+      {hasUnsavedChanges && currentQuoteId && (!user || activeTab === 'create') && (
+        <div className="fixed bottom-24 right-6 z-50">
+          <Button
+            onClick={saveOnly}
+            disabled={savingOnly}
+            className="shadow-lg text-white px-6 py-3 h-auto animate-pulse-save"
+            style={{
+              animation: 'pulseSave 2s ease-in-out infinite',
+            }}
+          >
+            {savingOnly ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Salvataggio...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Salva
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Success Toast */}
+      {saveOnlySuccess && (
+        <div className="fixed bottom-24 right-6 z-50">
+          <div className="bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
+            <Check className="h-4 w-4" />
+            Modifiche salvate!
+          </div>
+        </div>
+      )}
 
       {/* Floating Total - visible only when there are activities and final total is not in view */}
       {/* Also only visible in "create" tab when user is logged in */}

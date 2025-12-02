@@ -111,7 +111,7 @@ export default function ActionButtons({
           {savingQuote 
             ? 'Salvataggio...' 
             : isEditing 
-              ? 'Modifica' 
+              ? 'Modifica e vedi' 
               : 'Crea e condividi'}
         </Button>
       </div>

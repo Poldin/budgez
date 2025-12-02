@@ -35,6 +35,7 @@ interface ActivityCardProps {
   onAddResource: (activityId: string) => void;
   onUpdateResource: (activityId: string, index: number, field: keyof ResourceAssignment, value: string | number) => void;
   onRemoveResource: (activityId: string, index: number) => void;
+  hideMargin?: boolean;
   translations: any;
 }
 
@@ -53,6 +54,7 @@ export default function ActivityCard({
   onAddResource,
   onUpdateResource,
   onRemoveResource,
+  hideMargin = false,
   translations: t
 }: ActivityCardProps) {
   const activitySubtotal = calculateActivityTotal(resources, activity);
@@ -190,7 +192,7 @@ export default function ActivityCard({
                               : r.costType === 'quantity' 
                               ? `${currency}${r.pricePerHour}/u` 
                               : t.fixed;
-                            const marginText = r.margin && r.margin > 0 ? ` • ${r.margin}%` : '';
+                            const marginText = !hideMargin && r.margin && r.margin > 0 ? ` • ${r.margin}%` : '';
                             return (
                               <SelectItem key={r.id} value={r.id}>
                                 {r.name} ({priceText}{marginText})
@@ -283,130 +285,134 @@ export default function ActivityCard({
             </div>
           </div>
 
-          {/* Margine Attività */}
-          <div className="pt-3 border-t">
-            <Label className="text-gray-500">{t.activityMargin}</Label>
-            <div className="max-w-20">
-              <NumberInput
-                value={activity.margin || 0}
-                onChange={(value) => onUpdate(activity.id, 'margin', value || 0)}
-                placeholder="0"
-                min={0}
-                max={100}
-              />
-            </div>
-          </div>
-
-          {/* Sconto Attività */}
-          <div className="pt-3 border-t">
-            <div className="flex items-center gap-2 mb-3">
-              <Switch
-                checked={activity.discount?.enabled || false}
-                onCheckedChange={(checked) => {
-                  const newDiscount: ActivityDiscount = activity.discount || {
-                    enabled: false,
-                    type: 'percentage',
-                    value: 0,
-                    applyOn: 'taxable'
-                  };
-                  onUpdate(activity.id, 'discount', {
-                    ...newDiscount,
-                    enabled: checked
-                  });
-                }}
-              />
-              <Label className="text-base font-semibold">{t.activityDiscount}</Label>
-            </div>
-            
-            {activity.discount?.enabled && (
-              <div className="space-y-3 pl-4 border-l-2 border-gray-200">
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label className="text-xs text-gray-500">{t.discountType}</Label>
-                    <Select
-                      value={activity.discount?.type || 'percentage'}
-                      onValueChange={(value: 'percentage' | 'fixed') => {
-                        const newDiscount = activity.discount || {
-                          enabled: true,
-                          type: 'percentage',
-                          value: 0,
-                          applyOn: 'taxable'
-                        };
-                        onUpdate(activity.id, 'discount', {
-                          ...newDiscount,
-                          type: value
-                        });
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="percentage">{t.percentage}</SelectItem>
-                        <SelectItem value="fixed">{t.fixedAmount}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-xs text-gray-500">
-                      {activity.discount?.type === 'percentage' ? t.percentage : `${t.fixedAmount} (${currency})`}
-                    </Label>
-                    <NumberInput
-                      value={activity.discount?.value || 0}
-                      onChange={(value) => {
-                        const newDiscount = activity.discount || {
-                          enabled: true,
-                          type: 'percentage',
-                          value: 0,
-                          applyOn: 'taxable'
-                        };
-                        onUpdate(activity.id, 'discount', {
-                          ...newDiscount,
-                          value
-                        });
-                      }}
-                      placeholder="0"
-                      min={0}
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-xs text-gray-500">{t.applyDiscountOn}</Label>
-                    <Select
-                      value={activity.discount?.applyOn || 'taxable'}
-                      onValueChange={(value: 'taxable' | 'withVat') => {
-                        const newDiscount = activity.discount || {
-                          enabled: true,
-                          type: 'percentage',
-                          value: 0,
-                          applyOn: 'taxable'
-                        };
-                        onUpdate(activity.id, 'discount', {
-                          ...newDiscount,
-                          applyOn: value
-                        });
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="taxable">{t.taxableAmount}</SelectItem>
-                        <SelectItem value="withVat">{t.totalWithVatAmount}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {activity.discount.value > 0 && (
-                  <div className="bg-amber-50 p-2 rounded text-xs text-amber-800">
-                    {t.discountAmount}: {currency}{formatNumber(activityDiscountAmount)}
-                  </div>
-                )}
+          {/* Margine Attività - nascosto quando hideMargin è true */}
+          {!hideMargin && (
+            <div className="pt-3 border-t">
+              <Label className="text-gray-500">{t.activityMargin}</Label>
+              <div className="max-w-20">
+                <NumberInput
+                  value={activity.margin || 0}
+                  onChange={(value) => onUpdate(activity.id, 'margin', value || 0)}
+                  placeholder="0"
+                  min={0}
+                  max={100}
+                />
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Sconto Attività - nascosto quando hideMargin è true */}
+          {!hideMargin && (
+            <div className="pt-3 border-t">
+              <div className="flex items-center gap-2 mb-3">
+                <Switch
+                  checked={activity.discount?.enabled || false}
+                  onCheckedChange={(checked) => {
+                    const newDiscount: ActivityDiscount = activity.discount || {
+                      enabled: false,
+                      type: 'percentage',
+                      value: 0,
+                      applyOn: 'taxable'
+                    };
+                    onUpdate(activity.id, 'discount', {
+                      ...newDiscount,
+                      enabled: checked
+                    });
+                  }}
+                />
+                <Label className="text-base font-semibold">{t.activityDiscount}</Label>
+              </div>
+              
+              {activity.discount?.enabled && (
+                <div className="space-y-3 pl-4 border-l-2 border-gray-200">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs text-gray-500">{t.discountType}</Label>
+                      <Select
+                        value={activity.discount?.type || 'percentage'}
+                        onValueChange={(value: 'percentage' | 'fixed') => {
+                          const newDiscount = activity.discount || {
+                            enabled: true,
+                            type: 'percentage',
+                            value: 0,
+                            applyOn: 'taxable'
+                          };
+                          onUpdate(activity.id, 'discount', {
+                            ...newDiscount,
+                            type: value
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">{t.percentage}</SelectItem>
+                          <SelectItem value="fixed">{t.fixedAmount}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-xs text-gray-500">
+                        {activity.discount?.type === 'percentage' ? t.percentage : `${t.fixedAmount} (${currency})`}
+                      </Label>
+                      <NumberInput
+                        value={activity.discount?.value || 0}
+                        onChange={(value) => {
+                          const newDiscount = activity.discount || {
+                            enabled: true,
+                            type: 'percentage',
+                            value: 0,
+                            applyOn: 'taxable'
+                          };
+                          onUpdate(activity.id, 'discount', {
+                            ...newDiscount,
+                            value
+                          });
+                        }}
+                        placeholder="0"
+                        min={0}
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-xs text-gray-500">{t.applyDiscountOn}</Label>
+                      <Select
+                        value={activity.discount?.applyOn || 'taxable'}
+                        onValueChange={(value: 'taxable' | 'withVat') => {
+                          const newDiscount = activity.discount || {
+                            enabled: true,
+                            type: 'percentage',
+                            value: 0,
+                            applyOn: 'taxable'
+                          };
+                          onUpdate(activity.id, 'discount', {
+                            ...newDiscount,
+                            applyOn: value
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="taxable">{t.taxableAmount}</SelectItem>
+                          <SelectItem value="withVat">{t.totalWithVatAmount}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {activity.discount.value > 0 && (
+                    <div className="bg-amber-50 p-2 rounded text-xs text-amber-800">
+                      {t.discountAmount}: {currency}{formatNumber(activityDiscountAmount)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Totale Attività */}
           <div className="pt-3 border-t space-y-2">

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NumberInput } from "@/components/ui/number-input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Plus, Trash2, ArrowUp, ArrowDown, Boxes } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, Boxes, Users } from 'lucide-react';
 import type { Resource } from '@/types/budget';
 
 interface ResourcesSectionProps {
@@ -19,6 +19,8 @@ interface ResourcesSectionProps {
   onDelete: (id: string) => void;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
+  hideMargin?: boolean;
+  onExternalCompilation?: () => void;
   translations: {
     resources: string;
     addResource: string;
@@ -33,6 +35,7 @@ interface ResourcesSectionProps {
     priceWillBeSpecified: string;
     createResourcesFirst: string;
     resourceMargin: string;
+    externalCompilation?: string;
   };
 }
 
@@ -44,6 +47,8 @@ export default function ResourcesSection({
   onDelete,
   onMoveUp,
   onMoveDown,
+  hideMargin = false,
+  onExternalCompilation,
   translations: t
 }: ResourcesSectionProps) {
   return (
@@ -55,16 +60,31 @@ export default function ResourcesSection({
             {t.resources}
           </div>
         </AccordionTrigger>
-        <Button 
-          onClick={(e) => {
-            e.stopPropagation();
-            onAdd();
-          }} 
-          className="!w-fit shrink-0"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          {t.addResource}
-        </Button>
+        <div className="flex items-center gap-2">
+          {onExternalCompilation && (
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onExternalCompilation();
+              }} 
+              variant="outline"
+              className="!w-fit shrink-0"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              {t.externalCompilation || 'Compilazione collaborativa'}
+            </Button>
+          )}
+          <Button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd();
+            }} 
+            className="!w-fit shrink-0"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {t.addResource}
+          </Button>
+        </div>
       </div>
       
       <AccordionContent>
@@ -128,22 +148,24 @@ export default function ResourcesSection({
                     </div>
                   )}
 
-                  {/* Margine */}
-                  <div className="col-span-2">
-                    <Label className="text-gray-500">{t.resourceMargin}</Label>
-                    <div className="max-w-20">
-                      <NumberInput
-                        value={resource.margin || 0}
-                        onChange={(value) => onUpdate(resource.id, 'margin', value || 0)}
-                        placeholder="0"
-                        min={0}
-                        max={100}
-                      />
+                  {/* Margine - nascosto quando hideMargin è true */}
+                  {!hideMargin && (
+                    <div className="col-span-2">
+                      <Label className="text-gray-500">{t.resourceMargin}</Label>
+                      <div className="max-w-20">
+                        <NumberInput
+                          value={resource.margin || 0}
+                          onChange={(value) => onUpdate(resource.id, 'margin', value || 0)}
+                          placeholder="0"
+                          min={0}
+                          max={100}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Action Buttons */}
-                  <div className="col-span-1 flex justify-end gap-1">
+                  {/* Action Buttons - sempre alla fine a destra */}
+                  <div className={`${hideMargin ? 'col-span-3' : 'col-span-1'} flex justify-end gap-1`}>
                     <Button
                       variant="ghost"
                       size="sm"

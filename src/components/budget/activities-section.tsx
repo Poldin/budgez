@@ -4,7 +4,7 @@ import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Plus, CheckSquare } from 'lucide-react';
+import { Plus, CheckSquare, Users } from 'lucide-react';
 import type { Activity, Resource, ResourceAssignment } from '@/types/budget';
 import ActivityCard from './activity-card';
 
@@ -23,6 +23,8 @@ interface ActivitiesSectionProps {
   onAddResource: (activityId: string) => void;
   onUpdateResource: (activityId: string, index: number, field: keyof ResourceAssignment, value: string | number) => void;
   onRemoveResource: (activityId: string, index: number) => void;
+  hideMargin?: boolean;
+  onExternalCompilation?: () => void;
   translations: any;
 }
 
@@ -41,6 +43,8 @@ export default function ActivitiesSection({
   onAddResource,
   onUpdateResource,
   onRemoveResource,
+  hideMargin = false,
+  onExternalCompilation,
   translations: t
 }: ActivitiesSectionProps) {
   return (
@@ -52,17 +56,32 @@ export default function ActivitiesSection({
             {t.activities}
           </div>
         </AccordionTrigger>
-        <Button 
-          onClick={(e) => {
-            e.stopPropagation();
-            onAdd();
-          }} 
-          disabled={resources.length === 0} 
-          className="shrink-0"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          {t.addActivity}
-        </Button>
+        <div className="flex items-center gap-2">
+          {onExternalCompilation && (
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onExternalCompilation();
+              }} 
+              variant="outline"
+              className="shrink-0"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              {t.externalCompilation || 'Compilazione collaborativa'}
+            </Button>
+          )}
+          <Button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd();
+            }} 
+            disabled={resources.length === 0} 
+            className="shrink-0"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {t.addActivity}
+          </Button>
+        </div>
       </div>
 
       <AccordionContent>
@@ -94,6 +113,7 @@ export default function ActivitiesSection({
                 onAddResource={onAddResource}
                 onUpdateResource={onUpdateResource}
                 onRemoveResource={onRemoveResource}
+                hideMargin={hideMargin}
                 translations={t}
               />
             );
