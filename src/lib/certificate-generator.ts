@@ -406,3 +406,7 @@ export function generateCertificateHTML(data: CertificateData): string {
   `;
 }
 
+
+
+
+

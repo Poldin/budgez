@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, FileJson, Bot, Copy, Check, LayoutTemplate, Settings2, Calendar, X, Plus, Send, Sparkles } from 'lucide-react';
+import { Search, FileJson, LayoutTemplate, Settings2, Calendar, X, Plus } from 'lucide-react';
 import { NumberInput } from "@/components/ui/number-input";
 import CurrencySelector from '@/components/currency-selector';
 import { format } from 'date-fns';
@@ -90,100 +90,13 @@ export default function SettingsSection({
   user,
   translations: t
 }: SettingsSectionProps) {
-  const [promptCopied, setPromptCopied] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [templatesToShow, setTemplatesToShow] = useState(12); // Mostra 12 template inizialmente
-  const [isAiSearchMode, setIsAiSearchMode] = useState(false);
-  const [animatedPlaceholder, setAnimatedPlaceholder] = useState('');
-  const [currentPlaceholderIndex, setCurrentPlaceholderIndex] = useState(0);
-  const [isTyping, setIsTyping] = useState(true);
 
   // Reset templatesToShow quando cambiano i filtri
   React.useEffect(() => {
     setTemplatesToShow(12);
   }, [searchQuery, selectedTags]);
-
-  // Determina se siamo in modalità ricerca AI o ricerca per parole chiave
-  React.useEffect(() => {
-    if (!searchQuery.trim()) {
-      setIsAiSearchMode(false);
-      return;
-    }
-    
-    // Conta le parole (separate da spazi)
-    const wordCount = searchQuery.trim().split(/\s+/).filter(word => word.length > 0).length;
-    
-    // Se ci sono più di 6 parole o il testo è molto lungo (>100 caratteri), è ricerca AI
-    if (wordCount > 6 || searchQuery.trim().length > 100) {
-      setIsAiSearchMode(true);
-    } else {
-      setIsAiSearchMode(false);
-    }
-  }, [searchQuery]);
-
-  // Animazione placeholder con effetto streaming
-  React.useEffect(() => {
-    if (searchQuery.trim()) {
-      // Se c'è testo, resetta l'animazione
-      setAnimatedPlaceholder('');
-      return;
-    }
-
-    const phrases = [
-      isAiSearchMode 
-        ? "Descrivi il tipo di preventivo che stai cercando (ricerca AI)..."
-        : `Cerca tra i template disponibili (usa una parola chiave di ricerca)...`,
-      "Scrivi qui il contenuto del preventivo che vuoi creare e lascia all'AI il lavoro. Ad esempio: incolla qui la tua conversazione con il cliente e tagga un vecchio preventivo come esempio @vecchio_preventivo"
-    ];
-
-    let timeoutId: NodeJS.Timeout;
-    let currentPhrase = phrases[currentPlaceholderIndex];
-    let currentCharIndex = isTyping ? 0 : currentPhrase.length;
-
-    const typeChar = () => {
-      if (currentCharIndex < currentPhrase.length) {
-        setAnimatedPlaceholder(currentPhrase.slice(0, currentCharIndex + 1));
-        currentCharIndex++;
-        timeoutId = setTimeout(typeChar, 50); // Velocità typing
-      } else {
-        // Aspetta prima di iniziare a cancellare
-        timeoutId = setTimeout(() => {
-          setIsTyping(false);
-        }, 3000);
-      }
-    };
-
-    const deleteChar = () => {
-      if (currentCharIndex > 0) {
-        setAnimatedPlaceholder(currentPhrase.slice(0, currentCharIndex - 1));
-        currentCharIndex--;
-        timeoutId = setTimeout(deleteChar, 30); // Velocità cancellazione (più veloce)
-      } else {
-        // Cambia frase e ricomincia
-        setCurrentPlaceholderIndex((prev) => (prev + 1) % phrases.length);
-        setIsTyping(true);
-      }
-    };
-
-    if (isTyping) {
-      typeChar();
-    } else {
-      deleteChar();
-    }
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [searchQuery, isAiSearchMode, budgetTemplatesLength, currentPlaceholderIndex, isTyping]);
-
-  // Reset animazione quando cambia la modalità AI
-  React.useEffect(() => {
-    if (!searchQuery.trim()) {
-      setCurrentPlaceholderIndex(0);
-      setIsTyping(true);
-      setAnimatedPlaceholder('');
-    }
-  }, [isAiSearchMode]);
 
   const formatDate = (date: Date) => {
     return format(date, 'dd MMMM yyyy', { locale: it });
@@ -216,20 +129,9 @@ export default function SettingsSection({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <LayoutTemplate className="h-5 w-5" />
-              <CardTitle className="text-lg">Scegli un Template o crea con l'AI</CardTitle>
+              <CardTitle className="text-lg">Scegli un Template</CardTitle>
             </div>
             <div className="flex gap-2 w-full md:w-auto">
-              {onOpenAIConfigDialog && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={onOpenAIConfigDialog}
-                  className="flex-1 md:flex-none"
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Imposta l'AI
-                </Button>
-              )}
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -247,76 +149,27 @@ export default function SettingsSection({
               {/* Search and Tags */}
             <div className="space-y-3">
               <div className="relative">
-                <div className="relative">
-                  <Textarea
-                    placeholder={animatedPlaceholder || (isAiSearchMode 
-                      ? "Descrivi il tipo di preventivo che stai cercando (ricerca AI)..."
-                      : `Cerca tra ${budgetTemplatesLength} template (fino a 6 parole chiave)...`)}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault();
-                        if (isAiSearchMode && searchQuery.trim() && onStartAIGeneration) {
-                          onStartAIGeneration();
-                        }
-                        // La ricerca viene eseguita automaticamente tramite il filtro
-                      }
-                    }}
-                    className={`pl-10 pr-12 bg-white min-h-[120px] resize-y ${isAiSearchMode ? 'border-blue-300 focus:border-blue-500 focus:ring-blue-500' : ''}`}
-                    rows={isAiSearchMode ? 4 : 3}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute bottom-2 right-2 h-8 w-8 p-0 hover:bg-gray-100"
-                    onClick={() => {
-                      if (isAiSearchMode && searchQuery.trim() && onStartAIGeneration) {
-                        onStartAIGeneration();
-                      }
-                      // La ricerca viene eseguita automaticamente tramite il filtro
-                      // Questo pulsante è principalmente per UX
-                    }}
-                  >
-                    {searchQuery.trim() ? (
-                      isAiSearchMode ? (
-                        <Bot className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <Search className="h-4 w-4 text-gray-500" />
-                      )
-                    ) : (
-                      <Send className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
-                {isAiSearchMode && (
-                  <div className="mt-2 flex items-center gap-2 text-sm text-blue-600">
-                    <Bot className="h-4 w-4" />
-                    <span className="text-xs">Modalità ricerca AI (solo UI - funzionalità in arrivo)</span>
-                  </div>
-                )}
-                {!isAiSearchMode && searchQuery.trim() && (
-                  <div className="mt-2 text-xs text-gray-500">
-                    Ricerca per parole chiave attiva
-                  </div>
-                )}
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder={`Cerca tra ${budgetTemplatesLength} template...`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-white"
+                />
               </div>
               
-              {!isAiSearchMode && (
-                <div className="flex flex-wrap gap-2">
-                  {randomizedTags.slice(0, 8).map(tag => (
-                    <Badge
-                      key={tag}
-                      variant={selectedTags.includes(tag) ? "default" : "outline"}
-                      className="cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => toggleTag(tag)}
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {randomizedTags.slice(0, 8).map(tag => (
+                  <Badge
+                    key={tag}
+                    variant={selectedTags.includes(tag) ? "default" : "outline"}
+                    className="cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => toggleTag(tag)}
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
             </div>
 
             {/* Template Grid */}

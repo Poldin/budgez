@@ -78,6 +78,9 @@ const Footer = ({ language, onLanguageChange }: FooterProps) => {
                 <a href="/how-to" className="text-gray-600 hover:text-gray-900 text-sm">{t.footerHowItWorks}</a>
               </li>
               <li>
+                <a href="/blog" className="text-gray-600 hover:text-gray-900 text-sm">Blog</a>
+              </li>
+              <li>
                 <button 
                   onClick={openBuyMeACoffee}
                   className="text-gray-600 hover:text-gray-900 text-sm underline-offset-4 hover:underline"

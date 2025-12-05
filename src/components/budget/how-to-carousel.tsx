@@ -831,6 +831,7 @@ export const slides = [
     title: '0. Lascia fare tutto all\'AI',
     description: 'Descrivi semplicemente il progetto che vuoi preventivare e l\'AI creerà automaticamente un preventivo completo con tutte le risorse, attività e impostazioni necessarie. Risparmia tempo e lascia che l\'intelligenza artificiale faccia il lavoro pesante per te.',
     demo: AICreationDemo,
+    badge: 'Coming Soon',
   },
   {
     title: '1. Scegli un template',
@@ -918,10 +919,17 @@ export default function HowToCarousel({
                 style={{ minWidth: '100%' }}
               >
                 <div className={`flex flex-col items-center ${isDialog ? 'h-full justify-center' : ''} ${contentClassName}`}>
-                  {/* Title */}
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4 text-center">
-                    {slide.title}
-                  </h2>
+                  {/* Title with optional badge */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <h2 className="text-2xl font-bold text-gray-900 text-center">
+                      {slide.title}
+                    </h2>
+                    {slide.badge && (
+                      <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0 text-xs px-2 py-1">
+                        {slide.badge}
+                      </Badge>
+                    )}
+                  </div>
 
                   {/* Description */}
                   <p className="text-gray-600 text-base leading-relaxed max-w-xl mb-8 text-center">

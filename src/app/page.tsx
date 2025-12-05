@@ -28,7 +28,6 @@ import ActionButtons from '@/components/budget/action-buttons';
 import FloatingTotal from '@/components/budget/floating-total';
 import JsonConfigDialog from '@/components/budget/json-config-dialog';
 import HowToCarouselDialog from '@/components/budget/how-to-carousel-dialog';
-import AIConfigDialog from '@/components/budget/ai-config-dialog';
 import HistorySection from '@/components/history-section';
 import ProfileSection from '@/components/profile-section';
 import MonthlyStatsTable from '@/components/monthly-stats-table';
@@ -74,7 +73,6 @@ function HomePageContent() {
   const [jsonDialogOpen, setJsonDialogOpen] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
-  const [aiConfigDialogOpen, setAiConfigDialogOpen] = useState(false);
   const [tableCopied, setTableCopied] = useState(false);
   const [configCopied, setConfigCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1359,39 +1357,38 @@ Firma _______________________________`,
               <TabsContent value="create" className="mt-0">
                 {/* Settings Section */}
                 <div className="mb-8">
-                  <SettingsSection
-                    budgetName={budgetName}
-                    setBudgetName={setBudgetName}
-                    budgetDescription={budgetDescription}
-                    setBudgetDescription={setBudgetDescription}
-                    budgetTags={budgetTags}
-                    setBudgetTags={setBudgetTags}
-                    currency={currency}
-                    setCurrency={setCurrency}
-                    defaultVat={defaultVat}
-                    setDefaultVat={setDefaultVat}
-                    expirationEnabled={expirationEnabled}
-                    setExpirationEnabled={setExpirationEnabled}
-                    expirationValue={expirationValue}
-                    setExpirationValue={setExpirationValue}
-                    expirationUnit={expirationUnit}
-                    setExpirationUnit={setExpirationUnit}
-                    expirationHour={expirationHour}
-                    setExpirationHour={setExpirationHour}
-                    calculatedExpirationDate={calculatedExpirationDate}
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    selectedTags={selectedTags}
-                    toggleTag={toggleTag}
-                    randomizedTags={randomizedTags}
-                    filteredTemplates={filteredTemplates}
-                    loadConfiguration={loadConfiguration}
-                    budgetTemplatesLength={budgetTemplates.length}
-                    totalTemplatesInDb={totalTemplatesInDb}
-                    onOpenJsonDialog={() => setJsonDialogOpen(true)}
-                    onOpenAIConfigDialog={() => setAiConfigDialogOpen(true)}
-                    translations={t}
-                  />
+                <SettingsSection
+                  budgetName={budgetName}
+                  setBudgetName={setBudgetName}
+                  budgetDescription={budgetDescription}
+                  setBudgetDescription={setBudgetDescription}
+                  budgetTags={budgetTags}
+                  setBudgetTags={setBudgetTags}
+                  currency={currency}
+                  setCurrency={setCurrency}
+                  defaultVat={defaultVat}
+                  setDefaultVat={setDefaultVat}
+                  expirationEnabled={expirationEnabled}
+                  setExpirationEnabled={setExpirationEnabled}
+                  expirationValue={expirationValue}
+                  setExpirationValue={setExpirationValue}
+                  expirationUnit={expirationUnit}
+                  setExpirationUnit={setExpirationUnit}
+                  expirationHour={expirationHour}
+                  setExpirationHour={setExpirationHour}
+                  calculatedExpirationDate={calculatedExpirationDate}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  selectedTags={selectedTags}
+                  toggleTag={toggleTag}
+                  randomizedTags={randomizedTags}
+                  filteredTemplates={filteredTemplates}
+                  loadConfiguration={loadConfiguration}
+                  budgetTemplatesLength={budgetTemplates.length}
+                  totalTemplatesInDb={totalTemplatesInDb}
+                  onOpenJsonDialog={() => setJsonDialogOpen(true)}
+                  translations={t}
+                />
                 </div>
 
                 {/* Resources and Activities Sections */}
@@ -1776,11 +1773,6 @@ Firma _______________________________`,
         onOpenChange={handleHowToDialogClose}
       />
 
-      {/* AI Config Dialog */}
-      <AIConfigDialog
-        open={aiConfigDialogOpen}
-        onOpenChange={setAiConfigDialogOpen}
-      />
 
       {/* Footer */}
       <Footer language={language} onLanguageChange={setLanguage} />
