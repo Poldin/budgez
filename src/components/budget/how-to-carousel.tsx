@@ -828,10 +828,9 @@ function OTPSignatureDemo({ isActive }: { isActive: boolean }) {
 
 export const slides = [
   {
-    title: '0. Lascia fare tutto all\'AI',
-    description: 'Descrivi semplicemente il progetto che vuoi preventivare e l\'AI creerà automaticamente un preventivo completo con tutte le risorse, attività e impostazioni necessarie. Risparmia tempo e lascia che l\'intelligenza artificiale faccia il lavoro pesante per te.',
+    title: '0. Crea con AI',
+    description: 'Usa ChatGPT, Claude, Gemini o qualsiasi AI per generare il tuo preventivo. Clicca su "Crea con AI", copia il prompt ottimizzato, incollalo nel tuo assistente AI preferito descrivendo il progetto, poi incolla il JSON generato per importare automaticamente risorse, attività, intestazioni e condizioni contrattuali.',
     demo: AICreationDemo,
-    badge: 'Coming Soon',
   },
   {
     title: '1. Scegli un template',
