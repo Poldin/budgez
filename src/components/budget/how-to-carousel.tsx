@@ -826,7 +826,14 @@ function OTPSignatureDemo({ isActive }: { isActive: boolean }) {
   );
 }
 
-export const slides = [
+interface Slide {
+  title: string;
+  description: string;
+  demo: ({ isActive }: { isActive: boolean }) => JSX.Element;
+  badge?: string;
+}
+
+export const slides: Slide[] = [
   {
     title: '0. Crea con AI',
     description: 'Usa ChatGPT, Claude, Gemini o qualsiasi AI per generare il tuo preventivo. Clicca su "Crea con AI", copia il prompt ottimizzato, incollalo nel tuo assistente AI preferito descrivendo il progetto, poi incolla il JSON generato per importare automaticamente risorse, attività, intestazioni e condizioni contrattuali.',
