@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, FileJson, LayoutTemplate, Settings2, Calendar, X, Plus } from 'lucide-react';
+import { Search, FileJson, LayoutTemplate, Settings2, Calendar, X, Plus, Sparkles } from 'lucide-react';
 import { NumberInput } from "@/components/ui/number-input";
 import CurrencySelector from '@/components/currency-selector';
 import { format } from 'date-fns';
@@ -48,6 +48,7 @@ interface SettingsSectionProps {
   
   // Actions
   onOpenJsonDialog: () => void;
+  onOpenAICreateDialog?: () => void;
   onOpenAIConfigDialog?: () => void;
   onStartAIGeneration?: () => void;
   user?: any;
@@ -85,6 +86,7 @@ export default function SettingsSection({
   budgetTemplatesLength,
   totalTemplatesInDb,
   onOpenJsonDialog,
+  onOpenAICreateDialog,
   onOpenAIConfigDialog,
   onStartAIGeneration,
   user,
@@ -132,6 +134,17 @@ export default function SettingsSection({
               <CardTitle className="text-lg">Scegli un Template</CardTitle>
             </div>
             <div className="flex gap-2 w-full md:w-auto">
+              {onOpenAICreateDialog && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onOpenAICreateDialog}
+                  className="flex-1 md:flex-none bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 border-violet-200 text-violet-700 group"
+                >
+                  <Sparkles className="h-4 w-4 mr-2 group-hover:animate-spin" />
+                  Crea con AI
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 size="sm" 

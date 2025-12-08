@@ -27,6 +27,7 @@ import FinalTotalCard from '@/components/budget/final-total-card';
 import ActionButtons from '@/components/budget/action-buttons';
 import FloatingTotal from '@/components/budget/floating-total';
 import JsonConfigDialog from '@/components/budget/json-config-dialog';
+import AICreateDialog from '@/components/budget/ai-create-dialog';
 import HowToCarouselDialog from '@/components/budget/how-to-carousel-dialog';
 import HistorySection from '@/components/history-section';
 import ProfileSection from '@/components/profile-section';
@@ -71,6 +72,7 @@ function HomePageContent() {
   });
   const [showFloatingTotal, setShowFloatingTotal] = useState(true);
   const [jsonDialogOpen, setJsonDialogOpen] = useState(false);
+  const [aiCreateDialogOpen, setAiCreateDialogOpen] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
   const [tableCopied, setTableCopied] = useState(false);
@@ -1387,6 +1389,7 @@ Firma _______________________________`,
                   budgetTemplatesLength={budgetTemplates.length}
                   totalTemplatesInDb={totalTemplatesInDb}
                   onOpenJsonDialog={() => setJsonDialogOpen(true)}
+                  onOpenAICreateDialog={() => setAiCreateDialogOpen(true)}
                   translations={t}
                 />
                 </div>
@@ -1577,6 +1580,7 @@ Firma _______________________________`,
                   loadConfiguration={loadConfiguration}
                   budgetTemplatesLength={budgetTemplates.length}
                   onOpenJsonDialog={() => setJsonDialogOpen(true)}
+                  onOpenAICreateDialog={() => setAiCreateDialogOpen(true)}
                   translations={t}
                 />
               </div>
@@ -1765,6 +1769,13 @@ Firma _______________________________`,
         onOpenChange={setJsonDialogOpen}
         onLoad={loadConfiguration}
         translations={t}
+      />
+
+      {/* AI Create Dialog */}
+      <AICreateDialog
+        open={aiCreateDialogOpen}
+        onOpenChange={setAiCreateDialogOpen}
+        onLoad={loadConfiguration}
       />
 
       {/* How To Carousel Dialog */}
