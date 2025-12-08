@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getQuoteById } from '@/app/actions/quote-actions';
-import type { Resource, Activity, GeneralDiscount } from '@/types/budget';
+import type { Resource, Activity, GeneralDiscount, GeneralMargin } from '@/types/budget';
 import type { PDFConfig } from '@/components/budget/pdf-html-generator';
 import QuoteHeader from '@/components/quote/quote-header';
 import QuoteTimeline from '@/components/quote/quote-timeline';
@@ -48,6 +48,9 @@ export default function QuoteViewPage() {
     value: 0,
     applyOn: 'taxable'
   });
+  const [generalMargin, setGeneralMargin] = useState<GeneralMargin | undefined>(undefined);
+  const [budgetDescription, setBudgetDescription] = useState<string | undefined>(undefined);
+  const [defaultVat, setDefaultVat] = useState<number | undefined>(undefined);
   const [pdfConfig, setPdfConfig] = useState<PDFConfig | undefined>(undefined);
   const [tableCopied, setTableCopied] = useState(false);
   const [signDialogOpen, setSignDialogOpen] = useState(false);
@@ -95,6 +98,15 @@ export default function QuoteViewPage() {
         if (metadata.activities) setActivities(metadata.activities as Activity[]);
         if (metadata.generalDiscount) {
           setGeneralDiscount(metadata.generalDiscount as GeneralDiscount);
+        }
+        if (metadata.generalMargin) {
+          setGeneralMargin(metadata.generalMargin as GeneralMargin);
+        }
+        if (metadata.budgetDescription) {
+          setBudgetDescription(metadata.budgetDescription);
+        }
+        if (metadata.defaultVat !== undefined) {
+          setDefaultVat(metadata.defaultVat);
         }
 
         // Estrai pdfConfig se presente
@@ -363,12 +375,17 @@ export default function QuoteViewPage() {
         onSigned={handleSignWithOTP}
         quoteId={quoteId}
         quoteName={budgetName}
+        quoteDescription={budgetDescription}
         resources={resources}
         activities={activities}
         generalDiscount={generalDiscount}
+        generalMargin={generalMargin}
         currency={currency}
+        defaultVat={defaultVat}
         companyName={pdfConfig?.companyName}
         companyInfo={pdfConfig?.companyInfo}
+        headerText={pdfConfig?.headerText}
+        createdAt={quoteData?.created_at}
       />
     </div>
   );

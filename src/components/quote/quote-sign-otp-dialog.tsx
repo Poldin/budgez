@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Mail, Loader2, CheckCircle, Download, Lock, FileText } from 'lucide-react';
 import { createAndSendOTP, verifyOTP, resendOTP } from '@/app/actions/otp-actions';
 import { generateCertificateHTML, type CertificateData } from '@/lib/certificate-generator';
-import type { Resource, Activity, GeneralDiscount } from '@/types/budget';
+import type { Resource, Activity, GeneralDiscount, GeneralMargin } from '@/types/budget';
 
 interface QuoteSignOtpDialogProps {
   open: boolean;
@@ -16,12 +16,17 @@ interface QuoteSignOtpDialogProps {
   onSigned: (verificationId: string) => void;
   quoteId: string;
   quoteName: string;
+  quoteDescription?: string;
   resources?: Resource[];
   activities?: Activity[];
   generalDiscount?: GeneralDiscount;
+  generalMargin?: GeneralMargin;
   currency?: string;
+  defaultVat?: number;
   companyName?: string;
   companyInfo?: string;
+  headerText?: string;
+  createdAt?: string;
 }
 
 export default function QuoteSignOtpDialog({ 
@@ -30,12 +35,17 @@ export default function QuoteSignOtpDialog({
   onSigned,
   quoteId,
   quoteName,
+  quoteDescription,
   resources = [],
   activities = [],
   generalDiscount = { enabled: false, type: 'percentage', value: 0, applyOn: 'taxable' },
+  generalMargin,
   currency = '€',
+  defaultVat,
   companyName,
   companyInfo,
+  headerText,
+  createdAt,
 }: QuoteSignOtpDialogProps) {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -92,14 +102,19 @@ export default function QuoteSignOtpDialog({
     const certificateHTML = generateCertificateHTML({
       quoteId,
       quoteName,
+      quoteDescription,
       signerEmail: email,
       signedAt,
+      createdAt,
       resources,
       activities,
       generalDiscount,
+      generalMargin,
       currency,
+      defaultVat,
       companyName,
       companyInfo,
+      headerText,
     });
     
     // Crea e scarica il file HTML

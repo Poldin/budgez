@@ -29,14 +29,19 @@ export async function POST(request: NextRequest) {
       const certificateHTML = generateCertificateHTML({
         quoteId,
         quoteName,
+        quoteDescription: certificateData.quoteDescription,
         signerEmail,
         signedAt,
+        createdAt: certificateData.createdAt,
         resources: certificateData.resources || [],
         activities: certificateData.activities || [],
         generalDiscount: certificateData.generalDiscount || { enabled: false, type: 'percentage', value: 0, applyOn: 'taxable' },
+        generalMargin: certificateData.generalMargin,
         currency: certificateData.currency || '€',
+        defaultVat: certificateData.defaultVat,
         companyName: certificateData.companyName,
         companyInfo: certificateData.companyInfo,
+        headerText: certificateData.headerText,
       });
       
       // Converti HTML in base64 per allegato (il client può usare html-pdf o servizio esterno)
